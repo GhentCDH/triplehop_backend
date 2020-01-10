@@ -66,16 +66,9 @@ def addEntity(cur, propConf: Dict, userId: int, entityId: int, row: Tuple):
     for (key, indices) in propConf.items():
         if row[indices[1]] != '':
             cur.execute('''
-            MATCH (ve:v%(entityId)s {id: %(id)s})
+            MATCH (ve:v%(entityId)s {id: %(id)s})-[:erevision]->(vr)
                 SET ve.%(propertyName)s = %(value)s
-            ;
-            MATCH (ve:v%(entityId)s {id: %(id)s})
-                CREATE (ve)-[:eproperty]->(:v%(entityId)s_%(propertyId)s {value: %(value)s})
-            ;
-            
-            MATCH
-                (ve:v%(entityId)s {id: %(id)s})-[:eproperty]->(vp:v%(entityId)s_%(propertyId)s),
-                (ve:v%(entityId)s {id: %(id)s})-[:erevision]->(vr:vrevision)
+                CREATE (ve)-[:eproperty]->(vp:v%(entityId)s_%(propertyId)s {value: %(value)s})
                 CREATE (vp)-[:erevision]->(vr)
             ;
             ''', {

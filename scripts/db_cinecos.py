@@ -74,7 +74,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         cur.execute('''
         DROP GRAPH IF EXISTS g%(projectId)s CASCADE;
         CREATE GRAPH g%(projectId)s;
+
         CREATE VLABEL v%(entityId)s;
+        CREATE PROPERTY INDEX ON v%(entityId)s ( id );
         ''', {
             'entityId': entityId,
             'projectId': projectId,
