@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 def stringOrNone(input: str):
     '''
@@ -18,44 +18,36 @@ def intOrNone(input: str):
         
     return int(input)
 
-def addEntity(cur, propConf: Dict, userId: int, entityId: int, row: Tuple):
-    query = []
-    params = {
-        'entityId': entityId,
-        'userId': userId,
-    }
-
+def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counter: int):
+    entityQuery = []
     # Get id and update entityCount
-    query.append('''
+    entityQuery.append('''
     UPDATE app.entityCount
     SET currentId = currentId + 1
     WHERE id = %(entityId)s;
     ''')
 
     # Create entity and initial revision
-    query.append('''
+    entityQuery.append('''
     CREATE 
-        (ve:v%(entityId)s {id: (SELECT currentId FROM app.entityCount WHERE id = %(entityId)s)})
+        (ve_{counter}:v%(entityId)s {{id: (SELECT currentId FROM app.entityCount WHERE id = %(entityId)s)}})
         -[:erevision]->
-        (vr:vrevision {user_id: %(userId)s, revision_id: 1, timestamp: (SELECT EXTRACT(EPOCH FROM NOW()))});
-    ''')
+        (vr_{counter}:vrevision {{user_id: %(userId)s, revision_id: 1, timestamp: (SELECT EXTRACT(EPOCH FROM NOW()))}});
+    '''.format(counter=counter))
 
     # Add properties and corresponding relations
     for (key, indices) in propConf.items():
         if row[indices[1]] != '':
-            query.append('''
-            SET ve.%(propertyName_{id})s = %(value_{id})s
-            CREATE (ve)-[:eproperty]->(vp_%(propertyId_{id})s:v%(entityId)s_%(propertyId_{id})s {{value: %(value_{id})s}})
-            CREATE (vp_%(propertyId_{id})s)-[:erevision]->(vr);
-            '''.format(id=indices[0]))
-            params[f'propertyId_{indices[0]}'] = indices[0]
-            params[f'propertyName_{indices[0]}'] = key
-            params[f'value_{indices[0]}'] = row[indices[1]]
+            entityQuery.append('''
+            SET ve_{counter}.%(propertyName_{counter}_{id})s = %(value_{counter}_{id})s
+            CREATE (ve_{counter})-[:eproperty]->(vp_{counter}_%(propertyId_{counter}_{id})s:v%(entityId)s_%(propertyId_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+            CREATE (vp_{counter}_%(propertyId_{counter}_{id})s)-[:erevision]->(vr_{counter});
+            '''.format(counter=counter,id=indices[0]))
+            params[f'propertyId_{counter}_{indices[0]}'] = indices[0]
+            params[f'propertyName_{counter}_{indices[0]}'] = key
+            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
     # remove semicolons (present for code readibility only)
-    query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
+    entityQuery = [q.replace(';', '') if i > 0 else q for i, q in enumerate(entityQuery)]
 
-    cur.execute(
-        '\n'.join(query) + ';',
-        params
-    )
+    batchQuery.append('\n'.join(entityQuery) + ';')

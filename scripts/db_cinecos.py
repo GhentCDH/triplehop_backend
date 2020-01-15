@@ -91,5 +91,34 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'year': [confLookup['year'], headerLookup['film_year']],
             }
 
+            counter = 0
+            batchQuery = []
+            params = {
+                'entityId': entityId,
+                'userId': userId,
+            }
+
             for row in csvReader:
-                utils.addEntity(cur, propConf, userId, entityId, row)
+                counter += 1
+                utils.addEntity(batchQuery, params, propConf, row, counter)
+
+                # execute queries in batches
+                if not counter % 500:
+                    cur.execute(
+                        '\n'.join(batchQuery),
+                        params
+                    )
+                    batchQuery = []
+                    params = {
+                        'entityId': entityId,
+                        'userId': userId,
+                    }
+
+            # execute remaining queries
+            if len(batchQuery):
+                cur.execute(
+                    '\n'.join(batchQuery),
+                    params
+                )
+
+# TODO: verify if there is a faster way to import into agensgraph
