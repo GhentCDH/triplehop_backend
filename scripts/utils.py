@@ -31,7 +31,7 @@ def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counte
     properties = ''
     for (key, indices) in propConf.items():
         if row[indices[1]] != '':
-            properties += f', %(propertyName_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s'
+            properties += f', p%(entityId)s_%(propertyId_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s'
 
     entityQuery.append('''
     CREATE 
