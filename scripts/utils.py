@@ -15,7 +15,7 @@ def intOrNone(input: str):
     '''
     if input == '':
         return None
-        
+
     return int(input)
 
 def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counter: int):
@@ -34,7 +34,7 @@ def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counte
             properties += f', p%(entityId)s_%(propertyId_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s'
 
     entityQuery.append('''
-    CREATE 
+    CREATE
         (ve_{counter}:v%(entityId)s {{id: (SELECT currentId FROM app.entityCount WHERE id = %(entityId)s){properties}}})
         -[:erevision]->
         (vr_{counter}:vrevision {{user_id: %(userId)s, revision_id: 1, timestamp: (SELECT EXTRACT(EPOCH FROM NOW()))}});

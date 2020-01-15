@@ -110,7 +110,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         -- );
-        -- 
+        --
         -- CREATE TABLE app.relation (
         --   id SERIAL PRIMARY KEY,
         --   projectId INTEGER
