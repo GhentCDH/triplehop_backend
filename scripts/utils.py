@@ -44,8 +44,14 @@ def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counte
     for (key, indices) in propConf.items():
         if row[indices[1]] != '':
             entityQuery.append('''
-            CREATE (ve_{counter})-[:eproperty]->(vp_{counter}_%(propertyId_{counter}_{id})s:v%(entityId)s_%(propertyId_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
-            CREATE (vp_{counter}_%(propertyId_{counter}_{id})s)-[:erevision]->(vr_{counter});
+            CREATE
+                (ve_{counter})
+                -[:eproperty]->
+                (vp_{counter}_%(propertyId_{counter}_{id})s:v%(entityId)s_%(propertyId_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+            CREATE
+                (vp_{counter}_%(propertyId_{counter}_{id})s)
+                -[:erevision]->
+                (vr_{counter});
             '''.format(counter=counter,id=indices[0]))
             params[f'propertyId_{counter}_{indices[0]}'] = indices[0]
             params[f'propertyName_{counter}_{indices[0]}'] = key
