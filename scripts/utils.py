@@ -28,18 +28,22 @@ def addEntity(batchQuery: List, params: Dict, propConf: Dict, row: Tuple, counte
     ''')
 
     # Create entity and initial revision
+    properties = ''
+    for (key, indices) in propConf.items():
+        if row[indices[1]] != '':
+            properties += f', %(propertyName_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s'
+
     entityQuery.append('''
     CREATE 
-        (ve_{counter}:v%(entityId)s {{id: (SELECT currentId FROM app.entityCount WHERE id = %(entityId)s)}})
+        (ve_{counter}:v%(entityId)s {{id: (SELECT currentId FROM app.entityCount WHERE id = %(entityId)s){properties}}})
         -[:erevision]->
         (vr_{counter}:vrevision {{user_id: %(userId)s, revision_id: 1, timestamp: (SELECT EXTRACT(EPOCH FROM NOW()))}});
-    '''.format(counter=counter))
+    '''.format(counter=counter,properties=properties))
 
     # Add properties and corresponding relations
     for (key, indices) in propConf.items():
         if row[indices[1]] != '':
             entityQuery.append('''
-            SET ve_{counter}.%(propertyName_{counter}_{id})s = %(value_{counter}_{id})s
             CREATE (ve_{counter})-[:eproperty]->(vp_{counter}_%(propertyId_{counter}_{id})s:v%(entityId)s_%(propertyId_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
             CREATE (vp_{counter}_%(propertyId_{counter}_{id})s)-[:erevision]->(vr_{counter});
             '''.format(counter=counter,id=indices[0]))
