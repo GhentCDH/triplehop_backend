@@ -1,11 +1,14 @@
+from typing import AsyncGenerator, Callable, List, Type
+
 from asyncpg import create_pool, introspection
 from asyncpg.pool import Pool
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from starlette.requests import Request
-from typing import List
+
+from app.db.base import BaseRepository
 
 # https://github.com/MagicStack/asyncpg/issues/413
-async def _set_type_codec(pool: Pool, typenames: List):
+async def _set_type_codec(pool: Pool, typenames: List) -> None:
     async with pool.acquire() as conn:
         schema='pg_catalog'
         format='text'
@@ -43,5 +46,14 @@ async def db_connect(app: FastAPI) -> None:
 async def db_disconnect(app: FastAPI)-> None:
     await app.state.pool.close()
 
-def get_pool(request: Request) -> Pool:
+def _get_db_pool(request: Request) -> Pool:
     return request.app.state.pool
+
+def get_repository(repo_type: Type[BaseRepository]) -> Callable:
+    async def _get_repo(
+        pool: Pool = Depends(_get_db_pool),
+    ) -> AsyncGenerator[BaseRepository, None]:
+        async with pool.acquire() as conn:
+            yield repo_type(conn)
+
+    return _get_repo

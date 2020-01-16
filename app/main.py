@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.api import entity
-from app.db import db_connect, db_disconnect
+from app.db.core import db_connect, db_disconnect
 
 app = FastAPI()
 
