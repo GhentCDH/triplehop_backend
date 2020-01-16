@@ -14,16 +14,6 @@ class EntityRepository(BaseRepository):
         entity_type_name: str,
         entity_id: int
     ):
-        # await self._conn.execute(
-        #     '''
-        #         SET graph_path = g1;
-        #     '''
-        # )
-        # return await self._conn.fetchrow(
-        #     '''
-        #         MATCH (ve:v1 {id: 1913}) RETURN ve;
-        #     '''
-        # )
         project_id = await self._conf_repo.get_project_id_by_name(project_name)
         entity_type_id = await self._conf_repo.get_entity_type_id_by_name(project_name, entity_type_name)
         await self._conn.execute(
