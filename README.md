@@ -43,3 +43,9 @@
     ```
     uvicorn app.main:app --reload --host 0.0.0.0
     ```
+
+## Acknowledgements
+
+Inspired by:
+* https://testdriven.io/blog/fastapi-crud/
+* https://github.com/nsidnev/fastapi-realworld-example-app
