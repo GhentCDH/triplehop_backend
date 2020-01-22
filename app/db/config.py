@@ -8,13 +8,22 @@ from app.db.base import BaseRepository
 class ConfigRepository(BaseRepository):
     @lru_cache()
     async def _get_project_config(self) -> Dict:
-        # TODO actually request database
-        return {
-            'cinecos': {
-                'id': 1,
-                'display_name': 'Cinecos',
+        records = await self.fetch(
+            '''
+                SELECT
+                    project.id,
+                    project.systemName,
+                    project.displayName
+                FROM app.project;
+            ''',
+        )
+        result = {}
+        for record in records:
+            result[record['systemname']] = {
+                'id': record['id'],
+                'display_name': record['displayname'],
             }
-        }
+        return result;
 
     @lru_cache()
     async def get_project_id_by_name(self, project_name: str) -> int:
@@ -36,23 +45,27 @@ class ConfigRepository(BaseRepository):
 
     @lru_cache()
     async def _get_entity_type_config(self, project_name: str) -> Dict:
-        # TODO actually request database
-        return {
-            'film': {
-                'id': 1,
-                'display_name': 'Film',
-                'config': {
-                    0: {
-                        "systemName": "title",
-                        "displayName": "Title",
-                    },
-                    1: {
-                        "systemName": "year",
-                        "displayName": "Year",
-                    },
-                },
-            },
-        }
+        records = await self.fetch(
+            '''
+                SELECT
+                    entity.id,
+                    entity.systemName,
+                    entity.displayName,
+                    entity.config
+                FROM app.entity
+                INNER JOIN app.project ON entity.projectId = project.id
+                WHERE project.systemName = :project_name;
+            ''',
+            project_name=project_name,
+        )
+        result = {}
+        for record in records:
+            result[record['systemname']] = {
+                'id': record['id'],
+                'display_name': record['displayname'],
+                'config': record['config'],
+            }
+        return result;
 
     @lru_cache()
     async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
