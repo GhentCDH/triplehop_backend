@@ -21,9 +21,9 @@ class EntityRepository(BaseRepository):
                 SET graph_path = g{project_id};
             '''.format(project_id=project_id)
         )
-        return await self._conn.fetchrow(
+        return await self.fetchrow(
             '''
-                MATCH (ve:v{entity_type_id} {{id: $1}}) RETURN ve;
+                MATCH (ve:v{entity_type_id} {{id: :id}}) RETURN ve;
             '''.format(entity_type_id=entity_type_id),
-            str(entity_id)
+            id=str(entity_id)
         )
