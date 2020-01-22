@@ -6,6 +6,10 @@ class BaseRepository:
         self._conn = conn
         self._render = Renderer(regex=r'(?<![a-z:]):([a-z][a-z\d_]*)', sep='__')
 
+    @property
+    def connection(self) -> Connection:
+        return self._conn
+
     async def fetch(self, query_template: str, **kwargs):
         query, args = self._render(query_template, **kwargs)
         return await self._conn.fetch(query, *args)
