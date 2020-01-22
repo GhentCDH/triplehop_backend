@@ -13,17 +13,3 @@ async def entity(
     entity_repo: EntityRepository = Depends(get_repository(EntityRepository))
 ):
     return await entity_repo.get_entity(project_name, entity_type_name, entity_id)
-    # project_id = await get_project_id_by_name(project_name)
-    # entity_type_id = await get_entity_type_id_by_name(project_name, entity_type_name)
-    # async with pool.acquire() as conn:
-    #     await conn.execute(
-    #         '''
-    #             SET graph_path = g{project_id};
-    #         '''.format(project_id=project_id)
-    #     )
-    #     return await conn.fetchrow(
-    #         '''
-    #             MATCH (ve:v{entity_type_id} {{id: $1}}) RETURN ve;
-    #         '''.format(entity_type_id=entity_type_id),
-    #         str(entity_id)
-    #     )
