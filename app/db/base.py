@@ -1,9 +1,12 @@
+from typing import Dict
+
 from asyncpg.connection import Connection
 from buildpg.main import Renderer
 
 class BaseRepository:
-    def __init__( self, conn: Connection) -> None:
+    def __init__( self, conn: Connection, config: Dict) -> None:
         self._conn = conn
+        self._config = config
         self._render = Renderer(regex=r'(?<![a-z:]):([a-z][a-z\d_]*)', sep='__')
 
     @property

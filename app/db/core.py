@@ -1,8 +1,8 @@
-from typing import AsyncGenerator, Callable, List, Type
+from typing import AsyncGenerator, Callable, Dict, List, Type
 
 from asyncpg import create_pool, introspection
 from asyncpg.pool import Pool
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from starlette.requests import Request
 
 from app.db.base import BaseRepository
@@ -49,11 +49,15 @@ async def db_disconnect(app: FastAPI)-> None:
 def _get_db_pool(request: Request) -> Pool:
     return request.app.state.pool
 
+def _get_app_config(request: Request) -> Dict:
+    return request.app.state.config
+
 def get_repository(repo_type: Type[BaseRepository]) -> Callable:
     async def _get_repo(
         pool: Pool = Depends(_get_db_pool),
+        config: Dict = Depends(_get_app_config),
     ) -> AsyncGenerator[BaseRepository, None]:
         async with pool.acquire() as conn:
-            yield repo_type(conn)
+            yield repo_type(conn, config)
 
     return _get_repo
