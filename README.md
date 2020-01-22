@@ -27,7 +27,7 @@
     ```
     virtualenv -p python3 venv_crdb_backend
     source venv_crdb_backend/bin/activate
-    pip -r requirements.txt
+    pip install -r requirements.txt
     ```
 
 ## Usage
