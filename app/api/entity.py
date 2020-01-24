@@ -5,6 +5,7 @@ from app.db.entity import EntityRepository
 
 router = APIRouter()
 
+
 @router.get('/{project_name}/{entity_type_name}/{entity_id}')
 async def entity(
     project_name: str,

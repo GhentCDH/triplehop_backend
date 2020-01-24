@@ -7,11 +7,12 @@ from starlette.requests import Request
 
 from app.db.base import BaseRepository
 
+
 # https://github.com/MagicStack/asyncpg/issues/413
 async def _set_type_codec(pool: Pool, typenames: List) -> None:
     async with pool.acquire() as conn:
-        schema='pg_catalog'
-        format='text'
+        schema = 'pg_catalog'
+        format = 'text'
         conn._check_open()
         for typename in typenames:
             typeinfo = await conn.fetchrow(
@@ -26,6 +27,7 @@ async def _set_type_codec(pool: Pool, typenames: List) -> None:
 
         # Statement cache is no longer valid due to codec changes.
         conn._drop_local_statement_cache()
+
 
 async def db_connect(app: FastAPI) -> None:
     app.state.pool = await create_pool(
@@ -43,14 +45,18 @@ async def db_connect(app: FastAPI) -> None:
         ]
     )
 
-async def db_disconnect(app: FastAPI)-> None:
+
+async def db_disconnect(app: FastAPI) -> None:
     await app.state.pool.close()
+
 
 def _get_db_pool(request: Request) -> Pool:
     return request.app.state.pool
 
+
 def _get_app_config(request: Request) -> Dict:
     return request.app.state.config
+
 
 def get_repository(repo_type: Type[BaseRepository]) -> Callable:
     async def _get_repo(

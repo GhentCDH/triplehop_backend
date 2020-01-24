@@ -2,11 +2,11 @@ from typing import Dict
 
 from aiocache import cached
 from fastapi import HTTPException
-from functools import lru_cache
 from numbers import Integral
 
 from app.db.base import BaseRepository
 from app.cache.core import key_builder
+
 
 class ConfigRepository(BaseRepository):
     @cached(key_builder=key_builder)
@@ -35,12 +35,15 @@ class ConfigRepository(BaseRepository):
         project_config = await self._get_project_config()
 
         if (
-            not project_name in project_config or
-            not 'id' in project_config[project_name] or
+            project_name not in project_config or
+            'id' not in project_config[project_name] or
             not isinstance(project_config[project_name]['id'], Integral)
         ):
             # TODO log message
-            raise HTTPException(status_code=404, detail=f'Project "{project_name}" not found')
+            raise HTTPException(
+                status_code=404,
+                detail=f'Project "{project_name}" not found',
+            )
 
         return project_config[project_name]['id']
 
@@ -76,11 +79,14 @@ class ConfigRepository(BaseRepository):
         entity_type_config = await self._get_entity_type_config(project_name)
 
         if (
-            not entity_type_name in entity_type_config or
-            not 'id' in entity_type_config[entity_type_name] or
+            entity_type_name not in entity_type_config or
+            'id' not in entity_type_config[entity_type_name] or
             not isinstance(entity_type_config[entity_type_name]['id'], Integral)
         ):
             # TODO log message
-            raise HTTPException(status_code=404, detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found')
+            raise HTTPException(
+                status_code=404,
+                detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
+            )
 
         return entity_type_config[entity_type_name]['id']

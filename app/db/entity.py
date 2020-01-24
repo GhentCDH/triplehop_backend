@@ -5,6 +5,7 @@ from asyncpg.connection import Connection
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 
+
 class EntityRepository(BaseRepository):
     def __init__(self, conn: Connection, config: Dict) -> None:
         super().__init__(conn, config)
