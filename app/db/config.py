@@ -6,9 +6,10 @@ from functools import lru_cache
 from numbers import Integral
 
 from app.db.base import BaseRepository
+from app.cache.core import key_builder
 
 class ConfigRepository(BaseRepository):
-    @cached()
+    @cached(key_builder=key_builder)
     async def _get_project_config(self) -> Dict:
         records = await self.fetch(
             '''
@@ -29,7 +30,7 @@ class ConfigRepository(BaseRepository):
 
         return result
 
-    @cached()
+    @cached(key_builder=key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
         project_config = await self._get_project_config()
 
@@ -43,7 +44,7 @@ class ConfigRepository(BaseRepository):
 
         return project_config[project_name]['id']
 
-    @cached()
+    @cached(key_builder=key_builder)
     async def _get_entity_type_config(self, project_name: str) -> Dict:
         # TODO use underscores for database columns
         records = await self.fetch(
@@ -68,9 +69,9 @@ class ConfigRepository(BaseRepository):
                 'config': record['config'],
             }
 
-        return result;
+        return result
 
-    @cached()
+    @cached(key_builder=key_builder)
     async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
         entity_type_config = await self._get_entity_type_config(project_name)
 
