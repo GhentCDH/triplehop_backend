@@ -18,48 +18,48 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.role (
             id SERIAL PRIMARY KEY,
-            systemName VARCHAR(255) NOT NULL,
-            displayName VARCHAR(255) NOT NULL,
+            system_name VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            UNIQUE (systemName)
+            UNIQUE (system_name)
         );
         -- TODO: role revision?
 
-        CREATE TABLE app.userRole (
+        CREATE TABLE app.user_role (
             id SERIAL PRIMARY KEY,
-            userId INTEGER
+            user_id INTEGER
                 REFERENCES app.user (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            roleId INTEGER
+            role_id INTEGER
                 REFERENCES app.role (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            UNIQUE (userId, roleId)
+            UNIQUE (user_id, role_id)
         );
-        -- TODO: userRole revision?
+        -- TODO: user_role revision?
 
         CREATE TABLE app.project (
             id SERIAL PRIMARY KEY,
-            systemName VARCHAR(255) NOT NULL,
-            displayName VARCHAR(255) NOT NULL,
-            userId INTEGER
+            system_name VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL,
+            user_id INTEGER
                 REFERENCES app.user
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            UNIQUE (systemName)
+            UNIQUE (system_name)
         );
 
-        -- CREATE TABLE app.revisionProject (
+        -- CREATE TABLE app.revision_project (
         --   id SERIAL PRIMARY KEY,
-        --   projectId INTEGER
+        --   project_id INTEGER
         --     REFERENCES app.project
         --     ON UPDATE NO ACTION ON DELETE  NO ACTION,
-        --   systemName VARCHAR(255) NOT NULL,
-        --   displayName VARCHAR(255) NOT NULL,
-        --   userId INTEGER
+        --   system_name VARCHAR(255) NOT NULL,
+        --   display_name VARCHAR(255) NOT NULL,
+        --   user_id INTEGER
         --     REFERENCES app.user
         --     ON UPDATE RESTRICT ON DELETE RESTRICT,
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -68,43 +68,43 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.entity (
             id SERIAL PRIMARY KEY,
-            projectId INTEGER
+            project_id INTEGER
                 REFERENCES app.project
                 ON UPDATE CASCADE ON DELETE CASCADE,
-            systemName VARCHAR(255) NOT NULL,
-            displayName VARCHAR(255) NOT NULL,
+            system_name VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL,
             --   classifier BOOLEAN NOT NULL,
             config JSON,
-            userId INTEGER
+            user_id INTEGER
                 REFERENCES app.user
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            UNIQUE (projectId, systemName)
+            UNIQUE (project_id, system_name)
         );
-        CREATE INDEX ON app.entity (projectId);
+        CREATE INDEX ON app.entity (project_id);
 
-        CREATE TABLE app.entityCount (
+        CREATE TABLE app.entity_count (
             id INTEGER
                 REFERENCES app.entity (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            currentId INTEGER NOT NULL DEFAULT 0,
+            current_id INTEGER NOT NULL DEFAULT 0,
             UNIQUE (id)
         );
 
-        -- CREATE TABLE app.revisionEntity (
+        -- CREATE TABLE app.revision_entity (
         --   id SERIAL PRIMARY KEY,
-        --   entityId INTEGER
+        --   entity_id INTEGER
         --     REFERENCES app.entity
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   projectId INTEGER
+        --   project_id INTEGER
         --     REFERENCES app.project (id)
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   systemName VARCHAR(255) NOT NULL,
-        --   displayName VARCHAR(255) NOT NULL,
+        --   system_name VARCHAR(255) NOT NULL,
+        --   display_name VARCHAR(255) NOT NULL,
         --   classifier BOOLEAN NOT NULL,
         --   config JSON,
-        --   userId INTEGER
+        --   user_id INTEGER
         --     REFERENCES app.user
         --     ON UPDATE RESTRICT ON DELETE RESTRICT,
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -113,43 +113,43 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --
         -- CREATE TABLE app.relation (
         --   id SERIAL PRIMARY KEY,
-        --   projectId INTEGER
+        --   project_id INTEGER
         --     REFERENCES app.project
         --     ON UPDATE CASCADE ON DELETE CASCADE,
-        --   systemName VARCHAR(255) NOT NULL,
-        --   displayName VARCHAR(255) NOT NULL,
-        --   inverseId INTEGER
+        --   system_name VARCHAR(255) NOT NULL,
+        --   display_name VARCHAR(255) NOT NULL,
+        --   inverse_id INTEGER
         --     REFERENCES app.relation
         --     ON UPDATE CASCADE ON DELETE CASCADE,
         --   domain JSONB,
         --   range JSONB,
         --   config JSONB,
-        --   userId INTEGER
+        --   user_id INTEGER
         --     REFERENCES app.user
         --     ON UPDATE RESTRICT ON DELETE RESTRICT,
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        --   UNIQUE (projectId, systemName)
+        --   UNIQUE (project_id, system_name)
         -- );
-        -- CREATE INDEX ON app.relation (projectId);
+        -- CREATE INDEX ON app.relation (project_id);
 
-        -- CREATE TABLE app.revisionRelation (
+        -- CREATE TABLE app.revision_relation (
         --   id SERIAL PRIMARY KEY,
-        --   relationId INTEGER
+        --   relation_id INTEGER
         --     REFERENCES app.relation
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   projectId INTEGER
+        --   project_id INTEGER
         --     REFERENCES app.project (id)
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   systemName VARCHAR(255) NOT NULL,
-        --   displayName VARCHAR(255) NOT NULL,
-        --   inverseId INTEGER
+        --   system_name VARCHAR(255) NOT NULL,
+        --   display_name VARCHAR(255) NOT NULL,
+        --   inverse_id INTEGER
         --     REFERENCES app.relation
         --     ON UPDATE CASCADE ON DELETE CASCADE,
         --   domain JSON,
         --   range JSON,
         --   config JSON,
-        --   userId INTEGER
+        --   user_id INTEGER
         --     REFERENCES app.user
         --     ON UPDATE RESTRICT ON DELETE RESTRICT,
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),

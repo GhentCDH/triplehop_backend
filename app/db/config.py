@@ -15,17 +15,17 @@ class ConfigRepository(BaseRepository):
             '''
                 SELECT
                     project.id,
-                    project.systemName,
-                    project.displayName
+                    project.system_name,
+                    project.display_name
                 FROM app.project;
             ''',
         )
 
         result = {}
         for record in records:
-            result[record['systemname']] = {
+            result[record['system_name']] = {
                 'id': record['id'],
-                'display_name': record['displayname'],
+                'display_name': record['display_name'],
             }
 
         return result
@@ -51,21 +51,21 @@ class ConfigRepository(BaseRepository):
             '''
                 SELECT
                     entity.id,
-                    entity.systemName,
-                    entity.displayName,
+                    entity.system_name,
+                    entity.display_name,
                     entity.config
                 FROM app.entity
-                INNER JOIN app.project ON entity.projectId = project.id
-                WHERE project.systemName = :project_name;
+                INNER JOIN app.project ON entity.project_id = project.id
+                WHERE project.system_name = :project_name;
             ''',
             project_name=project_name,
         )
 
         result = {}
         for record in records:
-            result[record['systemname']] = {
+            result[record['system_name']] = {
                 'id': record['id'],
-                'display_name': record['displayname'],
+                'display_name': record['display_name'],
                 'config': record['config'],
             }
 
