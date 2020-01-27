@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Callable, Dict, List, Type
+from typing import AsyncGenerator, Callable, List, Type
 
 from asyncpg import create_pool, introspection
 from asyncpg.pool import Pool
@@ -54,16 +54,11 @@ def _get_db_pool(request: Request) -> Pool:
     return request.app.state.pool
 
 
-def _get_app_config(request: Request) -> Dict:
-    return request.app.state.config
-
-
 def get_repository(repo_type: Type[BaseRepository]) -> Callable:
     async def _get_repo(
         pool: Pool = Depends(_get_db_pool),
-        config: Dict = Depends(_get_app_config),
     ) -> AsyncGenerator[BaseRepository, None]:
         async with pool.acquire() as conn:
-            yield repo_type(conn, config)
+            yield repo_type(conn)
 
     return _get_repo

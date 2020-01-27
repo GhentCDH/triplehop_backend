@@ -1,5 +1,3 @@
-from typing import Dict
-
 from asyncpg.connection import Connection
 
 from app.db.base import BaseRepository
@@ -7,9 +5,9 @@ from app.db.config import ConfigRepository
 
 
 class EntityRepository(BaseRepository):
-    def __init__(self, conn: Connection, config: Dict) -> None:
-        super().__init__(conn, config)
-        self._conf_repo = ConfigRepository(conn, config)
+    def __init__(self, conn: Connection) -> None:
+        super().__init__(conn)
+        self._conf_repo = ConfigRepository(conn)
 
     async def get_entity(
         self,
