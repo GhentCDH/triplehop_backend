@@ -9,7 +9,6 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup():
     await db_connect(app)
-    app.state.config = {}
 
 
 @app.on_event("shutdown")
