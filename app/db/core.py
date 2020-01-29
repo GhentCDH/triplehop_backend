@@ -3,6 +3,7 @@ from typing import AsyncGenerator, Callable, List, Type
 from asyncpg import create_pool, introspection
 from asyncpg.pool import Pool
 from fastapi import Depends, FastAPI
+from fastapi.dependencies.utils import solve_generator
 from starlette.requests import Request
 
 from app.db.base import BaseRepository
@@ -62,3 +63,11 @@ def get_repository(repo_type: Type[BaseRepository]) -> Callable:
             yield repo_type(conn)
 
     return _get_repo
+
+
+async def get_repository_from_request(request: Request, repo_type: Type[BaseRepository]) -> BaseRepository:
+    return await solve_generator(
+        call=get_repository(repo_type),
+        stack=request.scope.get("fastapi_astack"),
+        sub_values={'pool': request.app.state.pool},
+    )

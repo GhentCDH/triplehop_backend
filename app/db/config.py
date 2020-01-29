@@ -48,6 +48,23 @@ class ConfigRepository(BaseRepository):
         return project_config[project_name]['id']
 
     @cached(key_builder=key_builder)
+    async def get_project_by_system_name(self, project_name: str) -> int:
+        project_config = await self._get_project_config()
+
+        if (
+            project_name not in project_config or
+            'id' not in project_config[project_name] or
+            not isinstance(project_config[project_name]['id'], Integral)
+        ):
+            # TODO log message
+            raise HTTPException(
+                status_code=404,
+                detail=f'Project "{project_name}" not found',
+            )
+
+        return project_config[project_name]
+
+    @cached(key_builder=key_builder)
     async def _get_entity_type_config(self, project_name: str) -> Dict:
         # TODO use underscores for database columns
         records = await self.fetch(
