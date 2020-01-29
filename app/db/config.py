@@ -25,6 +25,7 @@ class ConfigRepository(BaseRepository):
         for record in records:
             result[record['system_name']] = {
                 'id': record['id'],
+                'system_name': record['system_name'],
                 'display_name': record['display_name'],
             }
 

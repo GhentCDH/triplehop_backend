@@ -1,12 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from graphene import Field, Int, ObjectType, Schema, String
 from graphql.execution.executors.asyncio import AsyncioExecutor
 from starlette.graphql import GraphQLApp
-from starlette.requests import Request
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
-from app.db.entity import EntityRepository
 
 router = APIRouter()
 
@@ -33,8 +31,7 @@ class Query(ObjectType):
     async def resolve_project(self, info, system_name):
         config_repo = await get_repository_from_request(info.context["request"], ConfigRepository)
         project = await config_repo.get_project_by_system_name(system_name)
-        print(project)
-        return Project(1913, system_name, 'Test')
+        return Project(**project)
 
 
 router.add_route(
