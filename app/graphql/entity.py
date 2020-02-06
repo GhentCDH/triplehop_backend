@@ -10,8 +10,7 @@ from app.graphql.base import TYPES
 def resolver_wrapper(entity_class, project_name, entity_type_name):
     async def resolver(self, info, id):
         entity_repo = await get_repository_from_request(info.context["request"], EntityRepository)
-        result = await entity_repo.get_entity('cinecos', 'film', id)
-        # return Film(**result)
+        result = await entity_repo.get_entity(project_name, entity_type_name, id)
         return entity_class(**result)
 
     resolver.__name__ = f'resolve_{entity_type_name}'
