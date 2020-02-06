@@ -129,17 +129,17 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             header = next(csv_reader)
             header_lookup = {h: header.index(h) for h in header}
 
-            # film_prop_conf = {
-            #     'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id']],
-            #     'title': [film_type_conf_lookup['title'], header_lookup['title']],
-            #     'year': [film_type_conf_lookup['year'], header_lookup['film_year']],
-            # }
-            #
-            # film_params = {
-            #     'entity_type_id': film_type_id,
-            #     'user_id': user_id,
-            # }
-            # utils.batch_process(cur, csv_reader, film_params, utils.add_entity, film_prop_conf)
+            film_prop_conf = {
+                'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id']],
+                'title': [film_type_conf_lookup['title'], header_lookup['title']],
+                'year': [film_type_conf_lookup['year'], header_lookup['film_year']],
+            }
+
+            film_params = {
+                'entity_type_id': film_type_id,
+                'user_id': user_id,
+            }
+            utils.batch_process(cur, csv_reader, film_params, utils.add_entity, film_prop_conf)
 
             director_data = []
             for row in csv_reader:
