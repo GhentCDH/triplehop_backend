@@ -40,11 +40,13 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             '{
                 "0": {
                     "system_name": "title",
-                    "display_name": "Title"
+                    "display_name": "Title",
+                    "type": "string"
                 },
                 "1": {
                     "system_name": "year",
-                    "display_name": "Year"
+                    "display_name": "Year",
+                    "type": "int"
                 }
             }',
             %(user_id)s

@@ -2,16 +2,16 @@ from typing import Dict
 
 from aiocache import cached
 from fastapi import HTTPException
-from json import loads
-from numbers import Integral
+from json import loads as json_load
 
 from app.db.base import BaseRepository
 from app.cache.core import key_builder
 
 
 class ConfigRepository(BaseRepository):
+    # TODO: delete cache on project config update
     @cached(key_builder=key_builder)
-    async def _get_project_config(self) -> Dict:
+    async def _get_projects_config(self) -> Dict:
         records = await self.fetch(
             '''
                 SELECT
@@ -32,42 +32,37 @@ class ConfigRepository(BaseRepository):
 
         return result
 
+    # TODO: delete cache on project config update
     @cached(key_builder=key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
-        project_config = await self._get_project_config()
+        project_config = await self._get_projects_config()
 
-        if (
-            project_name not in project_config or
-            'id' not in project_config[project_name] or
-            not isinstance(project_config[project_name]['id'], Integral)
-        ):
+        try:
+            return project_config[project_name]['id']
+        except KeyError:
             # TODO log message
             raise HTTPException(
                 status_code=404,
                 detail=f'Project "{project_name}" not found',
             )
 
-        return project_config[project_name]['id']
-
+    # TODO: delete cache on project config update
     @cached(key_builder=key_builder)
-    async def get_project_by_system_name(self, project_name: str) -> int:
-        project_config = await self._get_project_config()
+    async def get_project_config(self, project_name: str) -> int:
+        project_config = await self._get_projects_config()
 
-        if (
-            project_name not in project_config or
-            'id' not in project_config[project_name] or
-            not isinstance(project_config[project_name]['id'], Integral)
-        ):
+        try:
+            return project_config[project_name]
+        except KeyError:
             # TODO log message
             raise HTTPException(
                 status_code=404,
                 detail=f'Project "{project_name}" not found',
             )
 
-        return project_config[project_name]
-
+    # TODO: delete cache on entity config update
     @cached(key_builder=key_builder)
-    async def get_entity_type_config(self, project_name: str) -> Dict:
+    async def get_entity_types_config(self, project_name: str) -> Dict:
         records = await self.fetch(
             '''
                 SELECT
@@ -87,24 +82,44 @@ class ConfigRepository(BaseRepository):
             result[record['system_name']] = {
                 'id': record['id'],
                 'display_name': record['display_name'],
-                'config': loads(record['config']),
+                'config': json_load(record['config']),
             }
 
         return result
 
+    # TODO: delete cache on entity config update
     @cached(key_builder=key_builder)
-    async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
-        entity_type_config = await self.get_entity_type_config(project_name)
+    async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> Dict:
+        entity_types_config = await self.get_entity_types_config(project_name)
 
-        if (
-            entity_type_name not in entity_type_config or
-            'id' not in entity_type_config[entity_type_name] or
-            not isinstance(entity_type_config[entity_type_name]['id'], Integral)
-        ):
+        try:
+            entity_type_config = entity_types_config[entity_type_name]
+        except KeyError:
             # TODO log message
             raise HTTPException(
                 status_code=404,
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
 
-        return entity_type_config[entity_type_name]['id']
+        properties_config = entity_type_config['config']
+
+        # leave the id property intact
+        result = {'id': 'id'}
+        for property_config_id, property_config in properties_config.items():
+            result[f'p{entity_type_config["id"]}_{property_config_id}'] = property_config['system_name']
+
+        return result
+
+    # TODO: delete cache on entity config update
+    @cached(key_builder=key_builder)
+    async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
+        entity_types_config = await self.get_entity_types_config(project_name)
+
+        try:
+            return entity_types_config[entity_type_name]['id']
+        except KeyError:
+            # TODO log message
+            raise HTTPException(
+                status_code=404,
+                detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
+            )
