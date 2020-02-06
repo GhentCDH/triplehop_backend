@@ -110,28 +110,33 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         -- );
-        --
-        -- CREATE TABLE app.relation (
-        --   id SERIAL PRIMARY KEY,
-        --   project_id INTEGER
-        --     REFERENCES app.project
-        --     ON UPDATE CASCADE ON DELETE CASCADE,
-        --   system_name VARCHAR(255) NOT NULL,
-        --   display_name VARCHAR(255) NOT NULL,
-        --   inverse_id INTEGER
-        --     REFERENCES app.relation
-        --     ON UPDATE CASCADE ON DELETE CASCADE,
-        --   domain JSONB,
-        --   range JSONB,
-        --   config JSONB,
-        --   user_id INTEGER
-        --     REFERENCES app.user
-        --     ON UPDATE RESTRICT ON DELETE RESTRICT,
-        --   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        --   UNIQUE (project_id, system_name)
-        -- );
-        -- CREATE INDEX ON app.relation (project_id);
+
+        CREATE TABLE app.relation (
+            id SERIAL PRIMARY KEY,
+            project_id INTEGER
+                REFERENCES app.project
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            system_name VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL,
+            --   domain JSONB,
+            --   range JSONB,
+            config JSON,
+            user_id INTEGER
+                REFERENCES app.user
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            UNIQUE (project_id, system_name)
+        );
+        CREATE INDEX ON app.relation (project_id);
+
+        CREATE TABLE app.relation_count (
+            id INTEGER
+                REFERENCES app.relation (id)
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            current_id INTEGER NOT NULL DEFAULT 0,
+            UNIQUE (id)
+        );
 
         -- CREATE TABLE app.revision_relation (
         --   id SERIAL PRIMARY KEY,

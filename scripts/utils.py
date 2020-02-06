@@ -30,10 +30,10 @@ def batch_process(cur, data: List, initial_parameters: Dict, method: Callable, *
 
 
 def add_entity(counter: int, row: Tuple, prop_conf: Dict):
-    entity_query = []
+    query = []
     params = {}
     # Get id and update entity_count
-    entity_query.append('''
+    query.append('''
     UPDATE app.entity_count
     SET current_id = current_id + 1
     WHERE id = %(entity_type_id)s;
@@ -45,7 +45,7 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
         if row[indices[1]] != '':
             properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
-    entity_query.append('''
+    query.append('''
     CREATE
         (ve_{counter}:v%(entity_type_id)s {{{properties}}})
         -[:erevision]->
@@ -55,7 +55,7 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
     # Add properties and corresponding relations
     for (key, indices) in prop_conf.items():
         if row[indices[1]] != '':
-            entity_query.append('''
+            query.append('''
             CREATE
                 (ve_{counter})
                 -[:eproperty]->
@@ -70,9 +70,65 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
             params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
     # remove semicolons (present for code readibility only, except for the last one, which is re-added later)
-    entity_query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(entity_query)]
+    query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
 
     return {
-        'query': '\n'.join(entity_query) + ';',
+        'query': '\n'.join(query) + ';',
+        'params': params
+    }
+
+
+def add_relation(counter: int, row: Tuple, relation_conf: List, prop_conf: Dict):
+    query = []
+    params = {}
+    # Get id and update entity_count
+    query.append('''
+    UPDATE app.relation_count
+    SET current_id = current_id + 1
+    WHERE id = %(relation_type_id)s;
+    ''')
+
+    # Create relation, relation node and initial revision
+    properties = ['id: (SELECT current_id FROM app.relation_count WHERE id = %(relation_type_id)s)']
+    # for (key, indices) in prop_conf.items():
+    #     if row[indices[1]] != '':
+    #         properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
+
+    query.append('''
+    MATCH
+        (d_{counter}:v%(domain_type_id)s {{id: %(domain_id_{counter})s}}),
+        (r_{counter}:v%(range_type_id)s {{id: %(range_id_{counter})s}})
+    CREATE
+        (d_{counter})-[:e%(relation_type_id)s {{properties}}]->(r_{counter});
+    '''.format(counter=counter, properties=', '.join(properties)))
+
+    params[f'domain_id_{counter}'] = relation_conf[0]
+    params[f'range_id_{counter}'] = relation_conf[1]
+
+    # TODO: add relation node, add revision, add properties
+
+    # # Add properties and corresponding relations
+    # for (key, indices) in prop_conf.items():
+    #     if row[indices[1]] != '':
+    #         query.append('''
+    #         CREATE
+    #             (ve_{counter})
+    #             -[:eproperty]->
+    #             (vp_{counter}_%(property_id_{counter}_{id})s:v%(entity_type_id)s_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+    #         CREATE
+    #             (vp_{counter}_%(property_id_{counter}_{id})s)
+    #             -[:erevision]->
+    #             (vr_{counter});
+    #         '''.format(counter=counter, id=indices[0]))
+    #         params[f'domain_id_{counter}'] = relation_conf[0]
+    #         params[f'range_id_{counter}'] = relation_conf[1]
+    #         # params[f'property_name_{counter}_{indices[0]}'] = key
+    #         # params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+    # remove semicolons (present for code readibility only, except for the last one, which is re-added later)
+    query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
+
+    return {
+        'query': '\n'.join(query) + ';',
         'params': params
     }

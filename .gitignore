@@ -1,2 +1,4 @@
 venv_crdb_backend
 __pycache__
+
+data/*.csv
