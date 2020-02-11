@@ -176,13 +176,12 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id']],
-                'title': [film_type_conf_lookup['title'], header_lookup['title']],
-                'year': [film_type_conf_lookup['year'], header_lookup['film_year']],
+                'original_id': [person_type_conf_lookup['original_id'], header_lookup['director_id']],
+                'name': [person_type_conf_lookup['name'], header_lookup['name']],
             }
 
             params = {
-                'entity_type_id': film_type_id,
+                'entity_type_id': person_type_id,
                 'user_id': user_id,
             }
 

@@ -99,11 +99,11 @@ def add_relation(counter: int, row: Tuple, relation_conf: List, prop_conf: Dict)
         (d_{counter}:v%(domain_type_id)s {{id: %(domain_id_{counter})s}}),
         (r_{counter}:v%(range_type_id)s {{id: %(range_id_{counter})s}})
     CREATE
-        (d_{counter})-[:e%(relation_type_id)s {{properties}}]->(r_{counter});
+        (d_{counter})-[:e%(relation_type_id)s {{{properties}}}]->(r_{counter});
     '''.format(counter=counter, properties=', '.join(properties)))
 
-    params[f'domain_id_{counter}'] = relation_conf[0]
-    params[f'range_id_{counter}'] = relation_conf[1]
+    params[f'domain_id_{counter}'] = int(row[relation_conf[0]])
+    params[f'range_id_{counter}'] = int(row[relation_conf[1]])
 
     # TODO: add relation node, add revision, add properties
 
