@@ -111,6 +111,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         -- );
 
+        -- TODO: cardinality
+        -- TODO: bidirectional relations
         CREATE TABLE app.relation (
             id SERIAL PRIMARY KEY,
             project_id INTEGER
@@ -136,6 +138,36 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             current_id INTEGER NOT NULL DEFAULT 0,
             UNIQUE (id)
+        );
+
+        CREATE TABLE app.relation_domain (
+            relation_id INTEGER
+                REFERENCES app.relation
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            entity_id INTEGER
+                REFERENCES app.entity
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            user_id INTEGER
+                REFERENCES app.user
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            UNIQUE (relation_id, entity_id)
+        );
+
+        CREATE TABLE app.relation_range (
+            relation_id INTEGER
+                REFERENCES app.relation
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            entity_id INTEGER
+                REFERENCES app.entity
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            user_id INTEGER
+                REFERENCES app.user
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            UNIQUE (relation_id, entity_id)
         );
 
         -- CREATE TABLE app.revision_relation (

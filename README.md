@@ -53,6 +53,76 @@
     uvicorn app.main:app --reload --host 0.0.0.0
     ```
 
+## Restrictions resulting from the GraphQL conventions that are used
+
+All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://spec.graphql.org/June2018/#sec-Names)
+
+### Forbidden entity type (system) names
+* "query"
+* names ending with `_s`
+* names starting with `r_` or `ri_`
+
+### Forbidden relation (system) names
+* "query"
+* names ending with `_s`
+
+### Forbidden property names
+* "entity"
+* "limit"
+* "offset"
+
+## Example request
+```
+{
+  Film(id: 2) {
+    id
+    title
+    year
+    r_director_s {
+      id
+      entity {
+        ... on Person {
+          id
+          name
+          ri_director_s {
+            id
+            entity {
+              ... on Film {
+                id
+                title
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## TODO: failing request
+```
+{
+  Person(id: 2) {
+    id
+    name
+    ri_director_s {
+      id
+      entity {
+        ... on Film {
+          id
+          title
+          year
+          r_director_s {
+            id
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ## Acknowledgements
 
 Inspired by:

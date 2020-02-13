@@ -90,6 +90,22 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         )
         ON CONFLICT DO NOTHING;
 
+        INSERT INTO app.relation_domain (relation_id, entity_id, user_id)
+        VALUES (
+            (SELECT id from app.relation where system_name = 'director'),
+            (SELECT id from app.entity where system_name = 'film'),
+            %(user_id)s
+        )
+        ON CONFLICT DO NOTHING;
+
+        INSERT INTO app.relation_range (relation_id, entity_id, user_id)
+        VALUES (
+            (SELECT id from app.relation where system_name = 'director'),
+            (SELECT id from app.entity where system_name = 'person'),
+            %(user_id)s
+        )
+        ON CONFLICT DO NOTHING;
+
         INSERT INTO app.relation_count (id)
         VALUES (1)
         ON CONFLICT DO NOTHING;
@@ -103,9 +119,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 entity.id,
                 entity.config
             FROM app.entity
-            WHERE entity.system_name = %(entity_name)s;
+            WHERE entity.system_name = %(entity_type_name)s;
             ''', {
-                'entity_name': 'film',
+                'entity_type_name': 'film',
         })
         (film_type_id, film_type_conf) = list(cur.fetchone())
         film_type_conf_lookup = {film_type_conf[k]['system_name']: int(k) for k in film_type_conf.keys()}
@@ -115,9 +131,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 entity.id,
                 entity.config
             FROM app.entity
-            WHERE entity.system_name = %(entity_name)s;
+            WHERE entity.system_name = %(entity_type_name)s;
             ''', {
-                'entity_name': 'person',
+                'entity_type_name': 'person',
         })
         (person_type_id, person_type_conf) = list(cur.fetchone())
         person_type_conf_lookup = {person_type_conf[k]['system_name']: int(k) for k in person_type_conf.keys()}
@@ -127,9 +143,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 relation.id,
                 relation.config
             FROM app.relation
-            WHERE relation.system_name = %(relation_name)s;
+            WHERE relation.system_name = %(relation_type_name)s;
             ''', {
-                'relation_name': 'director',
+                'relation_type_name': 'director',
         })
         (director_type_id, director_type_conf) = list(cur.fetchone())
         director_type_conf_lookup = {director_type_conf[k]['system_name']: int(k) for k in director_type_conf.keys()}
@@ -141,12 +157,17 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         CREATE VLABEL v%(film_type_id)s;
         CREATE VLABEL v%(person_type_id)s;
         CREATE PROPERTY INDEX ON v%(film_type_id)s ( id );
+        CREATE PROPERTY INDEX ON v%(film_type_id)s ( p1_0 );
         CREATE PROPERTY INDEX ON v%(person_type_id)s ( id );
+        CREATE PROPERTY INDEX ON v%(person_type_id)s ( p2_0 );
         ''', {
             'film_type_id': film_type_id,
             'person_type_id': person_type_id,
             'project_id': project_id,
         })
+        # cur.execute('''
+        # SET graph_path = g1;
+        # ''')
 
         with open('data/cinecos_films.csv') as input_file:
             lines = input_file.readlines()
@@ -156,9 +177,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id']],
+                'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
                 'title': [film_type_conf_lookup['title'], header_lookup['title']],
-                'year': [film_type_conf_lookup['year'], header_lookup['film_year']],
+                'year': [film_type_conf_lookup['year'], header_lookup['film_year'], 'int'],
             }
 
             params = {
@@ -176,7 +197,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'original_id': [person_type_conf_lookup['original_id'], header_lookup['director_id']],
+                'original_id': [person_type_conf_lookup['original_id'], header_lookup['director_id'], 'int'],
                 'name': [person_type_conf_lookup['name'], header_lookup['name']],
             }
 
@@ -200,7 +221,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
             params = {
                 'domain_type_id': film_type_id,
+                'domain_prop': f"p{film_type_id}_{film_type_conf_lookup['original_id']}",
                 'range_type_id': person_type_id,
+                'range_prop': f"p{person_type_id}_{person_type_conf_lookup['original_id']}",
                 'relation_type_id': director_type_id,
                 'user_id': user_id,
             }

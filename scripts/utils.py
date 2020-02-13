@@ -67,7 +67,10 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
             '''.format(counter=counter, id=indices[0]))
             params[f'property_id_{counter}_{indices[0]}'] = indices[0]
             params[f'property_name_{counter}_{indices[0]}'] = key
-            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+            if len(indices) == 3 and indices[2] == 'int':
+                params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+            else:
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
     # remove semicolons (present for code readibility only, including the last one, which is re-added later)
     query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
@@ -96,8 +99,8 @@ def add_relation(counter: int, row: Tuple, relation_conf: List, prop_conf: Dict)
 
     query.append('''
     MATCH
-        (d_{counter}:v%(domain_type_id)s {{original_id: %(domain_id_{counter})s}}),
-        (r_{counter}:v%(range_type_id)s {{original_id: %(range_id_{counter})s}})
+        (d_{counter}:v%(domain_type_id)s {{%(domain_prop)s: %(domain_id_{counter})s}}),
+        (r_{counter}:v%(range_type_id)s {{%(range_prop)s: %(range_id_{counter})s}})
     CREATE
         (d_{counter})-[:e%(relation_type_id)s {{{properties}}}]->(r_{counter});
     '''.format(counter=counter, properties=', '.join(properties)))
