@@ -71,7 +71,7 @@ All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://sp
 * "limit"
 * "offset"
 
-## Example request
+## Example requests
 ```
 {
   Film(id: 2) {
@@ -100,7 +100,6 @@ All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://sp
 }
 ```
 
-## TODO: failing request
 ```
 {
   Person(id: 2) {

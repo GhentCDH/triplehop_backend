@@ -11,8 +11,12 @@ from app.graphql.base import construct_type_def
 
 def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
     async def resolver(*_, id):
-        entity_repo = await get_repository_from_request(request, DataRepository)
-        return await entity_repo.get_entity(project_name, entity_type_name, id)
+        data_repo = await get_repository_from_request(request, DataRepository)
+        result = await data_repo.get_entity(project_name, entity_type_name, id)
+        # TODO: find a way to close connections automatically
+        await data_repo.close()
+
+        return result
 
     return resolver
 
@@ -26,14 +30,18 @@ def relation_resolver_wrapper(
     async def resolver(parent, info):
         id = parent['id']
         entity_type_name = info.parent_type.name.lower()
-        entity_repo = await get_repository_from_request(request, DataRepository)
-        db_results = await entity_repo.get_relations_with_entity(
+
+        data_repo = await get_repository_from_request(request, DataRepository)
+        db_results = await data_repo.get_relations_with_entity(
             project_name,
             entity_type_name,
             id,
             relation_type_name,
             inverse,
         )
+        # TODO: find a way to close connections automatically
+        await data_repo.close()
+
         results = []
         for db_result in db_results:
             result = db_result['relation']
@@ -128,6 +136,7 @@ async def create_schema(request: Request):
     config_repo = await get_repository_from_request(request, ConfigRepository)
     entity_types_config = await config_repo.get_entity_types_config(request.path_params['project_name'])
     relation_types_config = await config_repo.get_relation_types_config(request.path_params['project_name'])
+    await config_repo.close()
 
     type_defs = await create_type_defs(entity_types_config, relation_types_config)
     object_types = await create_object_types(
