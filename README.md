@@ -22,6 +22,28 @@
     createdb crdb
     ```
 
+* PostGIS
+
+    ```
+    # https://github.com/bitnine-oss/agensgraph/issues/430#issuecomment-433169791
+    cd ~/agensgraph/src
+    wget -c https://download.osgeo.org/postgis/source/postgis-3.0.0.tar.gz
+    sudo apt-get install libxml2-dev libgeos-dev libgdal-dev libproj-dev
+    tar zxvf postgis-3.0.0.tar.gz
+    cd postgis-3.0.0/
+    ./configure
+    make
+    make install
+    ```
+
+    Tijdens een verbinding met een databank (`agens -d crdb`):
+    ```
+    -- https://postgis.net/install/
+    CREATE EXTENSION postgis;
+    -- CREATE EXTENSION postgis_raster;
+    -- CREATE EXTENSION postgis_topology;
+    ```
+
 * A virtualenv running with requirements installed
 
     ```
