@@ -42,7 +42,9 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
     # Create entity and initial revision
     properties = ['id: (SELECT current_id FROM app.entity_count WHERE id = %(entity_type_id)s)']
     for (key, indices) in prop_conf.items():
-        if row[indices[1]] != '':
+        if len(indices) == 3 and indices[2] == 'point':
+            properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: ST_SetSRID(ST_MakePoint(%(value_{counter}_{indices[0]}_lon)s, %(value_{counter}_{indices[0]}_lat)s),4326)')
+        elif row[indices[1]] != '':
             properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
     query.append('''
@@ -54,7 +56,7 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
 
     # Add properties and corresponding relations
     for (key, indices) in prop_conf.items():
-        if row[indices[1]] != '':
+        if isinstance(indices[1], list) or row[indices[1]] != '':
             query.append('''
             CREATE
                 (ve_{counter})
@@ -66,8 +68,12 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
                 (vr_{counter});
             '''.format(counter=counter, id=indices[0]))
             params[f'property_id_{counter}_{indices[0]}'] = indices[0]
-            if len(indices) == 3 and indices[2] == 'int':
-                params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+            if len(indices) == 3:
+                if indices[2] == 'int':
+                    params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+                elif indices[2] == 'point':
+                    params[f'value_{counter}_{indices[0]}_lon'] = float(row[indices[1][0]])
+                    params[f'value_{counter}_{indices[0]}_lat'] = float(row[indices[1][1]])
             else:
                 params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
