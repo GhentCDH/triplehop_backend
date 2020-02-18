@@ -66,6 +66,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         -- );
 
+        -- TODO: make sure entity id (used to construct the VLABEL) is not dependent on other projects
+        -- this guarantees a project can be relocated to another database
         CREATE TABLE app.entity (
             id SERIAL PRIMARY KEY,
             project_id INTEGER
