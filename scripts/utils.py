@@ -66,7 +66,6 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
                 (vr_{counter});
             '''.format(counter=counter, id=indices[0]))
             params[f'property_id_{counter}_{indices[0]}'] = indices[0]
-            params[f'property_name_{counter}_{indices[0]}'] = key
             if len(indices) == 3 and indices[2] == 'int':
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
             else:
@@ -125,7 +124,6 @@ def add_relation(counter: int, row: Tuple, relation_conf: List, prop_conf: Dict)
     #         '''.format(counter=counter, id=indices[0]))
     #         params[f'domain_id_{counter}'] = relation_conf[0]
     #         params[f'range_id_{counter}'] = relation_conf[1]
-    #         # params[f'property_name_{counter}_{indices[0]}'] = key
     #         # params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
     # remove semicolons (present for code readibility only, except for the last one, which is re-added later)
