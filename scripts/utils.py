@@ -1,12 +1,14 @@
 from typing import Callable, Dict, List, Tuple
 
+from tqdm import tqdm
+
 
 def batch_process(cur, data: List, initial_parameters: Dict, method: Callable, *args, **kwargs):
     counter = 0
     batch_query = []
     batch_params = initial_parameters.copy()
 
-    for row in data:
+    for row in tqdm(data):
         counter += 1
         result = method(counter, row, *args)
         batch_query.append(result['query'])

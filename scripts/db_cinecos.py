@@ -187,7 +187,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'user_id': user_id,
             }
 
-            utils.batch_process(cur, csv_reader, params, utils.add_entity, prop_conf)
+            print('Cinecos importing films')
+            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_entity, prop_conf)
 
         with open('data/cinecos_directors.csv') as input_file:
             lines = input_file.readlines()
@@ -206,7 +207,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'user_id': user_id,
             }
 
-            utils.batch_process(cur, csv_reader, params, utils.add_entity, prop_conf)
+            print('Cinecos importing persons')
+            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_entity, prop_conf)
 
         with open('data/cinecos_films_directors.csv') as input_file:
             lines = input_file.readlines()
@@ -228,4 +230,5 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'user_id': user_id,
             }
 
-            utils.batch_process(cur, csv_reader, params, utils.add_relation, relation_config, prop_conf)
+            print('Cinecos importing director relations')
+            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_relation, relation_config, prop_conf)
