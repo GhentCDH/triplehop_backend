@@ -59,6 +59,10 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
     # Main query
     type_defs_dict = {
         'query': [[f'{etn.capitalize()}(id: Int!)', etn.capitalize()] for etn in entity_types_config.keys()],
+        'geometry': [
+            ['type', 'String'],
+            ['coordinates', '[Float!]!'],
+        ]
     }
 
     # TODO: add plurals

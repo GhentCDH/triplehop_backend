@@ -6,7 +6,7 @@ from re import compile as re_compile
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 
-RE_RECORD = re_compile('^[ev]([0-9]+)[^{]*({[^}]*})$')
+RE_RECORD = re_compile('^[ev]([0-9]+)[^{]*({.*})$')
 
 
 class DataRepository(BaseRepository):
