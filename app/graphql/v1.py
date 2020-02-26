@@ -9,6 +9,27 @@ from app.db.data import DataRepository
 from app.graphql.base import construct_type_def
 
 
+def configs_resolver_wrapper(request: Request, project_name: str):
+    async def resolver(*_):
+        config_repo = await get_repository_from_request(request, ConfigRepository)
+        # TODO: find a way to avoid unnecessary connection openings
+        db_result = await config_repo.get_entity_types_config(project_name)
+        # TODO: find a way to close connections automatically
+        await config_repo.close()
+
+        results = []
+        for entity_system_name, entity_data in db_result.items():
+            results.append({
+                'system_name': entity_system_name,
+                'display_name': entity_data['display_name'],
+                'field_s': list(entity_data['config'].values()),
+            })
+
+        return results
+
+    return resolver
+
+
 def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
     async def resolver(*_, id):
         data_repo = await get_repository_from_request(request, DataRepository)
@@ -57,13 +78,25 @@ def relation_resolver_wrapper(
 
 async def create_type_defs(entity_types_config: Dict, relation_types_config: Dict):
     # Main query
+    # TODO provide possibility to hide some fields from config, based on permissions
     type_defs_dict = {
         'query': [[f'{etn.capitalize()}(id: Int!)', etn.capitalize()] for etn in entity_types_config.keys()],
         'geometry': [
-            ['type', 'String'],
+            ['type', 'String!'],
             ['coordinates', '[Float!]!'],
-        ]
+        ],
+        'entity_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
+            ['field_s', '[Entity_field_config!]'],
+        ],
+        'entity_field_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
+            ['type', 'String!'],
+        ],
     }
+    type_defs_dict['query'].append(['Entity_config_s', '[Entity_config]'])
 
     # TODO: add plurals
     # Entities
@@ -107,6 +140,11 @@ async def create_object_types(
     relation_types_config: Dict
 ):
     object_types = {'Query': QueryType()}
+
+    object_types['Query'].set_field(
+        'Entity_config_s',
+        configs_resolver_wrapper(request, project_name),
+    )
 
     for entity_type_name in entity_types_config:
         object_types['Query'].set_field(

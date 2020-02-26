@@ -80,7 +80,7 @@
 All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://spec.graphql.org/June2018/#sec-Names)
 
 ### Forbidden entity type (system) names
-* "query"
+* "query", "geometry", "entity_config", "entity_field_config"
 * names ending with `_s`
 * names starting with `r_` or `ri_`
 
