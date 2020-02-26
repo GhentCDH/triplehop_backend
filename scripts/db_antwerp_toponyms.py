@@ -3,6 +3,13 @@ import psycopg2
 
 import utils
 
+# TODO: precalculate overlaps between e.g. streets
+# https://shapely.readthedocs.io/en/latest/manual.html
+# Example for streets:
+# For each linestring: calculate buffer
+# For each 2 linestrings (corresponding streets must be from a different year):
+# Calculate intersection of buffers compared to buffers of both single linestrings and compared to the union
+
 with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
     with conn.cursor() as cur:
         cur.execute('''
