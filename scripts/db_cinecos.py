@@ -38,20 +38,37 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'film',
             'Film',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "title",
+                        "display_name": "Title",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    }
                 },
-                "1": {
-                    "system_name": "title",
-                    "display_name": "Title",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
+                "display": {
+                    "title": "$0 $1",
+                    "layout": {
+                        "label": "General",
+                        "fields": [
+                            {
+                                "field": "1"
+                            },
+                            {
+                                "label": "Production year",
+                                "field": "2"
+                            }
+                        ]
+                    }
                 }
             }',
             %(user_id)s
@@ -61,15 +78,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'person',
             'Person',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "name",
+                        "display_name": "Name",
+                        "type": "String"
+                    }
                 },
-                "1": {
-                    "system_name": "name",
-                    "display_name": "Name",
-                    "type": "String"
+                "display": {
+                    "title": "$1",
+                    "layout": {
+                        "fields": [
+                            {
+                                "field": "1"
+                            }
+                        ]
+                    }
                 }
             }',
             %(user_id)s
@@ -85,7 +114,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             %(project_id)s,
             'director',
             'Director',
-            '{}',
+            '{
+                "data": {}
+            }',
             %(user_id)s
         )
         ON CONFLICT DO NOTHING;
@@ -124,7 +155,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'entity_type_name': 'film',
         })
         (film_type_id, film_type_conf) = list(cur.fetchone())
-        film_type_conf_lookup = {film_type_conf[k]['system_name']: int(k) for k in film_type_conf.keys()}
+        film_type_conf_lookup = {film_type_conf['data'][k]['system_name']: int(k) for k in film_type_conf['data'].keys()}
 
         cur.execute('''
             SELECT
@@ -136,7 +167,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'entity_type_name': 'person',
         })
         (person_type_id, person_type_conf) = list(cur.fetchone())
-        person_type_conf_lookup = {person_type_conf[k]['system_name']: int(k) for k in person_type_conf.keys()}
+        person_type_conf_lookup = {person_type_conf['data'][k]['system_name']: int(k) for k in person_type_conf['data'].keys()}
 
         cur.execute('''
             SELECT
@@ -148,7 +179,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 'relation_type_name': 'director',
         })
         (director_type_id, director_type_conf) = list(cur.fetchone())
-        director_type_conf_lookup = {director_type_conf[k]['system_name']: int(k) for k in director_type_conf.keys()}
+        director_type_conf_lookup = {director_type_conf['data'][k]['system_name']: int(k) for k in director_type_conf['data'].keys()}
 
         cur.execute('''
         DROP GRAPH IF EXISTS g%(project_id)s CASCADE;

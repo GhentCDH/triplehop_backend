@@ -45,30 +45,32 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'area',
             'Area',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
-                },
-                "1": {
-                    "system_name": "toponym",
-                    "display_name": "Toponym",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
-                },
-                "3": {
-                    "system_name": "gis_base_layers",
-                    "display_name": "GIS base layers",
-                    "type": "String"
-                },
-                "4": {
-                    "system_name": "geometry",
-                    "display_name": "Geometry",
-                    "type": "Geometry"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "toponym",
+                        "display_name": "Toponym",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    },
+                    "3": {
+                        "system_name": "gis_base_layers",
+                        "display_name": "GIS base layers",
+                        "type": "String"
+                    },
+                    "4": {
+                        "system_name": "geometry",
+                        "display_name": "Geometry",
+                        "type": "Geometry"
+                    }
                 }
             }',
             %(user_id)s
@@ -78,30 +80,32 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'house',
             'House',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
-                },
-                "1": {
-                    "system_name": "toponym",
-                    "display_name": "Toponym",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
-                },
-                "3": {
-                    "system_name": "gis_base_layers",
-                    "display_name": "GIS base layers",
-                    "type": "String"
-                },
-                "4": {
-                    "system_name": "geometry",
-                    "display_name": "Geometry",
-                    "type": "Geometry"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "toponym",
+                        "display_name": "Toponym",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    },
+                    "3": {
+                        "system_name": "gis_base_layers",
+                        "display_name": "GIS base layers",
+                        "type": "String"
+                    },
+                    "4": {
+                        "system_name": "geometry",
+                        "display_name": "Geometry",
+                        "type": "Geometry"
+                    }
                 }
             }',
             %(user_id)s
@@ -111,30 +115,32 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'street',
             'Street',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
-                },
-                "1": {
-                    "system_name": "toponym",
-                    "display_name": "Toponym",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
-                },
-                "3": {
-                    "system_name": "gis_base_layers",
-                    "display_name": "GIS base layers",
-                    "type": "String"
-                },
-                "4": {
-                    "system_name": "geometry",
-                    "display_name": "Geometry",
-                    "type": "Geometry"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "toponym",
+                        "display_name": "Toponym",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    },
+                    "3": {
+                        "system_name": "gis_base_layers",
+                        "display_name": "GIS base layers",
+                        "type": "String"
+                    },
+                    "4": {
+                        "system_name": "geometry",
+                        "display_name": "Geometry",
+                        "type": "Geometry"
+                    }
                 }
             }',
             %(user_id)s
@@ -144,30 +150,32 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'cadastral_number',
             'Cadastral number',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
-                },
-                "1": {
-                    "system_name": "toponym",
-                    "display_name": "Toponym",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
-                },
-                "3": {
-                    "system_name": "gis_base_layers",
-                    "display_name": "GIS base layers",
-                    "type": "String"
-                },
-                "4": {
-                    "system_name": "geometry",
-                    "display_name": "Geometry",
-                    "type": "Geometry"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "toponym",
+                        "display_name": "Toponym",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    },
+                    "3": {
+                        "system_name": "gis_base_layers",
+                        "display_name": "GIS base layers",
+                        "type": "String"
+                    },
+                    "4": {
+                        "system_name": "geometry",
+                        "display_name": "Geometry",
+                        "type": "Geometry"
+                    }
                 }
             }',
             %(user_id)s
@@ -177,30 +185,32 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'address',
             'Address',
             '{
-                "0": {
-                    "system_name": "original_id",
-                    "display_name": "Original id",
-                    "type": "Int"
-                },
-                "1": {
-                    "system_name": "toponym",
-                    "display_name": "Toponym",
-                    "type": "String"
-                },
-                "2": {
-                    "system_name": "year",
-                    "display_name": "Year",
-                    "type": "Int"
-                },
-                "3": {
-                    "system_name": "gis_base_layers",
-                    "display_name": "GIS base layers",
-                    "type": "String"
-                },
-                "4": {
-                    "system_name": "geometry",
-                    "display_name": "Geometry",
-                    "type": "Geometry"
+                "data": {
+                    "0": {
+                        "system_name": "original_id",
+                        "display_name": "Original id",
+                        "type": "Int"
+                    },
+                    "1": {
+                        "system_name": "toponym",
+                        "display_name": "Toponym",
+                        "type": "String"
+                    },
+                    "2": {
+                        "system_name": "year",
+                        "display_name": "Year",
+                        "type": "Int"
+                    },
+                    "3": {
+                        "system_name": "gis_base_layers",
+                        "display_name": "GIS base layers",
+                        "type": "String"
+                    },
+                    "4": {
+                        "system_name": "geometry",
+                        "display_name": "Geometry",
+                        "type": "Geometry"
+                    }
                 }
             }',
             %(user_id)s
@@ -254,7 +264,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                     'entity_type_name': type,
             })
             (type_id, type_conf) = list(cur.fetchone())
-            type_conf_lookup = {type_conf[k]['system_name']: int(k) for k in type_conf.keys()}
+            type_conf_lookup = {type_conf['data'][k]['system_name']: int(k) for k in type_conf['data'].keys()}
 
             cur.execute('''
             CREATE VLABEL v%(type_id)s;
