@@ -18,12 +18,22 @@ def configs_resolver_wrapper(request: Request, project_name: str):
         await config_repo.close()
 
         results = []
-        for entity_system_name, entity_data in db_result.items():
-            results.append({
+        for entity_system_name, entity_config in db_result.items():
+            config_item = {
                 'system_name': entity_system_name,
-                'display_name': entity_data['display_name'],
-                'field_s': list(entity_data['config'].values()),
-            })
+                'display_name': entity_config['display_name'],
+                'data': list(entity_config['config']['data'].values()),
+            }
+            # TODO: convert field keys in display to system names
+            if 'display' in entity_config['config']:
+                config_item['display'] = {
+                    'title': entity_config['config']['display']['title']
+                }
+
+                if 'layout' in entity_config['config']['display']:
+                    config_item['display']['layout'] = entity_config['config']['display']['layout']
+
+            results.append(config_item)
 
         return results
 
@@ -88,12 +98,25 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
         'entity_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
-            ['field_s', '[Entity_field_config!]'],
+            ['data', '[Entity_data_config!]'],
+            ['display', 'Entity_display_config!'],
         ],
-        'entity_field_config': [
+        'entity_data_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['type', 'String!'],
+        ],
+        'entity_display_config': [
+            ['title', 'String!'],
+            ['layout', '[Entity_display_panel_config!]'],
+        ],
+        'entity_display_panel_config': [
+            ['label', 'String'],
+            ['fields', '[Entity_display_panel_field_config!]!'],
+        ],
+        'entity_display_panel_field_config': [
+            ['label', 'String'],
+            ['field', 'String!'],
         ],
     }
     type_defs_dict['query'].append(['Entity_config_s', '[Entity_config]'])
@@ -102,7 +125,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
     # Entities
     for etn in entity_types_config:
         props = [['id', 'Int']]
-        for prop in entity_types_config[etn]['config'].values():
+        for prop in entity_types_config[etn]['config']['data'].values():
             props.append([prop["system_name"], prop["type"]])
         type_defs_dict[etn] = props
 
@@ -117,7 +140,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
         unions_array.append(f'union R_{rtn}_range = {" | ".join([rn.capitalize() for rn in range_names])}')
 
         props = [['id', 'Int']]
-        for prop in relation_types_config[rtn]['config'].values():
+        for prop in relation_types_config[rtn]['config']['data'].values():
             props.append([prop["system_name"], prop["type"]])
 
         type_defs_dict[f'r_{rtn}'] = props + [['entity', f'R_{rtn}_range']]

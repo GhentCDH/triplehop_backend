@@ -101,7 +101,7 @@ class ConfigRepository(BaseRepository):
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
 
-        properties_config = entity_type_config['config']
+        properties_config = entity_type_config['config']['data']
 
         # leave the id property intact
         result = {'id': 'id'}

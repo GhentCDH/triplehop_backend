@@ -57,18 +57,20 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 },
                 "display": {
                     "title": "$0 $1",
-                    "layout": {
-                        "label": "General",
-                        "fields": [
-                            {
-                                "field": "1"
-                            },
-                            {
-                                "label": "Production year",
-                                "field": "2"
-                            }
-                        ]
-                    }
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "label": "Production year",
+                                    "field": "2"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
@@ -92,13 +94,15 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 },
                 "display": {
                     "title": "$1",
-                    "layout": {
-                        "fields": [
-                            {
-                                "field": "1"
-                            }
-                        ]
-                    }
+                    "layout": [
+                        {
+                            "fields": [
+                                {
+                                    "field": "1"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
