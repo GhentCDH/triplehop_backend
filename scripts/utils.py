@@ -44,7 +44,7 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
     # Create entity and initial revision
     properties = ['id: (SELECT current_id FROM app.entity_count WHERE id = %(entity_type_id)s)']
     for (key, indices) in prop_conf.items():
-        if len(indices) == 3 and indices[2] == 'point':
+        if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
             properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: ST_SetSRID(ST_MakePoint(%(value_{counter}_{indices[0]}_lon)s, %(value_{counter}_{indices[0]}_lat)s),4326)')
         elif row[indices[1]] != '':
             properties.append(f'p%(entity_type_id)s_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
@@ -58,26 +58,39 @@ def add_entity(counter: int, row: Tuple, prop_conf: Dict):
 
     # Add properties and corresponding relations
     for (key, indices) in prop_conf.items():
-        if isinstance(indices[1], list) or row[indices[1]] != '':
+        valid = False
+        if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
+            valid = True
+            query.append('''
+            CREATE
+                (ve_{counter})
+                -[:eproperty]->
+                (vp_{counter}_%(property_id_{counter}_{id})s:v%(entity_type_id)s_%(property_id_{counter}_{id})s {{value: ST_SetSRID(ST_MakePoint(%(value_{counter}_{id}_lon)s, %(value_{counter}_{id}_lat)s),4326)}})
+            '''.format(counter=counter, id=indices[0]))
+            params[f'value_{counter}_{indices[0]}_lon'] = float(row[indices[1][0]])
+            params[f'value_{counter}_{indices[0]}_lat'] = float(row[indices[1][1]])
+
+        elif row[indices[1]] != '':
+            valid = True
             query.append('''
             CREATE
                 (ve_{counter})
                 -[:eproperty]->
                 (vp_{counter}_%(property_id_{counter}_{id})s:v%(entity_type_id)s_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+            '''.format(counter=counter, id=indices[0]))
+            if len(indices) == 3 and indices[2] == 'int':
+                params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+            else:
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+        if valid:
+            query.append('''
             CREATE
                 (vp_{counter}_%(property_id_{counter}_{id})s)
                 -[:erevision]->
                 (vr_{counter});
             '''.format(counter=counter, id=indices[0]))
             params[f'property_id_{counter}_{indices[0]}'] = indices[0]
-            if len(indices) == 3:
-                if indices[2] == 'int':
-                    params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
-                elif indices[2] == 'point':
-                    params[f'value_{counter}_{indices[0]}_lon'] = float(row[indices[1][0]])
-                    params[f'value_{counter}_{indices[0]}_lat'] = float(row[indices[1][1]])
-            else:
-                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
     # remove semicolons (present for code readibility only, including the last one, which is re-added later)
     query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
