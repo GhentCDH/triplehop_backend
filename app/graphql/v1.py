@@ -1,7 +1,8 @@
 from typing import Dict
-from re import compile as re_compile
 
 from ariadne import gql, make_executable_schema, ObjectType, QueryType
+from copy import deepcopy
+from re import compile as re_compile
 from starlette.requests import Request
 
 from app.db.core import get_repository_from_request
@@ -37,7 +38,7 @@ def configs_resolver_wrapper(request: Request, project_name: str):
                 }
 
                 if 'layout' in entity_config['config']['display']:
-                    config_item['display']['layout'] = entity_config['config']['display']['layout']
+                    config_item['display']['layout'] = deepcopy(entity_config['config']['display']['layout'])
                     for p in config_item['display']['layout']:
                         for f in p['fields']:
                             f['field'] = data[f['field']]['system_name']
