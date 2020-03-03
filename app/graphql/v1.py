@@ -1,4 +1,5 @@
 from typing import Dict
+from re import compile as re_compile
 
 from ariadne import gql, make_executable_schema, ObjectType, QueryType
 from starlette.requests import Request
@@ -7,6 +8,8 @@ from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.graphql.base import construct_type_def
+
+TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
 
 
 def configs_resolver_wrapper(request: Request, project_name: str):
@@ -19,19 +22,25 @@ def configs_resolver_wrapper(request: Request, project_name: str):
 
         results = []
         for entity_system_name, entity_config in db_result.items():
+            data = entity_config['config']['data']
             config_item = {
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
-                'data': list(entity_config['config']['data'].values()),
+                'data': list(data.values()),
             }
-            # TODO: convert field keys in display to system names
             if 'display' in entity_config['config']:
                 config_item['display'] = {
-                    'title': entity_config['config']['display']['title']
+                    'title': TITLE_CONVERSION_REGEX.sub(
+                        lambda m: '$' + data[m.group()[1:]]['system_name'] if m.group()[1:] in data else m[0],
+                        entity_config['config']['display']['title']
+                    )
                 }
 
                 if 'layout' in entity_config['config']['display']:
                     config_item['display']['layout'] = entity_config['config']['display']['layout']
+                    for p in config_item['display']['layout']:
+                        for f in p['fields']:
+                            f['field'] = data[f['field']]['system_name']
 
             results.append(config_item)
 
