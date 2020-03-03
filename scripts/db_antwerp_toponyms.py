@@ -71,6 +71,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         "display_name": "Geometry",
                         "type": "Geometry"
                     }
+                },
+                "display": {
+                    "title": "$1 ($2)",
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "field": "2"
+                                },
+                                {
+                                    "field": "4",
+                                    "type": "geometry",
+                                    "base_layer": "3"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
@@ -106,6 +127,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         "display_name": "Geometry",
                         "type": "Geometry"
                     }
+                },
+                "display": {
+                    "title": "$1 ($2)",
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "field": "2"
+                                },
+                                {
+                                    "field": "4",
+                                    "type": "geometry",
+                                    "base_layer": "3"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
@@ -141,6 +183,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         "display_name": "Geometry",
                         "type": "Geometry"
                     }
+                },
+                "display": {
+                    "title": "$1 ($2)",
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "field": "2"
+                                },
+                                {
+                                    "field": "4",
+                                    "type": "geometry",
+                                    "base_layer": "3"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
@@ -176,6 +239,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         "display_name": "Geometry",
                         "type": "Geometry"
                     }
+                },
+                "display": {
+                    "title": "$1 ($2)",
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "field": "2"
+                                },
+                                {
+                                    "field": "4",
+                                    "type": "geometry",
+                                    "base_layer": "3"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
@@ -211,6 +295,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         "display_name": "Geometry",
                         "type": "Geometry"
                     }
+                },
+                "display": {
+                    "title": "$1 ($2)",
+                    "layout": [
+                        {
+                            "label": "General",
+                            "fields": [
+                                {
+                                    "field": "1"
+                                },
+                                {
+                                    "field": "2"
+                                },
+                                {
+                                    "field": "4",
+                                    "type": "geometry",
+                                    "base_layer": "3"
+                                }
+                            ]
+                        }
+                    ]
                 }
             }',
             %(user_id)s
