@@ -56,7 +56,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                     }
                 },
                 "display": {
-                    "title": "$0 $1",
+                    "title": "$1 ($2)",
                     "layout": [
                         {
                             "label": "General",
