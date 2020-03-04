@@ -13,6 +13,7 @@ from app.graphql.base import construct_type_def
 TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
 
 
+# TODO: cache
 def configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
         config_repo = await get_repository_from_request(request, ConfigRepository)
@@ -42,6 +43,8 @@ def configs_resolver_wrapper(request: Request, project_name: str):
                     for p in config_item['display']['layout']:
                         for f in p['fields']:
                             f['field'] = data[f['field']]['system_name']
+                            if 'base_layer' in f:
+                                f['base_layer'] = data[f['base_layer']]['system_name']
 
             results.append(config_item)
 
@@ -127,6 +130,8 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
         'entity_display_panel_field_config': [
             ['label', 'String'],
             ['field', 'String!'],
+            ['type', 'String'],
+            ['base_layer', 'String'],
         ],
     }
     type_defs_dict['query'].append(['Entity_config_s', '[Entity_config]'])
