@@ -190,7 +190,7 @@ class ConfigRepository(BaseRepository):
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
 
-        properties_config = relation_type_config['config']
+        properties_config = relation_type_config['config']['data']
 
         # leave the id property intact
         result = {'id': 'id'}
