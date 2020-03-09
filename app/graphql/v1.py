@@ -131,6 +131,8 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
             ['label', 'String'],
             ['field', 'String!'],
             ['type', 'String'],
+            # TODO: allow multiple base layers
+            # TODO: add top layers
             ['base_layer', 'String'],
         ],
     }
