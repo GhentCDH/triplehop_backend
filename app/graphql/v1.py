@@ -14,7 +14,7 @@ TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
 
 
 # TODO: cache
-def configs_resolver_wrapper(request: Request, project_name: str):
+def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
         config_repo = await get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
@@ -30,21 +30,55 @@ def configs_resolver_wrapper(request: Request, project_name: str):
                 'display_name': entity_config['display_name'],
                 'data': list(data.values()),
             }
-            if 'display' in entity_config['config']:
-                config_item['display'] = {
-                    'title': TITLE_CONVERSION_REGEX.sub(
-                        lambda m: '$' + data[m.group()[1:]]['system_name'] if m.group()[1:] in data else m[0],
-                        entity_config['config']['display']['title']
-                    )
-                }
+            config_item['display'] = {
+                'title': TITLE_CONVERSION_REGEX.sub(
+                    lambda m: '$' + data[m.group()[1:]]['system_name'] if m.group()[1:] in data else m[0],
+                    entity_config['config']['display']['title']
+                )
+            }
 
-                if 'layout' in entity_config['config']['display']:
-                    config_item['display']['layout'] = deepcopy(entity_config['config']['display']['layout'])
-                    for p in config_item['display']['layout']:
-                        for f in p['fields']:
-                            f['field'] = data[f['field']]['system_name']
-                            if 'base_layer' in f:
-                                f['base_layer'] = data[f['base_layer']]['system_name']
+            if 'layout' in entity_config['config']['display']:
+                config_item['display']['layout'] = deepcopy(entity_config['config']['display']['layout'])
+                for p in config_item['display']['layout']:
+                    for f in p['fields']:
+                        f['field'] = data[f['field']]['system_name']
+                        if 'base_layer' in f:
+                            f['base_layer'] = data[f['base_layer']]['system_name']
+
+            results.append(config_item)
+
+        return results
+
+    return resolver
+
+
+# TODO: cache
+def relation_configs_resolver_wrapper(request: Request, project_name: str):
+    async def resolver(*_):
+        config_repo = await get_repository_from_request(request, ConfigRepository)
+        # TODO: find a way to avoid unnecessary connection openings
+        db_result = await config_repo.get_relation_types_config(project_name)
+        # TODO: find a way to close connections automatically
+        await config_repo.close()
+
+        results = []
+        for relation_system_name, relation_config in db_result.items():
+            data = relation_config['config']['data']
+            config_item = {
+                'system_name': relation_system_name,
+                'display_name': relation_config['display_name'],
+                'data': list(data.values()),
+                'display': {},
+                'domain_names': relation_config['domain_names'],
+                'range_names': relation_config['range_names'],
+            }
+
+            config_item['display']['layout'] = deepcopy(relation_config['config']['display']['layout'])
+            for p in config_item['display']['layout']:
+                for f in p['fields']:
+                    f['field'] = data[f['field']]['system_name']
+                    if 'base_layer' in f:
+                        f['base_layer'] = data[f['base_layer']]['system_name']
 
             results.append(config_item)
 
@@ -111,23 +145,23 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
         'entity_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
-            ['data', '[Entity_data_config!]'],
+            ['data', '[Data_config!]'],
             ['display', 'Entity_display_config!'],
         ],
-        'entity_data_config': [
+        'data_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['type', 'String!'],
         ],
         'entity_display_config': [
             ['title', 'String!'],
-            ['layout', '[Entity_display_panel_config!]'],
+            ['layout', '[Display_panel_config!]'],
         ],
-        'entity_display_panel_config': [
+        'display_panel_config': [
             ['label', 'String'],
-            ['fields', '[Entity_display_panel_field_config!]!'],
+            ['fields', '[Display_panel_field_config!]!'],
         ],
-        'entity_display_panel_field_config': [
+        'display_panel_field_config': [
             ['label', 'String'],
             ['field', 'String!'],
             ['type', 'String'],
@@ -135,8 +169,21 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
             # TODO: add top layers
             ['base_layer', 'String'],
         ],
+        'relation_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
+            ['data', '[Data_config!]'],
+            ['display', 'Relation_display_config!'],
+            ['domain_names', '[String!]!'],
+            ['range_names', '[String!]!'],
+        ],
+        # Don't allow title override (multiple ranges / domains possible => impossible to define)
+        'relation_display_config': [
+            ['layout', '[Display_panel_config!]'],
+        ],
     }
     type_defs_dict['query'].append(['Entity_config_s', '[Entity_config]'])
+    type_defs_dict['query'].append(['Relation_config_s', '[Relation_config]'])
 
     # TODO: add plurals
     # Entities
@@ -183,7 +230,12 @@ async def create_object_types(
 
     object_types['Query'].set_field(
         'Entity_config_s',
-        configs_resolver_wrapper(request, project_name),
+        entity_configs_resolver_wrapper(request, project_name),
+    )
+
+    object_types['Query'].set_field(
+        'Relation_config_s',
+        relation_configs_resolver_wrapper(request, project_name),
     )
 
     for entity_type_name in entity_types_config:
