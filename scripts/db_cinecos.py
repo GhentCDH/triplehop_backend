@@ -121,6 +121,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             '{
                 "data": {},
                 "display": {
+                    "domain_title": "Directed by",
+                    "range_title": "Directed",
                     "layout": []
                 }
             }',

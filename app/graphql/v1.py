@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 from ariadne import gql, make_executable_schema, ObjectType, QueryType
 from copy import deepcopy
@@ -13,6 +13,16 @@ from app.graphql.base import construct_type_def
 TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
 
 
+def _layout_field_converter(layout: List, data_conf: Dict):
+    result = deepcopy(layout)
+    for panel in result:
+        for field in panel['fields']:
+            field['field'] = data_conf[field['field']]['system_name']
+            if 'base_layer' in field:
+                field['base_layer'] = data_conf[field['base_layer']]['system_name']
+    return result
+
+
 # TODO: cache
 def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
@@ -24,27 +34,19 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
 
         results = []
         for entity_system_name, entity_config in db_result.items():
-            data = entity_config['config']['data']
+            data_conf = entity_config['config']['data']
             config_item = {
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
-                'data': list(data.values()),
+                'data': list(data_conf.values()),
+                'display': {
+                    'title': TITLE_CONVERSION_REGEX.sub(
+                        lambda m: '$' + data_conf[m.group()[1:]]['system_name'] if m.group()[1:] in data_conf else m[0],
+                        entity_config['config']['display']['title']
+                    ),
+                    'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
+                },
             }
-            config_item['display'] = {
-                'title': TITLE_CONVERSION_REGEX.sub(
-                    lambda m: '$' + data[m.group()[1:]]['system_name'] if m.group()[1:] in data else m[0],
-                    entity_config['config']['display']['title']
-                )
-            }
-
-            if 'layout' in entity_config['config']['display']:
-                config_item['display']['layout'] = deepcopy(entity_config['config']['display']['layout'])
-                for p in config_item['display']['layout']:
-                    for f in p['fields']:
-                        f['field'] = data[f['field']]['system_name']
-                        if 'base_layer' in f:
-                            f['base_layer'] = data[f['base_layer']]['system_name']
-
             results.append(config_item)
 
         return results
@@ -63,23 +65,19 @@ def relation_configs_resolver_wrapper(request: Request, project_name: str):
 
         results = []
         for relation_system_name, relation_config in db_result.items():
-            data = relation_config['config']['data']
+            data_conf = relation_config['config']['data']
             config_item = {
                 'system_name': relation_system_name,
                 'display_name': relation_config['display_name'],
-                'data': list(data.values()),
-                'display': {},
+                'data': list(data_conf.values()),
+                'display': {
+                    'domain_title': relation_config['config']['display']['domain_title'],
+                    'range_title': relation_config['config']['display']['range_title'],
+                    'layout': _layout_field_converter(relation_config['config']['display']['layout'], data_conf),
+                },
                 'domain_names': relation_config['domain_names'],
                 'range_names': relation_config['range_names'],
             }
-
-            config_item['display']['layout'] = deepcopy(relation_config['config']['display']['layout'])
-            for p in config_item['display']['layout']:
-                for f in p['fields']:
-                    f['field'] = data[f['field']]['system_name']
-                    if 'base_layer' in f:
-                        f['base_layer'] = data[f['base_layer']]['system_name']
-
             results.append(config_item)
 
         return results
@@ -179,6 +177,8 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
         ],
         # Don't allow title override (multiple ranges / domains possible => impossible to define)
         'relation_display_config': [
+            ['domain_title', 'String!'],
+            ['range_title', 'String!'],
             ['layout', '[Display_panel_config!]'],
         ],
     }
