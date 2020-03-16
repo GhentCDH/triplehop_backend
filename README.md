@@ -144,6 +144,9 @@ All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://sp
 }
 ```
 
+## Remarks
+https://www.encode.io/databases cannot be used, since it is impossible to add Agensgraph type codecs (see https://github.com/MagicStack/asyncpg/issues/413)
+
 ## Acknowledgements
 
 Inspired by:
