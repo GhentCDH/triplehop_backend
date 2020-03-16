@@ -40,8 +40,21 @@
     ```
     -- https://postgis.net/install/
     CREATE EXTENSION postgis;
-    -- CREATE EXTENSION postgis_raster;
-    -- CREATE EXTENSION postgis_topology;
+    -- CREATE EXTENSION IF NOT EXISTS postgis_raster;
+    -- CREATE EXTENSION IF NOT EXISTS postgis_topology;
+    ```
+
+* pgcrypto (gen_random_uuid)
+
+    ```
+    cd ~/agensgraph/contrib/pgcrypto
+    make
+    make install
+    ```
+
+    Tijdens een verbinding met een databank (`agens -d crdb`):
+    ```
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
     ```
 
 * A virtualenv running with requirements installed

@@ -3,208 +3,232 @@ import psycopg2
 
 import utils
 
+
+def dtu(string: str) -> str:
+    '''Replace all dashes in a string with underscores.'''
+    return string.replace('-', '_')
+
+
 with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
     with conn.cursor() as cur:
-        cur.execute('''
-        SELECT "user".id
-        FROM app.user
-        WHERE "user".email = %(email)s;
-        ''', {
-            'email': 'pieterjan.depotter@ugent.be',
-        })
+        cur.execute(
+            '''
+            SELECT "user".id
+            FROM app.user
+            WHERE "user".email = %(email)s;
+            ''',
+            {
+                'email': 'pieterjan.depotter@ugent.be',
+            }
+        )
         user_id = cur.fetchone()[0]
 
-        cur.execute('''
-        INSERT INTO app.project (system_name, display_name, user_id)
-        VALUES ('cinecos', 'Cinecos', %(user_id)s)
-        ON CONFLICT DO NOTHING;
-        ''', {
-            'user_id': user_id,
-        })
+        cur.execute(
+            '''
+                INSERT INTO app.project (system_name, display_name, user_id)
+                VALUES (
+                    'cinecos',
+                    'Cinecos',
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                )
+                ON CONFLICT DO NOTHING;
+            '''
+        )
 
-        cur.execute('''
-            SELECT project.id
-            FROM app.project
-            WHERE project.system_name = %(project)s;
-            ''', {
+        cur.execute(
+            '''
+                SELECT project.id
+                FROM app.project
+                WHERE project.system_name = %(project)s;
+            ''',
+            {
                 'project': 'cinecos',
-        })
+            }
+        )
         project_id = cur.fetchone()[0]
 
-        cur.execute('''
-        INSERT INTO app.entity (project_id, system_name, display_name, config, user_id)
-        VALUES (
-            %(project_id)s,
-            'film',
-            'Film',
-            '{
-                "data": {
-                    "0": {
-                        "system_name": "original_id",
-                        "display_name": "Original id",
-                        "type": "Int"
-                    },
-                    "1": {
-                        "system_name": "title",
-                        "display_name": "Title",
-                        "type": "String"
-                    },
-                    "2": {
-                        "system_name": "year",
-                        "display_name": "Year",
-                        "type": "Int"
-                    }
-                },
-                "display": {
-                    "title": "$1 ($2)",
-                    "layout": [
-                        {
-                            "label": "General",
-                            "fields": [
+        cur.execute(
+            '''
+                INSERT INTO app.entity (project_id, system_name, display_name, config, user_id)
+                VALUES (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'film',
+                    'Film',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "title",
+                                "display_name": "Title",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "year",
+                                "display_name": "Year",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "title": "$1 ($2)",
+                            "layout": [
                                 {
-                                    "field": "1"
-                                },
-                                {
-                                    "label": "Production year",
-                                    "field": "2"
+                                    "label": "General",
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "label": "Production year",
+                                            "field": "2"
+                                        }
+                                    ]
                                 }
                             ]
                         }
-                    ]
-                }
-            }',
-            %(user_id)s
-        ),
-        (
-            %(project_id)s,
-            'person',
-            'Person',
-            '{
-                "data": {
-                    "0": {
-                        "system_name": "original_id",
-                        "display_name": "Original id",
-                        "type": "Int"
-                    },
-                    "1": {
-                        "system_name": "name",
-                        "display_name": "Name",
-                        "type": "String"
-                    }
-                },
-                "display": {
-                    "title": "$1",
-                    "layout": [
-                        {
-                            "fields": [
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'person',
+                    'Person',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
                                 {
-                                    "field": "1"
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
                                 }
                             ]
                         }
-                    ]
-                }
-            }',
-            %(user_id)s
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                )
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO app.entity_count (id)
+                VALUES
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'film')),
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'person'))
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO app.relation (project_id, system_name, display_name, config, user_id)
+                VALUES (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'director',
+                    'Director',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Directed by",
+                            "range_title": "Directed",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                )
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO app.relation_domain (relation_id, entity_id, user_id)
+                VALUES (
+                    (SELECT id FROM app.relation WHERE system_name = 'director'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                )
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO app.relation_range (relation_id, entity_id, user_id)
+                VALUES (
+                    (SELECT id FROM app.relation WHERE system_name = 'director'),
+                    (SELECT id FROM app.entity WHERE system_name = 'person'),
+                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                )
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO app.relation_count (id)
+                VALUES
+                    ((SELECT relation.id FROM app.relation WHERE system_name = 'director'))
+                ON CONFLICT DO NOTHING;
+            '''
         )
-        ON CONFLICT DO NOTHING;
 
-        INSERT INTO app.entity_count (id)
-        VALUES (1), (2)
-        ON CONFLICT DO NOTHING;
-
-        INSERT INTO app.relation (project_id, system_name, display_name, config, user_id)
-        VALUES (
-            %(project_id)s,
-            'director',
-            'Director',
-            '{
-                "data": {},
-                "display": {
-                    "domain_title": "Directed by",
-                    "range_title": "Directed",
-                    "layout": []
-                }
-            }',
-            %(user_id)s
-        )
-        ON CONFLICT DO NOTHING;
-
-        INSERT INTO app.relation_domain (relation_id, entity_id, user_id)
-        VALUES (
-            (SELECT id from app.relation where system_name = 'director'),
-            (SELECT id from app.entity where system_name = 'film'),
-            %(user_id)s
-        )
-        ON CONFLICT DO NOTHING;
-
-        INSERT INTO app.relation_range (relation_id, entity_id, user_id)
-        VALUES (
-            (SELECT id from app.relation where system_name = 'director'),
-            (SELECT id from app.entity where system_name = 'person'),
-            %(user_id)s
-        )
-        ON CONFLICT DO NOTHING;
-
-        INSERT INTO app.relation_count (id)
-        VALUES (1)
-        ON CONFLICT DO NOTHING;
-        ''', {
-            'project_id': project_id,
-            'user_id': user_id,
-        })
-
-        cur.execute('''
-            SELECT
-                entity.id,
-                entity.config
-            FROM app.entity
-            WHERE entity.system_name = %(entity_type_name)s;
-            ''', {
+        cur.execute(
+            '''
+                SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+            ''',
+            {
                 'entity_type_name': 'film',
-        })
+            }
+        )
         (film_type_id, film_type_conf) = list(cur.fetchone())
         film_type_conf_lookup = {film_type_conf['data'][k]['system_name']: int(k) for k in film_type_conf['data'].keys()}
 
-        cur.execute('''
-            SELECT
-                entity.id,
-                entity.config
-            FROM app.entity
-            WHERE entity.system_name = %(entity_type_name)s;
-            ''', {
+        cur.execute(
+            '''
+                SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+                ''',
+            {
                 'entity_type_name': 'person',
-        })
+            }
+        )
         (person_type_id, person_type_conf) = list(cur.fetchone())
         person_type_conf_lookup = {person_type_conf['data'][k]['system_name']: int(k) for k in person_type_conf['data'].keys()}
 
-        cur.execute('''
-            SELECT
-                relation.id,
-                relation.config
-            FROM app.relation
-            WHERE relation.system_name = %(relation_type_name)s;
-            ''', {
+        cur.execute(
+            '''
+                SELECT
+                    relation.id,
+                    relation.config
+                FROM app.relation
+                WHERE relation.system_name = %(relation_type_name)s;
+            ''',
+            {
                 'relation_type_name': 'director',
-        })
+            }
+        )
         (director_type_id, director_type_conf) = list(cur.fetchone())
         director_type_conf_lookup = {director_type_conf['data'][k]['system_name']: int(k) for k in director_type_conf['data'].keys()}
 
-        cur.execute('''
-        DROP GRAPH IF EXISTS g%(project_id)s CASCADE;
-        CREATE GRAPH g%(project_id)s;
+        cur.execute(
+            '''
+                DROP GRAPH IF EXISTS g_{project_id} CASCADE;
+                CREATE GRAPH g_{project_id};
 
-        CREATE VLABEL v%(film_type_id)s;
-        CREATE VLABEL v%(person_type_id)s;
-        CREATE PROPERTY INDEX ON v%(film_type_id)s ( id );
-        CREATE PROPERTY INDEX ON v%(film_type_id)s ( p1_0 );
-        CREATE PROPERTY INDEX ON v%(person_type_id)s ( id );
-        CREATE PROPERTY INDEX ON v%(person_type_id)s ( p2_0 );
-        ''', {
-            'film_type_id': film_type_id,
-            'person_type_id': person_type_id,
-            'project_id': project_id,
-        })
+                CREATE VLABEL v_{film_type_id};
+                CREATE VLABEL v_{person_type_id};
+                CREATE PROPERTY INDEX ON v_{film_type_id} ( id );
+                CREATE PROPERTY INDEX ON v_{film_type_id} ( p1_0 );
+                CREATE PROPERTY INDEX ON v_{person_type_id} ( id );
+                CREATE PROPERTY INDEX ON v_{person_type_id} ( p2_0 );
+            '''.format(project_id=dtu(project_id), film_type_id=dtu(film_type_id), person_type_id=dtu(person_type_id)))
         # cur.execute('''
         # SET graph_path = g1;
         # ''')
