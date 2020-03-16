@@ -74,7 +74,9 @@ class ConfigRepository(BaseRepository):
                 INNER JOIN app.project ON entity.project_id = project.id
                 WHERE project.system_name = :project_name;
             ''',
-            project_name=project_name,
+            {
+                'project_name': project_name,
+            }
         )
 
         result = {}
@@ -161,7 +163,9 @@ class ConfigRepository(BaseRepository):
                 WHERE project.system_name = :project_name
                 GROUP BY (relation.id);
             ''',
-            project_name=project_name,
+            {
+                'project_name': project_name,
+            }
         )
 
         result = {}

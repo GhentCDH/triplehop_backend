@@ -34,7 +34,9 @@ class DataRepository(BaseRepository):
                     MATCH (ve:v{entity_type_id} {{id: :id}}) RETURN ve;
                 '''.format(entity_type_id=entity_type_id),
                 # TODO: figure out why id can't be an int
-                id=str(entity_id),
+                {
+                    'id': str(entity_id),
+                }
             )
 
             if record is None:
@@ -80,7 +82,9 @@ class DataRepository(BaseRepository):
             records = await self.fetch(
                 query,
                 # TODO: figure out why id can't be an int
-                id=str(entity_id),
+                {
+                    'id': str(entity_id),
+                }
             )
 
             rtpm = await self._conf_repo.get_relation_type_property_mapping(project_name, relation_type_name)
