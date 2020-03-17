@@ -6,7 +6,17 @@ from re import compile as re_compile
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 
-RE_RECORD = re_compile('^[ev]([0-9]+)[^{]*({.*})$')
+RE_RECORD = re_compile('^[ev][_]([a-z0-9_]+)[^{]*({.*})$')
+
+
+def dtu(string: str) -> str:
+    '''Replace all dashes in a string with underscores.'''
+    return string.replace('-', '_')
+
+
+def utd(string: str) -> str:
+    '''Replace all underscores in a string with dashes.'''
+    return string.replace('_', '-')
 
 
 class DataRepository(BaseRepository):
@@ -26,13 +36,13 @@ class DataRepository(BaseRepository):
 
             await self._conn.execute(
                 '''
-                    SET graph_path = g{project_id};
-                '''.format(project_id=project_id)
+                    SET graph_path = g_{project_id};
+                '''.format(project_id=dtu(project_id))
             )
             record = await self.fetchrow(
                 '''
-                    MATCH (ve:v{entity_type_id} {{id: :id}}) RETURN ve;
-                '''.format(entity_type_id=entity_type_id),
+                    MATCH (ve:v_{entity_type_id} {{id: :id}}) RETURN ve;
+                '''.format(entity_type_id=dtu(entity_type_id)),
                 # TODO: figure out why id can't be an int
                 {
                     'id': str(entity_id),
@@ -65,19 +75,19 @@ class DataRepository(BaseRepository):
 
             await self._conn.execute(
                 '''
-                    SET graph_path = g{project_id};
-                '''.format(project_id=project_id)
+                    SET graph_path = g_{project_id};
+                '''.format(project_id=dtu(project_id))
             )
 
             # TODO: figure out why the dummy d is required
             if inverse:
                 query = '''
-                    MATCH (ve) -[e:e{relation_type_id}]-> (d:v{entity_type_id} {{id: :id}}) RETURN e, ve;
-                '''.format(entity_type_id=entity_type_id, relation_type_id=relation_type_id)
+                    MATCH (ve) -[e:e_{relation_type_id}]-> (d:v_{entity_type_id} {{id: :id}}) RETURN e, ve;
+                '''.format(entity_type_id=dtu(entity_type_id), relation_type_id=dtu(relation_type_id))
             else:
                 query = '''
-                    MATCH (d:v{entity_type_id} {{id: :id}}) -[e:e{relation_type_id}]-> (ve) RETURN e, ve;
-                '''.format(entity_type_id=entity_type_id, relation_type_id=relation_type_id)
+                    MATCH (d:v_{entity_type_id} {{id: :id}}) -[e:e_{relation_type_id}]-> (ve) RETURN e, ve;
+                '''.format(entity_type_id=dtu(entity_type_id), relation_type_id=dtu(relation_type_id))
 
             records = await self.fetch(
                 query,
@@ -98,7 +108,7 @@ class DataRepository(BaseRepository):
 
                 # entity properties
                 entity_match = RE_RECORD.match(record['ve'])
-                entity_type_id = int(entity_match.group(1))
+                entity_type_id = utd(entity_match.group(1))
                 etn = await self._conf_repo.get_entity_type_name_by_id(project_name, entity_type_id)
                 e_property_mapping = await self._conf_repo.get_entity_type_property_mapping(
                     project_name,

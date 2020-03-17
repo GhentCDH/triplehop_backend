@@ -15,7 +15,7 @@ class ConfigRepository(BaseRepository):
         records = await self.fetch(
             '''
                 SELECT
-                    project.id,
+                    project.id::text,
                     project.system_name,
                     project.display_name
                 FROM app.project;
@@ -66,7 +66,7 @@ class ConfigRepository(BaseRepository):
         records = await self.fetch(
             '''
                 SELECT
-                    entity.id,
+                    entity.id::text,
                     entity.system_name,
                     entity.display_name,
                     entity.config
@@ -148,7 +148,7 @@ class ConfigRepository(BaseRepository):
         records = await self.fetch(
             '''
                 SELECT
-                    relation.id,
+                    relation.id::text,
                     relation.system_name,
                     relation.display_name,
                     relation.config,
