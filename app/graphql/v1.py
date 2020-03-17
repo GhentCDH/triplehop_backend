@@ -85,6 +85,8 @@ def relation_configs_resolver_wrapper(request: Request, project_name: str):
     return resolver
 
 
+# TODO: only get the requested properties
+# TODO: get all required information (entity -> relation -> entity -> ...) in a single request
 def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
     async def resolver(*_, id):
         data_repo = await get_repository_from_request(request, DataRepository)
