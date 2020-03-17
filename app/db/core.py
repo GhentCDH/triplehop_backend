@@ -10,6 +10,16 @@ from starlette.requests import Request
 from app.db.base import BaseRepository
 
 
+def dtu(string: str) -> str:
+    '''Replace all dashes in a string with underscores.'''
+    return string.replace('-', '_')
+
+
+def utd(string: str) -> str:
+    '''Replace all underscores in a string with dashes.'''
+    return string.replace('_', '-')
+
+
 # https://github.com/MagicStack/asyncpg/issues/413
 async def _set_type_codec(conn: Connection, typenames: List) -> None:
     schema = 'pg_catalog'

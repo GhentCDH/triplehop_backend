@@ -6,6 +6,7 @@ from json import loads as json_load
 
 from app.cache.core import key_builder
 from app.db.base import BaseRepository
+from app.db.core import dtu
 
 
 class ConfigRepository(BaseRepository):
@@ -108,7 +109,7 @@ class ConfigRepository(BaseRepository):
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p{entity_type_config["id"]}_{property_config_id}'] = property_config['system_name']
+            result[f'p_{dtu(entity_type_config["id"])}_{property_config_id}'] = property_config['system_name']
 
         return result
 
@@ -199,7 +200,7 @@ class ConfigRepository(BaseRepository):
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p{relation_type_config["id"]}_{property_config_id}'] = property_config['system_name']
+            result[f'p_{dtu(relation_type_config["id"])}_{property_config_id}'] = property_config['system_name']
 
         return result
 
