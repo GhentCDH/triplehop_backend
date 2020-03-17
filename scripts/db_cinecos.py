@@ -1,12 +1,7 @@
 import csv
 import psycopg2
 
-import utils
-
-
-def dtu(string: str) -> str:
-    '''Replace all dashes in a string with underscores.'''
-    return string.replace('-', '_')
+from utils import add_entity, add_relation, batch_process, dtu
 
 
 with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
@@ -225,13 +220,15 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 CREATE VLABEL v_{film_type_id};
                 CREATE VLABEL v_{person_type_id};
                 CREATE PROPERTY INDEX ON v_{film_type_id} ( id );
-                CREATE PROPERTY INDEX ON v_{film_type_id} ( p1_0 );
+                CREATE PROPERTY INDEX ON v_{film_type_id} ( p_{film_type_id}_0 );
                 CREATE PROPERTY INDEX ON v_{person_type_id} ( id );
-                CREATE PROPERTY INDEX ON v_{person_type_id} ( p2_0 );
-            '''.format(project_id=dtu(project_id), film_type_id=dtu(film_type_id), person_type_id=dtu(person_type_id)))
-        # cur.execute('''
-        # SET graph_path = g1;
-        # ''')
+                CREATE PROPERTY INDEX ON v_{person_type_id} ( p_{person_type_id}_0 );
+            '''.format(
+                project_id=dtu(project_id),
+                film_type_id=dtu(film_type_id),
+                person_type_id=dtu(person_type_id),
+            )
+        )
 
         with open('data/cinecos_films.csv') as input_file:
             lines = input_file.readlines()
@@ -252,7 +249,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             }
 
             print('Cinecos importing films')
-            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_entity, prop_conf)
+            batch_process(cur, [r for r in csv_reader], params, add_entity, prop_conf)
 
         with open('data/cinecos_directors.csv') as input_file:
             lines = input_file.readlines()
@@ -272,7 +269,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             }
 
             print('Cinecos importing persons')
-            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_entity, prop_conf)
+            batch_process(cur, [r for r in csv_reader], params, add_entity, prop_conf)
 
         with open('data/cinecos_films_directors.csv') as input_file:
             lines = input_file.readlines()
@@ -287,12 +284,12 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
             params = {
                 'domain_type_id': film_type_id,
-                'domain_prop': f"p{film_type_id}_{film_type_conf_lookup['original_id']}",
+                'domain_prop': f'p_{dtu(film_type_id)}_{film_type_conf_lookup["original_id"]}',
                 'range_type_id': person_type_id,
-                'range_prop': f"p{person_type_id}_{person_type_conf_lookup['original_id']}",
+                'range_prop': f'p_{dtu(person_type_id)}_{person_type_conf_lookup["original_id"]}',
                 'relation_type_id': director_type_id,
                 'user_id': user_id,
             }
 
             print('Cinecos importing director relations')
-            utils.batch_process(cur, [r for r in csv_reader], params, utils.add_relation, relation_config, prop_conf)
+            batch_process(cur, [r for r in csv_reader], params, add_relation, relation_config, prop_conf)
