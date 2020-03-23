@@ -8,11 +8,13 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.user (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            email VARCHAR(255) NOT NULL,
-            name VARCHAR(255) NOT NULL,
+            username VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL,
+            hashed_password VARCHAR(255) NOT NULL,
+            disabled BOOLEAN NOT NULL,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            UNIQUE (email)
+            UNIQUE (username)
         );
         -- TODO: user revision?
 

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.router.api.v1 import router as api_v1_router
+from app.router.auth.v1 import router as auth_v1_router
 from app.db.core import db_connect, db_disconnect
 
 app = FastAPI()
@@ -29,4 +30,7 @@ async def startup():
 async def shutdown():
     await db_disconnect(app)
 
-app.include_router(api_v1_router, prefix='/v1')
+app.include_router(api_v1_router, prefix='/api')
+app.include_router(api_v1_router, prefix='/api/v1')
+app.include_router(auth_v1_router, prefix='/auth')
+app.include_router(auth_v1_router, prefix='/auth/v1')

@@ -16,10 +16,10 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             '''
                 SELECT "user".id
                 FROM app.user
-                WHERE "user".email = %(email)s;
+                WHERE "user".username = %(username)s;
             ''',
             {
-                'email': 'pieterjan.depotter@ugent.be',
+                'username': 'pieterjan.depotter@ugent.be',
             }
         )
         user_id = cur.fetchone()[0]
@@ -104,7 +104,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'antwerp_toponyms'),
@@ -160,7 +160,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'antwerp_toponyms'),
@@ -216,7 +216,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'antwerp_toponyms'),
@@ -272,7 +272,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'antwerp_toponyms'),
@@ -328,7 +328,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
 

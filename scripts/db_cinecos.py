@@ -10,10 +10,10 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             '''
             SELECT "user".id
             FROM app.user
-            WHERE "user".email = %(email)s;
+            WHERE "user".username = %(username)s;
             ''',
             {
-                'email': 'pieterjan.depotter@ugent.be',
+                'username': 'pieterjan.depotter@ugent.be',
             }
         )
         user_id = cur.fetchone()[0]
@@ -24,7 +24,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     'cinecos',
                     'Cinecos',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
             '''
@@ -85,7 +85,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
@@ -117,7 +117,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -140,7 +140,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             "layout": []
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -148,7 +148,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'film'),
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -156,7 +156,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'person'),
-                    (SELECT "user".id FROM app.user WHERE "user".email = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 )
                 ON CONFLICT DO NOTHING;
 
