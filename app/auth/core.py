@@ -25,7 +25,6 @@ def verify_password(plain_password, hashed_password):
 async def authenticate_user(request: Request, username: str, password: str):
     user_repo = await get_repository_from_request(request, UserRepository)
     user = await user_repo.get_user(username=username.lower())
-    print(user)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
