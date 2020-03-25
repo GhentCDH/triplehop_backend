@@ -1,20 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import ALLOWED_ORIGINS
+from app.db.core import db_connect, db_disconnect
 from app.router.api.v1 import router as api_v1_router
 from app.router.auth.v1 import router as auth_v1_router
-from app.db.core import db_connect, db_disconnect
 
 app = FastAPI()
 
-# TODO: load from config
-origins = [
-    'http://local.crdb:3000',
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

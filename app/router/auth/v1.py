@@ -5,9 +5,7 @@ from starlette.requests import Request
 
 from app.auth.core import authenticate_user, create_access_token, get_current_user
 from app.auth.models import Token, User
-
-# TODO: read from config file
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()
 
@@ -29,3 +27,5 @@ async def read_user(current_user: User = Depends(get_current_user)):
     return current_user
 
 # TODO: password recovery via e-mail
+# TODO: password update
+# TODO: allow registration / adding users

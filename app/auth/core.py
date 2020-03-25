@@ -7,12 +7,9 @@ from starlette.requests import Request
 from starlette.status import HTTP_403_FORBIDDEN
 
 from app.auth.models import TokenData, User
+from app.config import JWT_ENCODING_ALGORITHM, SECRET_KEY
 from app.db.core import get_repository_from_request
 from app.db.user import UserRepository
-
-# TODO: read from config file
-SECRET_KEY = '946802f95a3a8bb2d2cfdf2e21c14c604d7f2bf68f54f2db03475f9cf18ec89e'
-JWT_ENCODING_ALGORITHM = 'HS256'
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")

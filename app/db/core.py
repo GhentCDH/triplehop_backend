@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI
 from fastapi.dependencies.utils import solve_generator
 from starlette.requests import Request
 
+from app.config import DATABASE
 from app.db.base import BaseRepository
 
 
@@ -41,11 +42,7 @@ async def _set_type_codec(conn: Connection, typenames: List) -> None:
 
 
 async def db_connect(app: FastAPI) -> None:
-    app.state.pool = await create_pool(
-        host='127.0.0.1',
-        database='crdb',
-        user='vagrant'
-    )
+    app.state.pool = await create_pool(**DATABASE)
 
 
 async def db_disconnect(app: FastAPI) -> None:
