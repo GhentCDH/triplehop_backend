@@ -6,20 +6,21 @@ from app.db.base import BaseRepository
 
 class UserRepository(BaseRepository):
     async def get_user(self, username: str) -> Dict:
-        return UserInDB(**dict(
-            await self.fetchrow(
-                '''
-                    SELECT
-                        "user".id,
-                        "user".username,
-                        "user".display_name,
-                        "user".hashed_password,
-                        "user".disabled
-                    FROM app.user
-                    WHERE "user".username = :username;
-                ''',
-                {
-                    'username': username,
-                }
-            )
-        ))
+        raw_user = await self.fetchrow(
+            '''
+                SELECT
+                    "user".id,
+                    "user".username,
+                    "user".display_name,
+                    "user".hashed_password,
+                    "user".disabled
+                FROM app.user
+                WHERE "user".username = :username;
+            ''',
+            {
+                'username': username,
+            }
+        )
+        if raw_user:
+            return UserInDB(**dict(raw_user))
+        return None
