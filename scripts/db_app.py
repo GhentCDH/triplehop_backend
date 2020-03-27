@@ -241,6 +241,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             relation_id UUID
                 REFERENCES app.relation (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
+            properties VARCHAR[],
             type VARCHAR NOT NULL,
             status VARCHAR NOT NULL,
             done INTEGER,
