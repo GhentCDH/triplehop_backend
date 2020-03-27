@@ -229,4 +229,24 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             UNIQUE (group_id, permission_id, project_id, entity_id)
         );
         -- TODO: groups_permissions revision?
+
+        CREATE TABLE app.job (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            project_id UUID
+                REFERENCES app.project (id)
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            entity_id UUID
+                REFERENCES app.entity (id)
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            relation_id UUID
+                REFERENCES app.relation (id)
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
+            type VARCHAR(255) NOT NULL,
+            status VARCHAR(255) NOT NULL,
+            done INTEGER,
+            total INTEGER,
+            created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            started TIMESTAMP WITH TIME ZONE,
+            ended TIMESTAMP WITH TIME ZONE
+        );
         ''')
