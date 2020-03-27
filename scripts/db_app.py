@@ -8,9 +8,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.user (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            username VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
-            hashed_password VARCHAR(255) NOT NULL,
+            username VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
+            hashed_password VARCHAR NOT NULL,
             disabled BOOLEAN NOT NULL,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -20,8 +20,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.group (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            system_name VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
+            system_name VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
             description TEXT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -31,8 +31,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.permission (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            system_name VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
+            system_name VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
             description TEXT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -55,8 +55,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.project (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            system_name VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
+            system_name VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
             user_id UUID NOT NULL
                 REFERENCES app.user (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -70,8 +70,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   project_id INTEGER
         --     REFERENCES app.project
         --     ON UPDATE NO ACTION ON DELETE  NO ACTION,
-        --   system_name VARCHAR(255) NOT NULL,
-        --   display_name VARCHAR(255) NOT NULL,
+        --   system_name VARCHAR NOT NULL,
+        --   display_name VARCHAR NOT NULL,
         --   user_id INTEGER
         --     REFERENCES app.user
         --     ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -86,8 +86,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             project_id UUID NOT NULL
                 REFERENCES app.project
                 ON UPDATE CASCADE ON DELETE CASCADE,
-            system_name VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
+            system_name VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
             --   classifier BOOLEAN NOT NULL,
             config JSON,
             user_id UUID NOT NULL
@@ -115,8 +115,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   project_id INTEGER
         --     REFERENCES app.project (id)
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   system_name VARCHAR(255) NOT NULL,
-        --   display_name VARCHAR(255) NOT NULL,
+        --   system_name VARCHAR NOT NULL,
+        --   display_name VARCHAR NOT NULL,
         --   classifier BOOLEAN NOT NULL,
         --   config JSON,
         --   user_id INTEGER
@@ -133,8 +133,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             project_id UUID NOT NULL
                 REFERENCES app.project
                 ON UPDATE CASCADE ON DELETE CASCADE,
-            system_name VARCHAR(255) NOT NULL,
-            display_name VARCHAR(255) NOT NULL,
+            system_name VARCHAR NOT NULL,
+            display_name VARCHAR NOT NULL,
             --   domain JSONB,
             --   range JSONB,
             config JSON,
@@ -193,8 +193,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         --   project_id INTEGER
         --     REFERENCES app.project (id)
         --     ON UPDATE NO ACTION ON DELETE NO ACTION,
-        --   system_name VARCHAR(255) NOT NULL,
-        --   display_name VARCHAR(255) NOT NULL,
+        --   system_name VARCHAR NOT NULL,
+        --   display_name VARCHAR NOT NULL,
         --   inverse_id INTEGER
         --     REFERENCES app.relation
         --     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -241,8 +241,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             relation_id UUID
                 REFERENCES app.relation (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            type VARCHAR(255) NOT NULL,
-            status VARCHAR(255) NOT NULL,
+            type VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
             done INTEGER,
             total INTEGER,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
