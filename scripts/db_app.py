@@ -222,7 +222,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 REFERENCES app.entity (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             relation_id UUID
-                REFERENCES app.entity (id)
+                REFERENCES app.relation (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
