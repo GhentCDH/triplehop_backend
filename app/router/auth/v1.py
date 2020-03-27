@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette.requests import Request
 
-from app.auth.core import authenticate_user, create_access_token, get_current_user
+from app.auth.core import authenticate_user, create_access_token, get_current_active_user
 from app.auth.models import Token, User
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
@@ -23,7 +23,7 @@ async def route_login_access_token(request: Request, form_data: OAuth2PasswordRe
 
 
 @router.get('/user', response_model=User)
-async def read_user(current_user: User = Depends(get_current_user)):
+async def read_user(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 # TODO: password recovery via e-mail
