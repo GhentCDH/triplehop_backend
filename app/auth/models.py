@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4
 
 
 class Token(BaseModel):
@@ -11,6 +11,7 @@ class TokenData(BaseModel):
 
 
 class User(BaseModel):
+    id: UUID4
     username: str
     display_name: str = None
     disabled: bool = None
@@ -18,3 +19,7 @@ class User(BaseModel):
 
 class UserInDB(User):
     hashed_password: str
+
+
+class UserWithPermissions(User):
+    permissions: dict

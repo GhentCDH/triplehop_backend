@@ -18,6 +18,14 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
         );
         -- TODO: user revision?
 
+        INSERT INTO app.user (username, display_name, hashed_password, disabled)
+        VALUES (
+            'system',
+            'System user',
+            '',
+            'true'
+        );
+
         CREATE TABLE app.group (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             system_name VARCHAR NOT NULL,
@@ -65,6 +73,13 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             UNIQUE (system_name)
         );
 
+        INSERT INTO app.project (system_name, display_name, user_id)
+        VALUES (
+            '__all__',
+            'All projects',
+            (SELECT "user".id FROM app.user WHERE "user".username = 'system')
+        );
+
         -- CREATE TABLE app.revision_project (
         --   id SERIAL PRIMARY KEY,
         --   project_id INTEGER
@@ -98,6 +113,14 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             UNIQUE (project_id, system_name)
         );
         CREATE INDEX ON app.entity (project_id);
+
+        INSERT INTO app.entity (project_id, system_name, display_name, user_id)
+        VALUES (
+            (SELECT project.id FROM app.project WHERE project.system_name = '__all__'),
+            '__all__',
+            'All entities',
+            (SELECT "user".id FROM app.user WHERE "user".username = 'system')
+        );
 
         CREATE TABLE app.entity_count (
             id UUID NOT NULL
@@ -153,6 +176,14 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             current_id INTEGER NOT NULL DEFAULT 0,
             UNIQUE (id)
+        );
+
+        INSERT INTO app.relation (project_id, system_name, display_name, user_id)
+        VALUES (
+            (SELECT project.id FROM app.project WHERE project.system_name = '__all__'),
+            '__all__',
+            'All relations',
+            (SELECT "user".id FROM app.user WHERE "user".username = 'system')
         );
 
         CREATE TABLE app.relation_domain (
@@ -215,15 +246,16 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             permission_id UUID NOT NULL
                 REFERENCES app.permission (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            project_id UUID
+            project_id UUID NOT NULL
                 REFERENCES app.project (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            entity_id UUID
+            entity_id UUID NOT NULL
                 REFERENCES app.entity (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            relation_id UUID
+            relation_id UUID NOT NULL
                 REFERENCES app.relation (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
+            properties VARCHAR[],
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             UNIQUE (group_id, permission_id, project_id, entity_id)
@@ -241,7 +273,6 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             relation_id UUID
                 REFERENCES app.relation (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
-            properties VARCHAR[],
             type VARCHAR NOT NULL,
             status VARCHAR NOT NULL,
             done INTEGER,

@@ -26,9 +26,18 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             'Index data in Elasticsearch'
         );
 
-        INSERT INTO app.groups_permissions (group_id, permission_id)
+        INSERT INTO app.users_groups (user_id, group_id)
+        VALUES (
+            (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be'),
+            (SELECT "group".id FROM app.group WHERE "group".system_name = 'global_admin')
+        );
+
+        INSERT INTO app.groups_permissions (group_id, permission_id, project_id, entity_id, relation_id)
         VALUES (
             (SELECT "group".id FROM app.group WHERE "group".system_name = 'global_admin'),
-            (SELECT permission.id FROM app.permission WHERE permission.system_name = 'es_index')
+            (SELECT permission.id FROM app.permission WHERE permission.system_name = 'es_index'),
+            (SELECT project.id FROM app.project WHERE project.system_name = '__all__'),
+            (SELECT entity.id FROM app.entity WHERE entity.system_name = '__all__'),
+            (SELECT relation.id FROM app.relation WHERE relation.system_name = '__all__')
         );
         ''')

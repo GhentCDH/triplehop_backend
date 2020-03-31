@@ -6,7 +6,7 @@ from app.db.base import BaseRepository
 
 class UserRepository(BaseRepository):
     async def get_user(self, username: str) -> Dict:
-        raw_user = await self.fetchrow(
+        record = await self.fetchrow(
             '''
                 SELECT
                     "user".id,
@@ -21,6 +21,6 @@ class UserRepository(BaseRepository):
                 'username': username,
             }
         )
-        if raw_user:
-            return UserInDB(**dict(raw_user))
+        if record:
+            return UserInDB(**dict(record))
         return None
