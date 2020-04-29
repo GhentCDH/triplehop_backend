@@ -29,3 +29,4 @@ async def read_user(current_user: UserWithPermissions = Depends(get_current_acti
 # TODO: password recovery via e-mail
 # TODO: password update
 # TODO: allow registration / adding users
+# TODO: refresh tokens, so users aren't logged out after 30 minutes

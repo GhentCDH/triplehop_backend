@@ -39,6 +39,7 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
                 'data': list(data_conf.values()),
+                # TODO: add display_names from data to display, so data doesn't need to be exported
                 'display': {
                     'title': TITLE_CONVERSION_REGEX.sub(
                         lambda m: '$' + data_conf[m.group()[1:]]['system_name'] if m.group()[1:] in data_conf else m[0],
@@ -46,6 +47,7 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
                     ),
                     'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
                 },
+                # TODO: search_filters, search_columns (search_data doesn't need to be exported)
             }
             results.append(config_item)
 
@@ -166,7 +168,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
             ['field', 'String!'],
             ['type', 'String'],
             # TODO: allow multiple base layers
-            # TODO: add top layers
+            # TODO: add overlays
             ['base_layer', 'String'],
         ],
         'relation_config': [
@@ -187,7 +189,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
     type_defs_dict['query'].append(['Entity_config_s', '[Entity_config]'])
     type_defs_dict['query'].append(['Relation_config_s', '[Relation_config]'])
 
-    # TODO: add plurals
+    # TODO: add props which can contain multiple, values (sorted or unsorted)
     # Entities
     for etn in entity_types_config:
         props = [['id', 'Int']]
