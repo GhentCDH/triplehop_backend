@@ -6,11 +6,11 @@ from passlib.context import CryptContext
 from starlette.requests import Request
 from starlette.status import HTTP_403_FORBIDDEN
 
-from app.auth.models import TokenData, User, UserWithPermissions
 from app.config import JWT_ENCODING_ALGORITHM, SECRET_KEY
 from app.db.core import get_repository_from_request
 from app.db.permission import PermissionRepository
 from app.db.user import UserRepository
+from app.models.auth import TokenData, User, UserWithPermissions
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")

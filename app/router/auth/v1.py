@@ -4,8 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from starlette.requests import Request
 
 from app.auth.core import authenticate_user, create_access_token, get_current_active_user_with_permissions
-from app.auth.models import Token, UserWithPermissions
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.models.auth import Token, UserWithPermissions
 
 router = APIRouter()
 
