@@ -82,7 +82,58 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "search_data": {
+                            "0": {
+                                "system_name": "title",
+                                "display_name": "Title",
+                                "selector_value": "$1"
+                                "type": "String"
+                            },
+                            "1": {
+                                "system_name": "year",
+                                "display_name": "Production year",
+                                "selector_value": "$2"
+                                "type": "Int"
+                            },
+                            "2": {
+                                "system_name": "director",
+                                "display_name": "Director(s)",
+                                "selector_id": "$director.id"
+                                "selector_value": "$director.$1"
+                                "type": "Multiple Entity"
+                            }
+                        },
+                        "search_filters": [
+                            {
+                                -- label (filter group)
+                                "filters": [
+                                    {
+                                        -- label (filter)
+                                        "filter": "0"
+                                    },
+                                    {
+                                        "field": "1",
+                                        "type": "year_histogram",
+                                    },
+                                    {
+                                        "field": "2"
+                                    }
+                                ]
+                            }
+                        ],
+                        "search_columns": [
+                            {
+                                -- label (column)
+                                "column": "0"
+                            },
+                            {
+                                "column": "1"
+                            },
+                            {
+                                "column": "2"
+                            }
+                        ]
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
                 ),
