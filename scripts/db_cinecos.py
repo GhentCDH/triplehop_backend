@@ -63,7 +63,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             },
                             "2": {
                                 "system_name": "year",
-                                "display_name": "Year",
+                                "display_name": "Production year",
                                 "type": "Int"
                             }
                         },
@@ -77,7 +77,6 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                                             "field": "1"
                                         },
                                         {
-                                            "label": "Production year",
                                             "field": "2"
                                         }
                                     ]
