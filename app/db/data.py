@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from asyncpg.connection import Connection
 from fastapi import HTTPException
@@ -138,6 +138,12 @@ class DataRepository(BaseRepository):
 
             return [int(r['id']) for r in records]
 
+    @staticmethod
+    def convert_from_jsonb(jsonb: str) -> Any:
+        if jsonb is None:
+            return None
+        return json_load(jsonb)
+
     async def get_entity_data(
         self,
         project_name: str,
@@ -187,7 +193,10 @@ class DataRepository(BaseRepository):
 
                 records = await self.fetch(db_query)
                 for record in records:
-                    results[record['id']] = {p: record[p] for p in query['props']}
+                    results[record['id']] = {
+                        p: self.convert_from_jsonb(record[p])
+                        for p in query['props']
+                    }
 
             if query['relations']:
                 relation_types_config = await self._conf_repo.get_relation_types_config(project_name)
@@ -240,7 +249,10 @@ class DataRepository(BaseRepository):
                                     results[record['id']][relation] = []
                                 results[record['id']][relation].append(
                                     {
-                                        'e_props': {p: record[f'{relation}_e_{p}'] for p in query['relations'][relation]['e_props']}
+                                        'e_props': {
+                                            p: self.convert_from_jsonb(record[f'{relation}_e_{p}'])
+                                            for p in query['relations'][relation]['e_props']
+                                        }
                                     }
                                 )
 

@@ -7,7 +7,7 @@ from app.db.data import DataRepository
 from app.db.job import JobRepository
 from app.es.core import Elasticsearch
 
-BATCH_SIZE = 10
+BATCH_SIZE = 500
 
 
 async def reindex(job_id: UUID, project_name: str, entity_type_name: str, request: Request):
@@ -40,16 +40,14 @@ async def reindex(job_id: UUID, project_name: str, entity_type_name: str, reques
 
             es.add_bulk(new_index_name, entity_type_name, batch_docs)
 
-            # DEBUG
-            break
-            # TODO: index
-
             if (batch_counter + 1) * BATCH_SIZE + 1 > len(entity_ids):
                 break
 
+            await job_repo.update_counter(job_id, (batch_counter + 1) * BATCH_SIZE)
             batch_counter += 1
 
         es.switch_to_new_index(new_index_name, entity_type_config['id'])
+        await job_repo.end_job_with_success(job_id)
     except Exception as e:
         await job_repo.end_job_with_error(job_id)
         # TODO: log error

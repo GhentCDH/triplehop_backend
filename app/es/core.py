@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Any, Dict, List
 
 from elasticsearch import Elasticsearch as ES
 from elasticsearch.exceptions import NotFoundError
@@ -55,23 +55,40 @@ class Elasticsearch():
         return es_query
 
     @staticmethod
-    def convert_value(field_def: str, data: Dict) -> str:
-        return RE_FIELD_DEF_CONVERSION.sub(
-            lambda m: data[m.group(1)],
-            field_def,
-        )
+    def str_value(data_item: Any) -> str:
+        if data_item is None:
+            return ''
+        return str(data_item)
 
     @staticmethod
-    def convert_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> str:
+    def cast(type: str, str_repr: str) -> Any:
+        if str_repr == '':
+            return None
+        if type == 'integer':
+            return int(str_repr)
+        return str_repr
+
+    @staticmethod
+    def construct_value(field_def: str, type: str, data: Dict[str, Any]) -> Any:
+        """Construct the elasticsearch field data from the field definition and entity date."""
+        str_repr = RE_FIELD_DEF_CONVERSION.sub(
+            lambda m: Elasticsearch.str_value(data[m.group(1)]),
+            field_def,
+        )
+        return Elasticsearch.cast(type, str_repr)
+
+    @staticmethod
+    def construct_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> List[Dict[str, Any]]:
         results = []
         if relation in data:
             for relation_item in data[relation]:
                 result = {}
                 for key, part_def in parts.items():
-                    result[key] = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
-                        lambda m: relation_item['e_props'][m.group(2)],
+                    str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
+                        lambda m: Elasticsearch.str_value(relation_item['e_props'][m.group(2)]),
                         part_def['selector_value']
                     )
+                    result[key] = Elasticsearch.cast(part_def['type'], str_repr)
                 results.append(result)
         return results
 
@@ -85,17 +102,16 @@ class Elasticsearch():
                 # (e.g., "$first_name $last_name")
                 # TODO: more relation levels
                 # TODO: props on relation itself
-                # TODO: index integers as integers
-                # TODO: index text without surrounding double quotes
                 if es_field_conf['type'] == 'nested':
-                    doc[es_field_conf['system_name']] = Elasticsearch.convert_nested_value(
+                    doc[es_field_conf['system_name']] = Elasticsearch.construct_nested_value(
                         es_field_conf['relation'],
                         es_field_conf['parts'],
                         entity,
                     )
                 else:
-                    doc[es_field_conf['system_name']] = Elasticsearch.convert_value(
+                    doc[es_field_conf['system_name']] = Elasticsearch.construct_value(
                         es_field_conf['selector_value'],
+                        es_field_conf['type'],
                         entity,
                     )
 

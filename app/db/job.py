@@ -41,11 +41,40 @@ class JobRepository(BaseRepository):
             '''
                 UPDATE app.job
                 SET status = :status,
+                    counter = 0,
                     total = :total,
                     started = NOW()
+                WHERE id = :job_id
             ''', {
                 'status': 'started',
                 'total': total,
+                'job_id': id,
+            }
+        )
+
+    async def update_counter(self, id: UUID, counter: int = None) -> None:
+        await self.execute(
+            '''
+                UPDATE app.job
+                SET counter = :counter
+                WHERE id = :job_id
+            ''', {
+                'counter': counter,
+                'job_id': id,
+            }
+        )
+
+    async def end_job_with_success(self, id: UUID) -> None:
+        await self.execute(
+            '''
+                UPDATE app.job
+                SET status = :status,
+                    counter = total,
+                    ended = NOW()
+                WHERE id = :job_id
+            ''', {
+                'status': 'success',
+                'job_id': id,
             }
         )
 
@@ -55,7 +84,9 @@ class JobRepository(BaseRepository):
                 UPDATE app.job
                 SET status = :status,
                     ended = NOW()
+                WHERE id = :job_id
             ''', {
                 'status': 'error',
+                'job_id': id,
             }
         )

@@ -278,6 +278,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             type VARCHAR NOT NULL,
             status VARCHAR NOT NULL,
+            counter INTEGER,
             total INTEGER,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             started TIMESTAMP WITH TIME ZONE,
