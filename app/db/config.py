@@ -6,7 +6,7 @@ from json import loads as json_load
 
 from app.cache.core import key_builder
 from app.db.base import BaseRepository
-from app.db.core import dtu
+from app.utils import dtu
 
 
 class ConfigRepository(BaseRepository):

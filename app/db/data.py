@@ -5,7 +5,7 @@ from re import compile as re_compile
 
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
-from app.db.core import dtu, utd
+from app.utils import RE_RECORD, dtu, utd
 
 RE_RECORD = re_compile('^[ev][_]([a-z0-9_]+)[^{]*({.*})$')
 
