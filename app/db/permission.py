@@ -1,11 +1,11 @@
 from typing import Dict
-from uuid import UUID
 
 from app.db.base import BaseRepository
+from app.models.auth import User
 
 
 class PermissionRepository(BaseRepository):
-    async def get_permissions(self, userid: UUID) -> Dict:
+    async def get_permissions(self, user: User) -> Dict:
         records = await self.fetch(
             '''
                 SELECT
@@ -21,10 +21,10 @@ class PermissionRepository(BaseRepository):
                 LEFT JOIN app.project ON groups_permissions.project_id = project.id
                 LEFT JOIN app.entity ON groups_permissions.entity_id = entity.id
                 LEFT JOIN app.relation ON groups_permissions.relation_id = relation.id
-                WHERE "user".id = :userid;
+                WHERE "user".id = :user_id;
             ''',
             {
-                'userid': str(userid),
+                'user_id': str(user.id),
             }
         )
 

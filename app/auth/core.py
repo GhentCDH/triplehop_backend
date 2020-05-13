@@ -72,5 +72,5 @@ async def get_current_active_user_with_permissions(
     current_user: User = Depends(get_current_active_user)
 ):
     permission_repo = await get_repository_from_request(request, PermissionRepository)
-    permissions = await permission_repo.get_permissions(current_user.id)
+    permissions = await permission_repo.get_permissions(current_user)
     return UserWithPermissions(**current_user.dict(), permissions=permissions)
