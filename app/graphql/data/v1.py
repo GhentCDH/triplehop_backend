@@ -1,15 +1,12 @@
 from typing import Dict
 
 from ariadne import gql, make_executable_schema, ObjectType, QueryType
-from re import compile as re_compile
 from starlette.requests import Request
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.graphql.base import construct_type_def
-
-TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
 
 
 # TODO: only get the requested properties
