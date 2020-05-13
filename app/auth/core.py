@@ -13,7 +13,7 @@ from app.db.user import UserRepository
 from app.models.auth import TokenData, User, UserWithPermissions
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/token')
 
 
 def verify_password(plain_password, hashed_password):
@@ -43,11 +43,12 @@ def create_access_token(*, data: dict, expires_delta: timedelta = None):
 
 async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
-        status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+        status_code=HTTP_403_FORBIDDEN,
+        detail='Could not validate credentials',
     )
     try:
         payload = jwt_decode(token, SECRET_KEY, algorithms=[JWT_ENCODING_ALGORITHM])
-        username: str = payload.get("sub")
+        username: str = payload.get('sub')
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
@@ -62,7 +63,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail='Inactive user')
     return current_user
 
 
