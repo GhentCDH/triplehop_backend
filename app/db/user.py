@@ -1,7 +1,7 @@
 from typing import Dict
 
-from app.auth.models import UserInDB
 from app.db.base import BaseRepository
+from app.models.auth import UserInDB
 
 
 class UserRepository(BaseRepository):
