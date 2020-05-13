@@ -22,4 +22,5 @@ class UserInDB(User):
 
 
 class UserWithPermissions(User):
+    # TODO: use typing.Dict for sub-type constraints
     permissions: dict

@@ -3,7 +3,9 @@ ariadne==0.10.0
 asyncpg==0.20.1
 bcrypt==3.1.7
 buildpg==0.2.3
+cffi==1.14.0
 click==7.1.1
+elasticsearch==6.8.1
 entrypoints==0.3
 fastapi==0.52.0
 flake8==3.7.9
@@ -14,11 +16,17 @@ mccabe==0.6.1
 passlib==1.7.2
 psycopg2==2.8.4
 pycodestyle==2.5.0
+pycparser==2.20
 pydantic==1.4
 pyflakes==2.1.1
+PyJWT==1.7.1
+python-dateutil==2.8.1
+python-multipart==0.0.5
+six==1.14.0
 starlette==0.13.2
 tqdm==4.43.0
 typing-extensions==3.7.4.1
+urllib3==1.25.9
 uvicorn==0.11.3
 uvloop==0.14.0
 websockets==8.1

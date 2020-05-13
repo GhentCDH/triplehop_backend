@@ -264,6 +264,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
 
         CREATE TABLE app.job (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL
+                REFERENCES app.user (id)
+                ON UPDATE RESTRICT ON DELETE RESTRICT,
             project_id UUID
                 REFERENCES app.project (id)
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -275,7 +278,6 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 ON UPDATE RESTRICT ON DELETE RESTRICT,
             type VARCHAR NOT NULL,
             status VARCHAR NOT NULL,
-            done INTEGER,
             total INTEGER,
             created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             started TIMESTAMP WITH TIME ZONE,

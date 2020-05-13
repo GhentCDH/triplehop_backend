@@ -2,14 +2,12 @@ from typing import Dict, List
 
 from ariadne import gql, make_executable_schema, QueryType
 from copy import deepcopy
-from re import compile as re_compile
 from starlette.requests import Request
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.graphql.base import construct_type_def
-
-TITLE_CONVERSION_REGEX = re_compile(r'(?<![$])[$][0-9]+')
+from app.utils import RE_FIELD_CONVERSION
 
 
 def _layout_field_converter(layout: List, data_conf: Dict):
@@ -40,13 +38,14 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
                 'data': list(data_conf.values()),
                 # TODO: add display_names from data to display, so data doesn't need to be exported
                 'display': {
-                    'title': TITLE_CONVERSION_REGEX.sub(
+                    # TODO: check if this conversion shouldn't happen in db code
+                    'title': RE_FIELD_CONVERSION.sub(
                         lambda m: '$' + data_conf[m.group()[1:]]['system_name'] if m.group()[1:] in data_conf else m[0],
                         entity_config['config']['display']['title']
                     ),
                     'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
                 },
-                # TODO: search_filters, search_columns (search_data doesn't need to be exported)
+                # TODO: es_filters, es_columns (es_data doesn't need to be exported)
             }
             results.append(config_item)
 

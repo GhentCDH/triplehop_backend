@@ -83,55 +83,61 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                                 }
                             ]
                         },
-                        "search_data": {
+                        "es_data": {
                             "0": {
                                 "system_name": "title",
                                 "display_name": "Title",
-                                "selector_value": "$1"
-                                "type": "String"
+                                "selector_value": "$title",
+                                "type": "text"
                             },
                             "1": {
                                 "system_name": "year",
                                 "display_name": "Production year",
-                                "selector_value": "$2"
-                                "type": "Int"
+                                "selector_value": "$year",
+                                "type": "integer"
                             },
                             "2": {
                                 "system_name": "director",
                                 "display_name": "Director(s)",
-                                "selector_id": "$director.id"
-                                "selector_value": "$director.$1"
-                                "type": "Multiple Entity"
+                                "relation": "r_director",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_director->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_director->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
                             }
                         },
-                        "search_filters": [
+                        "es_filters": [
                             {
-                                -- label (filter group)
                                 "filters": [
                                     {
-                                        -- label (filter)
-                                        "filter": "0"
+                                        "filter": "$0"
                                     },
                                     {
-                                        "field": "1",
-                                        "type": "year_histogram",
+                                        "filter": "$1",
+                                        "type": "year_histogram"
                                     },
                                     {
-                                        "field": "2"
+                                        "filter": "$2"
                                     }
                                 ]
                             }
                         ],
-                        "search_columns": [
+                        "es_columns": [
                             {
-                                -- label (column)
-                                "column": "0"
+                                "column": "$0"
                             },
                             {
-                                "column": "1"
+                                "column": "$1"
                             },
                             {
-                                "column": "2"
+                                "column": "$2"
                             }
                         ]
                     }',

@@ -25,6 +25,11 @@ class BaseRepository:
             return RENDERER(query_template, **params)
 
     # TODO: prepared statements with LRU cache?
+    async def execute(self, query_template: str, params: Dict = None):
+        query, args = self.__class__._render(query_template, params)
+        return await self._conn.execute(query, *args)
+
+    # TODO: prepared statements with LRU cache?
     async def fetch(self, query_template: str, params: Dict = None):
         query, args = self.__class__._render(query_template, params)
         return await self._conn.fetch(query, *args)
@@ -33,3 +38,8 @@ class BaseRepository:
     async def fetchrow(self, query_template: str, params: Dict = None):
         query, args = self.__class__._render(query_template, params)
         return await self._conn.fetchrow(query, *args)
+
+    # TODO: prepared statements with LRU cache?
+    async def fetchval(self, query_template: str, params: Dict = None):
+        query, args = self.__class__._render(query_template, params)
+        return await self._conn.fetchval(query, *args)

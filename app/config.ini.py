@@ -1,12 +1,16 @@
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-ALLOWED_ORIGINS = [
-]
+ALLOWED_ORIGINS = []
 
 DATABASE = {
     'host': '',
     'database': '',
     'user': ''
+}
+
+ELASTICSEARCH = {
+    'hosts': [],
+    'prefix': '',
 }
 
 JWT_ENCODING_ALGORITHM = 'HS256'

@@ -113,6 +113,9 @@ class ConfigRepository(BaseRepository):
 
         return result
 
+    async def get_entity_type_i_property_mapping(self, project_name: str, entity_type_name: str) -> Dict:
+        return {v: k for k, v in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()}
+
     # TODO: delete cache on entity config update
     @cached(key_builder=key_builder)
     async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
