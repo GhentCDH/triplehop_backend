@@ -82,7 +82,9 @@ class Elasticsearch():
         results = []
         if relation in data:
             for relation_item in data[relation]:
-                result = {}
+                result = {
+                    'entity_type_name': relation_item['entity_type_name'],
+                }
                 for key, part_def in parts.items():
                     str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
                         lambda m: Elasticsearch.str_value(relation_item['e_props'][m.group(2)]),
@@ -134,7 +136,11 @@ class Elasticsearch():
                 'type': es_field_conf['type'],
             }
             if es_field_conf['type'] == 'nested':
-                mapping['properties'] = {}
+                mapping['properties'] = {
+                    'entity_type_name': {
+                        'type': 'text',
+                    },
+                }
                 for key, part_def in es_field_conf['parts'].items():
                     mapping['properties'][key] = {
                         'type': part_def['type'],
