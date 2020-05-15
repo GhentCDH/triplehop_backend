@@ -5,7 +5,7 @@ from app.models.auth import UserInDB
 
 
 class UserRepository(BaseRepository):
-    async def get_user(self, username: str) -> Dict:
+    async def get_user(self, username: str) -> UserInDB:
         record = await self.fetchrow(
             '''
                 SELECT
