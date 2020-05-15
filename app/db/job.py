@@ -30,6 +30,7 @@ class JobRepository(BaseRepository):
                         job.counter,
                         job.total,
                         job.created,
+                        job.started,
                         job.ended
                     FROM app.job
                     LEFT JOIN app.user ON job.user_id = "user".id
