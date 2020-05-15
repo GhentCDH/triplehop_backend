@@ -7,21 +7,19 @@ from app.db.core import get_repository_from_request
 from app.db.job import JobRepository
 from app.es.job import reindex as reindex_job
 from app.models.auth import UserWithPermissions
-from app.models.es import ElasticSearchRequest
 from app.models.job import JobId
 
 router = APIRouter()
 
 
-@router.post('/reindex', response_model=JobId)
+@router.get('/{project_name}/{entity_type_name}/reindex', response_model=JobId)
 async def reindex(
-    es_request: ElasticSearchRequest,
+    project_name: str,
+    entity_type_name: str,
     background_tasks: BackgroundTasks,
     request: Request,
     user: UserWithPermissions = Depends(get_user),
 ):
-    project_name = es_request.project_name
-    entity_type_name = es_request.entity_type_name
     require_entity_permission(
         user,
         project_name,
