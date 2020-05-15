@@ -117,27 +117,27 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             {
                                 "filters": [
                                     {
-                                        "filter": "$0"
+                                        "filter": "0"
                                     },
                                     {
-                                        "filter": "$1",
+                                        "filter": "1",
                                         "type": "year_histogram"
                                     },
                                     {
-                                        "filter": "$2"
+                                        "filter": "2"
                                     }
                                 ]
                             }
                         ],
                         "es_columns": [
                             {
-                                "column": "$0"
+                                "column": "0"
                             },
                             {
-                                "column": "$1"
+                                "column": "1"
                             },
                             {
-                                "column": "$2"
+                                "column": "2"
                             }
                         ]
                     }',

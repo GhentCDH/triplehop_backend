@@ -8,6 +8,7 @@ from elasticsearch.helpers import bulk
 from uuid import uuid4
 
 from app.config import ELASTICSEARCH
+from app.models.es import ElasticSearchBody
 from app.utils import dtu, RE_FIELD_DEF_CONVERSION, RE_FIELD_DEF_REL_ENT_CONVERSION
 
 # TODO: use async elasticsearch lib
@@ -203,3 +204,12 @@ class Elasticsearch():
             for i, v in data.items()
         ]
         bulk(self.es, actions)
+
+    def search(self, entity_type_id: str, body: Dict) -> Dict:
+        alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
+        body = {k: v for (k, v) in body.items() if v is not None}
+        result = self.es.search(
+            index=alias_name,
+            body=body,
+        )
+        return result

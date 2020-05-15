@@ -20,6 +20,17 @@ def _layout_field_converter(layout: List, data_conf: Dict) -> List:
     return result
 
 
+def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
+    result = []
+    for column in columns:
+        result.append({
+            'system_name': es_data_conf[column['column']]['system_name'],
+            'dipslay_name': es_data_conf[column['column']]['display_name'],
+            'type': es_data_conf[column['column']]['type'],
+        })
+    return result
+
+
 # TODO: cache
 def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
@@ -45,8 +56,11 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
                     ),
                     'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
                 },
-                # TODO: es_filters, es_columns (es_data doesn't need to be exported)
             }
+            if 'es_data' in entity_config['config']:
+                es_data_conf = entity_config['config']['es_data']
+                config_item['es_columns'] = _es_columns_converter(entity_config['config']['es_columns'], es_data_conf)
+            # TODO: es_filters, es_columns (es_data doesn't need to be exported)
             results.append(config_item)
 
         return results
