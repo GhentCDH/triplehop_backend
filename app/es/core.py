@@ -157,7 +157,7 @@ class Elasticsearch():
 
         raise Exception(response['error']['root_cause'])
 
-    def switch_to_new_index(self, new_index_name: str, entity_type_id: int) -> None:
+    def switch_to_new_index(self, new_index_name: str, entity_type_id: str) -> None:
         alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
         body = {
             'actions': [

@@ -10,7 +10,7 @@ from app.graphql.base import construct_type_def
 from app.utils import RE_FIELD_CONVERSION
 
 
-def _layout_field_converter(layout: List, data_conf: Dict):
+def _layout_field_converter(layout: List, data_conf: Dict) -> List:
     result = deepcopy(layout)
     for panel in result:
         for field in panel['fields']:
