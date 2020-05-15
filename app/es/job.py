@@ -15,7 +15,7 @@ async def reindex(job_id: UUID, project_name: str, entity_type_name: str, reques
     entity_ids = await data_repo.get_entity_ids_by_type_name(project_name, entity_type_name)
 
     job_repo = await get_repository_from_request(request, JobRepository)
-    await job_repo.start_job(job_id, len(entity_ids))
+    await job_repo.start(job_id, len(entity_ids))
 
     try:
         config_repo = await get_repository_from_request(request, ConfigRepository)
@@ -47,8 +47,8 @@ async def reindex(job_id: UUID, project_name: str, entity_type_name: str, reques
             batch_counter += 1
 
         es.switch_to_new_index(new_index_name, entity_type_config['id'])
-        await job_repo.end_job_with_success(job_id)
+        await job_repo.end_with_success(job_id)
     except Exception as e:
-        await job_repo.end_job_with_error(job_id)
+        await job_repo.end_with_error(job_id)
         # TODO: log error
         raise e

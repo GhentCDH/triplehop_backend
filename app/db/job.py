@@ -4,6 +4,7 @@ from uuid import UUID
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.models.auth import User
+from app.models.job import JobToDisplay
 
 
 class JobRepository(BaseRepository):
@@ -11,7 +12,42 @@ class JobRepository(BaseRepository):
         super().__init__(conn)
         self._conf_repo = ConfigRepository(conn)
 
-    async def create_job(self, user: User, type: str, project_name: str = None, entity_type_name: str = None) -> UUID:
+    async def get_by_project(self, id: UUID, project_name: str) -> JobToDisplay:
+        async with self.connection.transaction():
+            record = await self.fetchrow(
+                '''
+                    SELECT
+                        job.id,
+                        "user".display_name as user_name,
+                        project.system_name as project_system_name,
+                        project.display_name as project_display_name,
+                        entity.system_name as entity_type_system_name,
+                        entity.display_name as entity_type_display_name,
+                        relation.system_name as relation_type_system_name,
+                        relation.display_name as relation_type_display_name,
+                        job.type,
+                        job.status,
+                        job.counter,
+                        job.total,
+                        job.created,
+                        job.ended
+                    FROM app.job
+                    LEFT JOIN app.user ON job.user_id = "user".id
+                    LEFT JOIN app.project ON job.project_id = project.id
+                    LEFT JOIN app.entity ON job.entity_id = entity.id
+                    LEFT JOIN app.relation ON job.relation_id = relation.id
+                    WHERE job.id = :id
+                    AND project.system_name = :project_name
+                ''', {
+                    'id': str(id),
+                    'project_name': project_name,
+                }
+            )
+            if record:
+                return JobToDisplay(**dict(record))
+            return None
+
+    async def create(self, user: User, type: str, project_name: str = None, entity_type_name: str = None) -> UUID:
         async with self.connection.transaction():
             project_id = None
             entity_type_id = None
@@ -36,7 +72,7 @@ class JobRepository(BaseRepository):
 
             return job_id
 
-    async def start_job(self, id: UUID, total: int = None) -> None:
+    async def start(self, id: UUID, total: int = None) -> None:
         await self.execute(
             '''
                 UPDATE app.job
@@ -64,7 +100,7 @@ class JobRepository(BaseRepository):
             }
         )
 
-    async def end_job_with_success(self, id: UUID) -> None:
+    async def end_with_success(self, id: UUID) -> None:
         await self.execute(
             '''
                 UPDATE app.job
@@ -78,7 +114,7 @@ class JobRepository(BaseRepository):
             }
         )
 
-    async def end_job_with_error(self, id: UUID) -> None:
+    async def end_with_error(self, id: UUID) -> None:
         await self.execute(
             '''
                 UPDATE app.job
