@@ -1,7 +1,6 @@
 from typing import Any, Dict, List
 
 from asyncpg.connection import Connection
-from fastapi import HTTPException
 from json import loads as json_load
 
 from app.db.base import BaseRepository
@@ -47,10 +46,7 @@ class DataRepository(BaseRepository):
             )
 
             if record is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f'Entity of type "{entity_type_name}" with id {entity_id} not found',
-                )
+                return None
 
             raw_entity = json_load(RE_RECORD.match(record['ve']).group(2))
 
