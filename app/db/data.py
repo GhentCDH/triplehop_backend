@@ -221,7 +221,7 @@ class DataRepository(BaseRepository):
                                 mappings[etn] = \
                                     await self._conf_repo.get_entity_type_i_property_mapping(project_name, etn)
 
-                            query_return_parts = ['ve.id']
+                            query_return_parts = ['ve.id', f'label(ver) as __type__']
                             # TODO: props on relation itself
                             for prop in query['relations'][relation]['e_props']:
                                 if prop in mappings[etn]:
@@ -248,7 +248,11 @@ class DataRepository(BaseRepository):
                                         'e_props': {
                                             p: self.convert_from_jsonb(record[f'{relation}_e_{p}'])
                                             for p in query['relations'][relation]['e_props']
-                                        }
+                                        },
+                                        'entity_type_name': await self._conf_repo.get_entity_type_name_by_id(
+                                            project_name,
+                                            utd(self.convert_from_jsonb(record[f'__type__'])[2:])
+                                        )
                                     }
                                 )
 
