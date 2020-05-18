@@ -25,7 +25,7 @@ def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
     for column in columns:
         result.append({
             'system_name': es_data_conf[column['column']]['system_name'],
-            'dipslay_name': es_data_conf[column['column']]['display_name'],
+            'display_name': es_data_conf[column['column']]['display_name'],
             'type': es_data_conf[column['column']]['type'],
         })
     return result
@@ -112,6 +112,7 @@ async def create_type_defs():
             ['display_name', 'String!'],
             ['data', '[Data_config!]'],
             ['display', 'Entity_display_config!'],
+            ['es_columns', '[Es_columns_config!]'],
         ],
         'data_config': [
             ['system_name', 'String!'],
@@ -133,6 +134,11 @@ async def create_type_defs():
             # TODO: allow multiple base layers
             # TODO: add overlays
             ['base_layer', 'String'],
+        ],
+        'es_columns_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
+            ['type', 'String!'],
         ],
         'relation_config': [
             ['system_name', 'String!'],
