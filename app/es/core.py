@@ -136,6 +136,13 @@ class Elasticsearch():
             mapping = {
                 'type': es_field_conf['type'],
             }
+            # TODO: does this need to be added for all text fields?
+            if es_field_conf['type'] == 'text':
+                mapping['fields'] = {
+                    'keyword': {
+                        'type': 'keyword',
+                    }
+                }
             if es_field_conf['type'] == 'nested':
                 mapping['properties'] = {
                     'entity_type_name': {
