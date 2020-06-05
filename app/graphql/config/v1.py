@@ -27,6 +27,7 @@ def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
             'system_name': es_data_conf[column['column']]['system_name'],
             'display_name': es_data_conf[column['column']]['display_name'],
             'type': es_data_conf[column['column']]['type'],
+            'sortable': column['sortable'],
         })
     return result
 
@@ -139,6 +140,7 @@ async def create_type_defs():
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['type', 'String!'],
+            ['sortable', 'Boolean!'],
         ],
         'relation_config': [
             ['system_name', 'String!'],

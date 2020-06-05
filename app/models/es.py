@@ -1,12 +1,12 @@
 from pydantic import BaseModel
-from typing import List
+from typing import Dict
 
 
 class ElasticSearchBody(BaseModel):
     query: dict = None
     from_: int = None
     size: int = None
-    sort: List[str] = None
+    sort: Dict[str, str] = None
 
     class Config:
         fields = {

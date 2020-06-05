@@ -131,13 +131,16 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                         ],
                         "es_columns": [
                             {
-                                "column": "0"
+                                "column": "0",
+                                "sortable": true
                             },
                             {
-                                "column": "1"
+                                "column": "1",
+                                "sortable": true
                             },
                             {
-                                "column": "2"
+                                "column": "2",
+                                "sortable": true
                             }
                         ]
                     }',
