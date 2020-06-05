@@ -3,12 +3,9 @@ from typing import Any, Dict, List
 from elasticsearch import Elasticsearch as ES
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch.helpers import bulk
-# from elasticsearch_dsl import Document, Nested, Text
-# from elasticsearch_dsl.connections import connections
 from uuid import uuid4
 
 from app.config import ELASTICSEARCH
-from app.models.es import ElasticSearchBody
 from app.utils import dtu, RE_FIELD_DEF_CONVERSION, RE_FIELD_DEF_REL_ENT_CONVERSION
 
 # TODO: use async elasticsearch lib
