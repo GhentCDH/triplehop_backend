@@ -127,6 +127,18 @@ class Elasticsearch():
                     'properties': {},
                 },
             },
+            'settings': {
+                'analysis': {
+                    'normalizer': {
+                        'icu_normalizer': {
+                            'filter': [
+                                'icu_folding',
+                                'lowercase',
+                            ],
+                        },
+                    },
+                },
+            },
         }
 
         for es_field_conf in es_data_config.values():
@@ -150,6 +162,15 @@ class Elasticsearch():
                     mapping['properties'][key] = {
                         'type': part_def['type'],
                     }
+                    if mapping['properties'][key]['type'] == 'text':
+                        mapping['properties'][key]['fields'] = {
+                            'keyword': {
+                                'type': 'keyword',
+                                'normalizer': 'icu_normalizer',
+                            },
+                        }
+                    # TODO: check if the normalized keyword can be retrieved
+                    # to aid sorting multiple values in a single nested field in clients
             body['mappings'][entity_type_name]['properties'][es_field_conf['system_name']] = mapping
 
         response = self.es.indices.create(

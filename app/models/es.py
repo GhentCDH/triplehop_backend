@@ -1,12 +1,15 @@
 from pydantic import BaseModel
-from typing import Dict
+from typing import Any
 
 
 class ElasticSearchBody(BaseModel):
     query: dict = None
     from_: int = None
     size: int = None
-    sort: Dict[str, str] = None
+    # TODO: add custom validator that allows all sort possibilities?
+    # https://pydantic-docs.helpmanual.io/usage/validators/
+    # https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-sort.html
+    sort: Any = None
 
     class Config:
         fields = {
