@@ -65,6 +65,15 @@
     pip install -r requirements.txt
     ```
 
+* An elasticsearch server with the ICU Analysis Plugin
+
+    ```
+    sudo /home/vagrant/install/elasticsearch6.sh
+    sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-icu
+    sudo systemctl stop elasticsearch.service
+    sudo systemctl start elasticsearch.service
+    ```
+
 ## Usage
 
 * Run database
