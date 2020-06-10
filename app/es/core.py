@@ -12,6 +12,11 @@ from app.utils import dtu, RE_FIELD_DEF_CONVERSION, RE_FIELD_DEF_REL_ENT_CONVERS
 # problem with elasticsearch-py-async: no support for bulk operations
 # https://github.com/elastic/elasticsearch-py-async/issues/5
 
+MAX_RESULT_WINDOW = 10000
+DEFAULT_FROM = 0
+DEFAULT_SIZE = 10
+SCROLL_SIZE = 1000
+
 
 class Elasticsearch():
     def __init__(self) -> None:
@@ -233,8 +238,50 @@ class Elasticsearch():
     def search(self, entity_type_id: str, body: Dict) -> Dict:
         alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
         body = {k: v for (k, v) in body.items() if v is not None}
-        result = self.es.search(
-            index=alias_name,
-            body=body,
-        )
-        return result
+
+        es_from = body['from'] if 'from' in body else DEFAULT_FROM
+        es_size = body['size'] if 'size' in body else DEFAULT_SIZE
+        if es_from + es_size <= MAX_RESULT_WINDOW:
+            return self.es.search(
+                index=alias_name,
+                body=body,
+            )
+        else:
+            # Use scroll API
+            results = {
+                'hits': {
+                    'hits': []
+                }
+            }
+
+            if 'from' in body:
+                del body['from']
+            body['size'] = SCROLL_SIZE
+
+            data = self.es.search(
+                index=alias_name,
+                body=body,
+                scroll='1m',
+            )
+            results['hits']['total'] = data['hits']['total']
+
+            current_from = 0
+            sid = data['_scroll_id']
+            scroll_size = len(data['hits']['hits'])
+
+            while scroll_size > 0:
+                print(current_from)
+                if es_from < current_from + SCROLL_SIZE:
+                    start = max(es_from-current_from, 0)
+                    if es_from + es_size < current_from + SCROLL_SIZE:
+                        results['hits']['hits'] += data['hits']['hits'][start:start + es_size]
+                        break
+                    else:
+                        results['hits']['hits'] += data['hits']['hits'][start:]
+
+                data = self.es.scroll(scroll_id=sid, scroll='1m')
+                sid = data['_scroll_id']
+                scroll_size = len(data['hits']['hits'])
+                current_from += SCROLL_SIZE
+
+            return results
