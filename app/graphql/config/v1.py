@@ -32,6 +32,23 @@ def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
     return result
 
 
+def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
+    result = []
+    for section in filters:
+        res_section = {
+            'filters': [],
+        }
+        for filter in section['filters']:
+            filter_conf = {
+                'system_name': es_data_conf[filter['filter']]['system_name'],
+                'display_name': es_data_conf[filter['filter']]['display_name'],
+                'type': filter['type'] if 'type' in filter else es_data_conf[filter['filter']]['type']
+            }
+            res_section['filters'].append(filter_conf)
+        result.append(res_section)
+    return result
+
+
 # TODO: cache
 def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
@@ -61,6 +78,7 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
             if 'es_data' in entity_config['config']:
                 es_data_conf = entity_config['config']['es_data']
                 config_item['es_columns'] = _es_columns_converter(entity_config['config']['es_columns'], es_data_conf)
+                config_item['es_filters'] = _es_filters_converter(entity_config['config']['es_filters'], es_data_conf)
             # TODO: es_filters, es_columns (es_data doesn't need to be exported)
             results.append(config_item)
 
@@ -113,7 +131,8 @@ async def create_type_defs():
             ['display_name', 'String!'],
             ['data', '[Data_config!]'],
             ['display', 'Entity_display_config!'],
-            ['es_columns', '[Es_columns_config!]'],
+            ['es_columns', '[Es_column_config!]'],
+            ['es_filters', '[Es_filter_group_config!]'],
         ],
         'data_config': [
             ['system_name', 'String!'],
@@ -136,11 +155,19 @@ async def create_type_defs():
             # TODO: add overlays
             ['base_layer', 'String'],
         ],
-        'es_columns_config': [
+        'es_column_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['type', 'String!'],
             ['sortable', 'Boolean!'],
+        ],
+        'es_filter_group_config': [
+            ['filters', '[Es_filter_config!]'],
+        ],
+        'es_filter_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
+            ['type', 'String!'],
         ],
         'relation_config': [
             ['system_name', 'String!'],

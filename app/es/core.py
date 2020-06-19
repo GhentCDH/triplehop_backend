@@ -155,7 +155,10 @@ class Elasticsearch():
                 mapping['fields'] = {
                     'keyword': {
                         'type': 'keyword',
-                    }
+                    },
+                    'completion': {
+                        'type': 'completion'
+                    },
                 }
             if es_field_conf['type'] == 'nested':
                 mapping['properties'] = {

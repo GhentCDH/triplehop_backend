@@ -117,7 +117,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             {
                                 "filters": [
                                     {
-                                        "filter": "0"
+                                        "filter": "0",
+                                        "type": "autocomplete"
                                     },
                                     {
                                         "filter": "1",
