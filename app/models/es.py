@@ -3,6 +3,8 @@ from typing import Any
 
 
 class ElasticSearchBody(BaseModel):
+    # TODO: add custom validator that allows all aggs possibilities?
+    aggs: dict = None
     from_: int = None
     size: int = None
     # TODO: add custom validator that allows all sort possibilities?
@@ -11,6 +13,7 @@ class ElasticSearchBody(BaseModel):
     sort: Any = None
     # TODO: add custom validator that allows all suggest possibilities?
     suggest: dict = None
+    # TODO: add custom validator that allows all query possibilities?
     query: dict = None
 
     class Config:

@@ -44,6 +44,8 @@ def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
                 'display_name': es_data_conf[filter['filter']]['display_name'],
                 'type': filter['type'] if 'type' in filter else es_data_conf[filter['filter']]['type']
             }
+            if 'interval' in filter:
+                filter_conf['interval'] = filter['interval']
             res_section['filters'].append(filter_conf)
         result.append(res_section)
     return result
@@ -168,6 +170,7 @@ async def create_type_defs():
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['type', 'String!'],
+            ['interval', 'Int']
         ],
         'relation_config': [
             ['system_name', 'String!'],

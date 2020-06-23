@@ -122,7 +122,8 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                                     },
                                     {
                                         "filter": "1",
-                                        "type": "year_histogram"
+                                        "type": "histogram_slider",
+                                        "interval": 10
                                     },
                                     {
                                         "filter": "2"
