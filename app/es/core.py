@@ -273,7 +273,6 @@ class Elasticsearch():
             scroll_size = len(data['hits']['hits'])
 
             while scroll_size > 0:
-                print(current_from)
                 if es_from < current_from + SCROLL_SIZE:
                     start = max(es_from-current_from, 0)
                     if es_from + es_size < current_from + SCROLL_SIZE:
