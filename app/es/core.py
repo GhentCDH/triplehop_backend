@@ -156,6 +156,10 @@ class Elasticsearch():
                     'keyword': {
                         'type': 'keyword',
                     },
+                    'normalized_keyword': {
+                        'type': 'keyword',
+                        'normalizer': 'icu_normalizer',
+                    },
                     'completion': {
                         'type': 'completion'
                     },
@@ -173,6 +177,9 @@ class Elasticsearch():
                     if mapping['properties'][key]['type'] == 'text':
                         mapping['properties'][key]['fields'] = {
                             'keyword': {
+                                'type': 'keyword',
+                            },
+                            'normalized_keyword': {
                                 'type': 'keyword',
                                 'normalizer': 'icu_normalizer',
                             },
