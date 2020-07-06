@@ -301,6 +301,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
+                'id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
                 'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
                 'title': [film_type_conf_lookup['title'], header_lookup['title']],
                 'year': [film_type_conf_lookup['year'], header_lookup['film_year'], 'int'],
@@ -322,6 +323,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
+                'id': [film_type_conf_lookup['original_id'], header_lookup['director_id'], 'int'],
                 'original_id': [person_type_conf_lookup['original_id'], header_lookup['director_id'], 'int'],
                 'name': [person_type_conf_lookup['name'], header_lookup['name']],
             }
