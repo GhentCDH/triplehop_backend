@@ -2,5 +2,6 @@ venv_crdb_backend
 __pycache__
 
 app/config.py
+scripts/config.py
 
 data/*.csv
