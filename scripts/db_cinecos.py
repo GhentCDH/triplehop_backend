@@ -1,10 +1,12 @@
 import csv
 import psycopg2
 
+from config import DATABASE_CONNECTION_STRING
+
 from utils import add_entity, add_relation, batch_process, dtu
 
 
-with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
+with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
         cur.execute(
             '''
@@ -13,7 +15,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             WHERE "user".username = %(username)s;
             ''',
             {
-                'username': 'pieterjan.depotter@ugent.be',
+                'username': 'info@cinemabelgica.be',
             }
         )
         user_id = cur.fetchone()[0]
@@ -24,7 +26,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     'cinecos',
                     'Cinecos',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
             '''
@@ -146,7 +148,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             }
                         ]
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
@@ -178,7 +180,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             ]
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -201,7 +203,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                             "layout": []
                         }
                     }',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -209,7 +211,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'film'),
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -217,7 +219,7 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
                 VALUES (
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'person'),
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 

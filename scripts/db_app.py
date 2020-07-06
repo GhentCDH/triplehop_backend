@@ -1,6 +1,8 @@
 import psycopg2
 
-with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
+from config import DATABASE_CONNECTION_STRING
+
+with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
         cur.execute('''
         DROP SCHEMA IF EXISTS app CASCADE;

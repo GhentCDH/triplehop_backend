@@ -1,13 +1,23 @@
 import psycopg2
 
-with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
+from config import DATABASE_CONNECTION_STRING, USER_PASS_1, USER_PASS_2
+
+with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
         cur.execute('''
         INSERT INTO app.user (username, display_name, hashed_password, disabled)
         VALUES (
             'pieterjan.depotter@ugent.be',
             'Pieterjan De Potter',
-            '$2b$12$crqpzmrPpGLg1bkOlie.leZAopo1GUHALXukbuORu6d1EnrQoAWyC',
+            %(user_pass_1)s,
+            'false'
+        )
+        ON CONFLICT DO NOTHING;
+        INSERT INTO app.user (username, display_name, hashed_password, disabled)
+        VALUES (
+            'info@cinemabelgica.be',
+            'Cinema Belgica',
+            %(user_pass_2)s,
             'false'
         )
         ON CONFLICT DO NOTHING;
@@ -40,4 +50,9 @@ with psycopg2.connect('dbname=crdb host=127.0.0.1 user=vagrant') as conn:
             (SELECT entity.id FROM app.entity WHERE entity.system_name = '__all__'),
             (SELECT relation.id FROM app.relation WHERE relation.system_name = '__all__')
         );
-        ''')
+        ''',
+        {
+            'user_pass_1': USER_PASS_1,
+            'user_pass_2': USER_PASS_2,
+        }
+        )
