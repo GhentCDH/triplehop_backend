@@ -52,6 +52,20 @@ def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
 
 
 # TODO: cache
+def project_config_resolver_wrapper(request: Request, project_name: str):
+    async def resolver(*_):
+        config_repo = await get_repository_from_request(request, ConfigRepository)
+        # TODO: find a way to avoid unnecessary connection openings
+        db_result = await config_repo.get_project_config(project_name)
+        # TODO: find a way to close connections automatically
+        await config_repo.close()
+
+        return db_result
+
+    return resolver
+
+
+# TODO: cache
 def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
         config_repo = await get_repository_from_request(request, ConfigRepository)
@@ -125,8 +139,13 @@ async def create_type_defs():
     # TODO provide possibility to hide some fields from config, based on permissions
     type_defs_dict = {
         'query': [
+            ['Project_config', 'Project_config'],
             ['Entity_config_s', '[Entity_config]'],
             ['Relation_config_s', '[Relation_config]'],
+        ],
+        'project_config': [
+            ['system_name', 'String!'],
+            ['display_name', 'String!'],
         ],
         'entity_config': [
             ['system_name', 'String!'],
@@ -198,6 +217,11 @@ async def create_object_types(
     project_name: str,
 ):
     object_types = {'Query': QueryType()}
+
+    object_types['Query'].set_field(
+        'Project_config',
+        project_config_resolver_wrapper(request, project_name),
+    )
 
     object_types['Query'].set_field(
         'Entity_config_s',
