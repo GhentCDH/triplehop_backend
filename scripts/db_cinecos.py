@@ -67,6 +67,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "year",
                                 "display_name": "Production year",
                                 "type": "Int"
+                            },
+                            "3": {
+                                "system_name": "imdb_id",
+                                "display_name": "IMDb ID",
+                                "type": "String"
+                            },
+                            "4": {
+                                "system_name": "wikidata_id",
+                                "display_name": "Wikidata ID",
+                                "type": "String"
                             }
                         },
                         "display": {
@@ -80,6 +90,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         },
                                         {
                                             "field": "2"
+                                        },
+                                        {
+                                            "field": "3"
+                                        },
+                                        {
+                                            "field": "4"
                                         }
                                     ]
                                 }
@@ -165,6 +181,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "name",
                                 "display_name": "Name",
                                 "type": "String"
+                            },
+                            "2": {
+                                "system_name": "wikidata_id",
+                                "display_name": "Wikidata ID",
+                                "type": "String"
                             }
                         },
                         "display": {
@@ -174,6 +195,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     "fields": [
                                         {
                                             "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
                                         }
                                     ]
                                 }
@@ -305,6 +329,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
                 'title': [film_type_conf_lookup['title'], header_lookup['title']],
                 'year': [film_type_conf_lookup['year'], header_lookup['film_year'], 'int'],
+                'imdb_id': [film_type_conf_lookup['imdb_id'], header_lookup['imdb']],
+                'wikidata_id': [film_type_conf_lookup['wikidata_id'], header_lookup['wikidata']],
             }
 
             params = {
@@ -323,9 +349,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [film_type_conf_lookup['original_id'], header_lookup['director_id'], 'int'],
-                'original_id': [person_type_conf_lookup['original_id'], header_lookup['director_id'], 'int'],
+                'id': [film_type_conf_lookup['original_id'], header_lookup['person_id'], 'int'],
+                'original_id': [person_type_conf_lookup['original_id'], header_lookup['person_id'], 'int'],
                 'name': [person_type_conf_lookup['name'], header_lookup['name']],
+                'wikidata_id': [film_type_conf_lookup['wikidata_id'], header_lookup['wikidata']],
             }
 
             params = {
@@ -343,7 +370,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header = next(csv_reader)
             header_lookup = {h: header.index(h) for h in header}
 
-            relation_config = [header_lookup['film_id'], header_lookup['director_id']]
+            relation_config = [header_lookup['film_id'], header_lookup['person_id']]
 
             prop_conf = {}
 
