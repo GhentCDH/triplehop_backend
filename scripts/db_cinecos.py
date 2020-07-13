@@ -92,10 +92,14 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "2"
                                         },
                                         {
-                                            "field": "3"
+                                            "field": "3",
+                                            "type": "online_identifier",
+                                            "base_url": "https://www.imdb.com/title/"
                                         },
                                         {
-                                            "field": "4"
+                                            "field": "4",
+                                            "type": "online_identifier",
+                                            "base_url": "https://www.wikidata.org/wiki/"
                                         }
                                     ]
                                 }
@@ -197,7 +201,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "1"
                                         },
                                         {
-                                            "field": "2"
+                                            "field": "2",
+                                            "type": "online_identifier",
+                                            "base_url": "https://www.wikidata.org/wiki/"
                                         }
                                     ]
                                 }

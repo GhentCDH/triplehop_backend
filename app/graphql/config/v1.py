@@ -175,6 +175,7 @@ async def create_type_defs():
             # TODO: allow multiple base layers
             # TODO: add overlays
             ['base_layer', 'String'],
+            ['base_url', 'String'],
         ],
         'es_column_config': [
             ['system_name', 'String!'],
