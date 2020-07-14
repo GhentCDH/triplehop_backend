@@ -3,7 +3,7 @@ import psycopg2
 
 from config import DATABASE_CONNECTION_STRING
 
-from utils import add_entity, add_relation, batch_process, dtu
+from utils import add_entity, add_relation, batch_process, dtu, update_entity
 
 
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
@@ -64,23 +64,28 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "String"
                             },
                             "2": {
+                                "system_name": "title_variations",
+                                "display_name": "Alternative title(s)",
+                                "type": "[String]"
+                            },
+                            "3": {
                                 "system_name": "year",
                                 "display_name": "Production year",
                                 "type": "Int"
                             },
-                            "3": {
+                            "4": {
                                 "system_name": "imdb_id",
                                 "display_name": "IMDb ID",
                                 "type": "String"
                             },
-                            "4": {
+                            "5": {
                                 "system_name": "wikidata_id",
                                 "display_name": "Wikidata ID",
                                 "type": "String"
                             }
                         },
                         "display": {
-                            "title": "$1 ($2)",
+                            "title": "$1 ($3)",
                             "layout": [
                                 {
                                     "label": "General",
@@ -89,15 +94,19 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "1"
                                         },
                                         {
-                                            "field": "2"
+                                            "field": "2",
+                                            "type": "list"
                                         },
                                         {
-                                            "field": "3",
+                                            "field": "3"
+                                        },
+                                        {
+                                            "field": "4",
                                             "type": "online_identifier",
                                             "base_url": "https://www.imdb.com/title/"
                                         },
                                         {
-                                            "field": "4",
+                                            "field": "5",
                                             "type": "online_identifier",
                                             "base_url": "https://www.wikidata.org/wiki/"
                                         }
@@ -113,12 +122,18 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             },
                             "1": {
+                                "system_name": "title_variations",
+                                "display_name": "Alternative title(s)",
+                                "selector_value": "$title_variations",
+                                "type": "text_array"
+                            },
+                            "2": {
                                 "system_name": "year",
                                 "display_name": "Production year",
                                 "selector_value": "$year",
                                 "type": "integer"
                             },
-                            "2": {
+                            "3": {
                                 "system_name": "director",
                                 "display_name": "Director(s)",
                                 "relation": "r_director",
@@ -144,11 +159,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     },
                                     {
                                         "filter": "1",
+                                        "type": "autocomplete"
+                                    },
+                                    {
+                                        "filter": "2",
                                         "type": "histogram_slider",
                                         "interval": 10
                                     },
                                     {
-                                        "filter": "2"
+                                        "filter": "3"
                                     }
                                 ]
                             }
@@ -164,6 +183,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             {
                                 "column": "2",
+                                "sortable": true
+                            },
+                            {
+                                "column": "3",
                                 "sortable": true
                             }
                         ]
@@ -346,6 +369,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             print('Cinecos importing films')
             batch_process(cur, [r for r in csv_reader], params, add_entity, prop_conf)
+
+        with open('data/cinecos_film_title_variations.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header_lookup = {h: header.index(h) for h in header}
+
+            prop_conf = {
+                'id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
+                'title_variations': [film_type_conf_lookup['title_variations'], header_lookup['title'], 'array'],
+            }
+
+            params = {
+                'entity_type_id': film_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing film title variations')
+            batch_process(cur, [r for r in csv_reader], params, update_entity, prop_conf)
 
         with open('data/cinecos_directors.csv') as input_file:
             lines = input_file.readlines()

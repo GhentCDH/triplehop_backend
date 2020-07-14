@@ -40,21 +40,29 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
     query = []
     params = {}
 
-    # Get id and update entity_count
-    query.append(
-        '''
-            UPDATE app.entity_count
-            SET current_id = current_id + 1
-            WHERE id = %(entity_type_id)s;
-        '''
-    )
-
     # Create entity and initial revision
 
     properties = []
     if 'id' in prop_conf:
+        query.append(
+            '''
+                UPDATE app.entity_count
+                SET current_id = GREATEST(current_id, {prop_id})
+                WHERE id = %(entity_type_id)s;
+            '''.format(
+                prop_id=int(row[prop_conf['id'][1]]),
+            )
+        )
         properties.append(f'id: %(value_{counter}_{prop_conf["id"][0]})s')
     else:
+        # Get id and update entity_count
+        query.append(
+            '''
+                UPDATE app.entity_count
+                SET current_id = current_id + 1
+                WHERE id = %(entity_type_id)s;
+            '''
+        )
         properties.append('id: (SELECT entity_count.current_id FROM app.entity_count WHERE entity_count.id = %(entity_type_id)s)')
 
     for (key, indices) in prop_conf.items():
@@ -112,8 +120,145 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
                 '''.format(
                     counter=counter,
                     entity_type_id=dtu(initial_parameters['entity_type_id']),
-                    id=indices[0])
+                    id=indices[0],
                 )
+            )
+            if len(indices) == 3 and indices[2] == 'int':
+                params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+            else:
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+        if valid:
+            query.append(
+                '''
+                    CREATE
+                        (vp_{counter}_%(property_id_{counter}_{id})s)
+                        -[:e_revision]->
+                        (vr_{counter});
+                '''.format(
+                    counter=counter,
+                    id=indices[0],
+                )
+            )
+            params[f'property_id_{counter}_{indices[0]}'] = indices[0]
+
+    # remove semicolons (present for code readibility only, including the last one, which is re-added later)
+    query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
+
+    return {
+        'query': '\n'.join(query) + ';',
+        'params': params
+    }
+
+
+def update_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Dict):
+    query = []
+    params = {}
+
+    properties = []
+
+    for (key, indices) in prop_conf.items():
+        if key == 'id':
+            continue
+        if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
+            properties.append({
+                'name': f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s',
+                'value': f'ST_SetSRID(ST_MakePoint(%(value_{counter}_{indices[0]}_lon)s, %(value_{counter}_{indices[0]}_lat)s),4326)'
+            })
+        elif len(indices) == 3 and indices[2] == 'array' and row[indices[1]] != '':
+            properties.append({
+                'name': f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s',
+                'value': f'%(value_{counter}_{indices[0]})s',
+                'type': 'array',
+            })
+        elif row[indices[1]] != '':
+            properties.append({
+                'name': f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s',
+                'value': f'%(value_{counter}_{indices[0]})s',
+            })
+
+    queryPart = '''
+        MATCH
+            (ve_{counter}:v_{entity_type_id} {{id: %(value_{counter}_{id_prop_id})s}})
+    '''.format(
+        counter=counter,
+        entity_type_id=dtu(initial_parameters['entity_type_id']),
+        id_prop_id=prop_conf['id'][0]
+    )
+    for prop in properties:
+        if 'type' in prop and prop['type'] == 'array':
+            queryPart += '''
+                SET ve_{counter}.{property_name} = COALESCE(ve_{counter}.{property_name}, []) + {property_value}
+            '''.format(
+                counter=counter,
+                property_name=prop['name'],
+                property_value=prop['value'],
+            )
+        else:
+            queryPart += '''
+                SET ve_{counter}.{property_name} = {property_value}
+            '''.format(
+                counter=counter,
+                property_name=prop['name'],
+                property_value=prop['value'],
+            )
+
+    query.append(queryPart)
+
+    # Add properties and corresponding relations
+    for (key, indices) in prop_conf.items():
+        if key == 'id':
+            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+        valid = False
+        if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
+            valid = True
+            query.append(
+                '''
+                    CREATE
+                        (ve_{counter})
+                        -[:e_property]->
+                        (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: ST_SetSRID(ST_MakePoint(%(value_{counter}_{id}_lon)s, %(value_{counter}_{id}_lat)s),4326)}})
+                '''.format(
+                    counter=counter,
+                    entity_type_id=dtu(initial_parameters['entity_type_id']),
+                    id=indices[0],
+                )
+            )
+            params[f'value_{counter}_{indices[0]}_lon'] = float(row[indices[1][0]])
+            params[f'value_{counter}_{indices[0]}_lat'] = float(row[indices[1][1]])
+
+        elif len(indices) == 3 and indices[2] == 'array' and row[indices[1]] != '':
+            valid = True
+            # TODO
+            # query.append(
+            #     '''
+            #         CREATE
+            #             (ve_{counter})
+            #             -[:e_property]->
+            #             (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+            #     '''.format(
+            #         counter=counter,
+            #         entity_type_id=dtu(initial_parameters['entity_type_id']),
+            #         id=indices[0],
+            #     )
+            # )
+            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+        elif row[indices[1]] != '':
+            valid = True
+            query.append(
+                '''
+                    CREATE
+                        (ve_{counter})
+                        -[:e_property]->
+                        (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+                '''.format(
+                    counter=counter,
+                    entity_type_id=dtu(initial_parameters['entity_type_id']),
+                    id=indices[0],
+                )
+            )
             if len(indices) == 3 and indices[2] == 'int':
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
             else:
