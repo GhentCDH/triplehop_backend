@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from elasticsearch import Elasticsearch as ES
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch.helpers import bulk
+from json import dumps, loads
 from uuid import uuid4
 
 from app.config import ELASTICSEARCH
@@ -58,27 +59,13 @@ class Elasticsearch():
         return es_query
 
     @staticmethod
-    def str_value(data_item: Any) -> str:
-        if data_item is None:
-            return ''
-        return str(data_item)
-
-    @staticmethod
-    def cast(type: str, str_repr: str) -> Any:
-        if str_repr == '':
-            return None
-        if type == 'integer':
-            return int(str_repr)
-        return str_repr
-
-    @staticmethod
     def construct_value(field_def: str, type: str, data: Dict[str, Any]) -> Any:
-        """Construct the elasticsearch field data from the field definition and entity date."""
+        """Construct the elasticsearch field data from the field definition and entity data."""
         str_repr = RE_FIELD_DEF_CONVERSION.sub(
-            lambda m: Elasticsearch.str_value(data[m.group(1)]),
+            lambda m: dumps(data[m.group(1)]),
             field_def,
         )
-        return Elasticsearch.cast(type, str_repr)
+        return loads(str_repr)
 
     @staticmethod
     def construct_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> List[Dict[str, Any]]:
@@ -90,10 +77,10 @@ class Elasticsearch():
                 }
                 for key, part_def in parts.items():
                     str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
-                        lambda m: Elasticsearch.str_value(relation_item['e_props'][m.group(2)]),
+                        lambda m: dumps(relation_item['e_props'][m.group(2)]),
                         part_def['selector_value']
                     )
-                    result[key] = Elasticsearch.cast(part_def['type'], str_repr)
+                    result[key] = loads(str_repr)
                 results.append(result)
         return results
 
