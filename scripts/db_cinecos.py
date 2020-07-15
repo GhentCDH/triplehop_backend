@@ -346,7 +346,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
         )
 
-        with open('data/cinecos_films.csv') as input_file:
+        with open('data/tblFilm.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
@@ -368,9 +368,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             }
 
             print('Cinecos importing films')
-            batch_process(cur, [r for r in csv_reader], params, add_entity, prop_conf)
+            batch_process(
+                cur,
+                [r for r in csv_reader],
+                params,
+                add_entity,
+                prop_conf,
+            )
 
-        with open('data/cinecos_film_title_variations.csv') as input_file:
+        with open('data/tblFilmTitleVariation.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
@@ -388,9 +394,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             }
 
             print('Cinecos importing film title variations')
-            batch_process(cur, [r for r in csv_reader], params, update_entity, prop_conf)
+            batch_process(
+                cur,
+                [r for r in csv_reader],
+                params,
+                update_entity,
+                prop_conf
+            )
 
-        with open('data/cinecos_directors.csv') as input_file:
+        with open('data/tblPerson.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
@@ -410,9 +422,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             }
 
             print('Cinecos importing persons')
-            batch_process(cur, [r for r in csv_reader], params, add_entity, prop_conf)
+            batch_process(
+                cur,
+                [r for r in csv_reader if r[header_lookup['name']] != ''],
+                params,
+                add_entity,
+                prop_conf
+            )
 
-        with open('data/cinecos_films_directors.csv') as input_file:
+        with open('data/tblJoinFilmPerson.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
@@ -433,4 +451,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             }
 
             print('Cinecos importing director relations')
-            batch_process(cur, [r for r in csv_reader], params, add_relation, relation_config, prop_conf)
+            batch_process(
+                cur,
+                [r for r in csv_reader if r[header_lookup['info']] == 'director'],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
