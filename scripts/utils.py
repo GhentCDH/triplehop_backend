@@ -324,8 +324,8 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
         )
     )
 
-    params[f'domain_id_{counter}'] = int(row[relation_conf[0]])
-    params[f'range_id_{counter}'] = int(row[relation_conf[1]])
+    params[f'domain_id_{counter}'] = row[relation_conf[0]]
+    params[f'range_id_{counter}'] = row[relation_conf[1]]
 
     # TODO: add relation node, add revision, add properties
 

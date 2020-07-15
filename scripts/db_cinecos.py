@@ -779,7 +779,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             prop_conf = {
                 'id': [None, header_lookup['sequential_id'], 'int'],
-                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['sequential_id']],
+                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['venue_id']],
                 'name': [venue_type_conf_lookup['name'], header_lookup['name']],
                 'date_opened_display': [venue_type_conf_lookup['date_opened_display'], header_lookup['date_opened']],
                 'date_opened': [venue_type_conf_lookup['date_opened'], header_lookup['date_opened_system']],
