@@ -354,7 +354,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
+                'id': [None, header_lookup['film_id'], 'int'],
                 'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
                 'title': [film_type_conf_lookup['title'], header_lookup['title']],
                 'year': [film_type_conf_lookup['year'], header_lookup['film_year'], 'int'],
@@ -384,7 +384,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
+                'id': [None, header_lookup['film_id'], 'int'],
                 'title_variations': [film_type_conf_lookup['title_variations'], header_lookup['title'], 'array'],
             }
 
@@ -410,7 +410,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [film_type_conf_lookup['original_id'], header_lookup['person_id'], 'int'],
+                'id': [None, header_lookup['person_id'], 'int'],
                 'original_id': [person_type_conf_lookup['original_id'], header_lookup['person_id'], 'int'],
                 'name': [person_type_conf_lookup['name'], header_lookup['name']],
                 'wikidata_id': [person_type_conf_lookup['wikidata_id'], header_lookup['wikidata']],

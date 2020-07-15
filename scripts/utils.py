@@ -53,7 +53,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
                 prop_id=int(row[prop_conf['id'][1]]),
             )
         )
-        properties.append(f'id: %(value_{counter}_{prop_conf["id"][0]})s')
+        properties.append(f'id: %(value_{counter}_id)s')
     else:
         # Get id and update entity_count
         query.append(
@@ -89,7 +89,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
     # Add properties and corresponding relations
     for (key, indices) in prop_conf.items():
         if key == 'id':
-            continue
+            params[f'value_{counter}_id'] = int(row[indices[1]])
 
         valid = False
         if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
