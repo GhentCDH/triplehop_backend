@@ -230,7 +230,7 @@ def update_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf:
 
         elif len(indices) == 3 and indices[2] == 'array' and row[indices[1]] != '':
             valid = True
-            # TODO
+            # TODO: add properties and corresponding relations
             # query.append(
             #     '''
             #         CREATE
