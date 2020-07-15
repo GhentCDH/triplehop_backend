@@ -307,13 +307,105 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'address',
+                    'Address',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "street_name",
+                                "display_name": "Street name",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "location",
+                                "display_name": "Location",
+                                "type": "Geometry"
+                            },
+                            "3": {
+                                "system_name": "district",
+                                "display_name": "District",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2",
+                                            "type": "geometry"
+                                        },
+                                        {
+                                            "field": "3"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'city',
+                    'City',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "postal_code",
+                                "display_name": "Postal code",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.entity_count (id)
                 VALUES
                     ((select entity.id FROM app.entity WHERE entity.system_name = 'film')),
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'person'))
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'person')),
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'venue')),
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'address')),
+                    ((select entity.id FROM app.entity WHERE entity.system_name = 'city'))
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.relation (project_id, system_name, display_name, config, user_id)
@@ -326,6 +418,20 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         "display": {
                             "domain_title": "Directed by",
                             "range_title": "Directed",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'city',
+                    'City',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "City",
+                            "range_title": "Address",
                             "layout": []
                         }
                     }',
@@ -389,6 +495,51 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         cur.execute(
             '''
                 SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+                ''',
+            {
+                'entity_type_name': 'venue',
+            }
+        )
+        (venue_type_id, venue_type_conf) = list(cur.fetchone())
+        venue_type_conf_lookup = {venue_type_conf['data'][k]['system_name']: int(k) for k in venue_type_conf['data'].keys()}
+
+        cur.execute(
+            '''
+                SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+                ''',
+            {
+                'entity_type_name': 'address',
+            }
+        )
+        (address_type_id, address_type_conf) = list(cur.fetchone())
+        address_type_conf_lookup = {address_type_conf['data'][k]['system_name']: int(k) for k in address_type_conf['data'].keys()}
+
+        cur.execute(
+            '''
+                SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+                ''',
+            {
+                'entity_type_name': 'city',
+            }
+        )
+        (city_type_id, city_type_conf) = list(cur.fetchone())
+        city_type_conf_lookup = {city_type_conf['data'][k]['system_name']: int(k) for k in city_type_conf['data'].keys()}
+
+        cur.execute(
+            '''
+                SELECT
                     relation.id,
                     relation.config
                 FROM app.relation
@@ -404,17 +555,17 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         cur.execute(
             '''
                 SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
-                ''',
+                    relation.id,
+                    relation.config
+                FROM app.relation
+                WHERE relation.system_name = %(relation_type_name)s;
+            ''',
             {
-                'entity_type_name': 'venue',
+                'relation_type_name': 'city',
             }
         )
-        (venue_type_id, venue_type_conf) = list(cur.fetchone())
-        venue_type_conf_lookup = {venue_type_conf['data'][k]['system_name']: int(k) for k in venue_type_conf['data'].keys()}
+        (city_relation_type_id, city_relation_type_conf) = list(cur.fetchone())
+        city_relation_type_conf = {city_relation_type_conf['data'][k]['system_name']: int(k) for k in city_relation_type_conf['data'].keys()}
 
         cur.execute(
             '''
@@ -628,7 +779,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             prop_conf = {
                 'id': [None, header_lookup['sequential_id'], 'int'],
-                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['venue_id']],
+                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['sequential_id']],
                 'name': [venue_type_conf_lookup['name'], header_lookup['name']],
                 'date_opened_display': [venue_type_conf_lookup['date_opened_display'], header_lookup['date_opened']],
                 'date_opened': [venue_type_conf_lookup['date_opened'], header_lookup['date_opened_system']],
@@ -639,7 +790,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             }
 
             params = {
-                'entity_type_id': person_type_id,
+                'entity_type_id': venue_type_id,
                 'user_id': user_id,
             }
 
@@ -649,5 +800,119 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 venues,
                 params,
                 add_entity,
+                prop_conf
+            )
+
+        with open('data/tblAddress.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header.append('city_id')
+            header.append('long')
+            header.append('lat')
+            header_lookup = {h: header.index(h) for h in header}
+
+            # extract cities from addresses
+            city_counter = 1
+            city_lookup = {}
+            cities = []
+
+            addresses = []
+            for row in csv_reader:
+                # clean n/a
+                for col in ['city_name', 'street_name', 'geodata', 'postal_code', 'info']:
+                    if row[header_lookup[col]] in ['N/A', '?']:
+                        row[header_lookup[col]] = ''
+
+                # cities
+                city_key = f'{row[header_lookup["city_name"]]}_{row[header_lookup["postal_code"]]}'
+                if city_key == '_':
+                    row.append('')
+                else:
+                    if city_key not in city_lookup:
+                        cities.append([city_counter, row[header_lookup["city_name"]], row[header_lookup["postal_code"]]])
+                        city_lookup[city_key] = city_counter
+                        city_counter += 1
+                    row.append(city_lookup[city_key])
+
+                # long, lat
+                if row[header_lookup['geodata']] != '':
+                    split = row[header_lookup['geodata']].split(',')
+                    if len(split) != 2:
+                        print(row)
+                    row.append(split[1])
+                    row.append(split[0])
+                else:
+                    row.append('')
+                    row.append('')
+                addresses.append(row)
+
+            # import cities
+            prop_conf = {
+                'id': [None, 0, 'int'],
+                'original_id': [city_type_conf_lookup['original_id'], 0, 'int'],
+                'name': [city_type_conf_lookup['name'], 1],
+                'postal_code': [city_type_conf_lookup['postal_code'], 2, 'int'],
+            }
+
+            params = {
+                'entity_type_id': city_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing cities')
+            batch_process(
+                cur,
+                cities,
+                params,
+                add_entity,
+                prop_conf
+            )
+
+            # import addresses
+            prop_conf = {
+                'id': [None, header_lookup['sequential_id'], 'int'],
+                'original_id': [address_type_conf_lookup['original_id'], header_lookup['sequential_id']],
+                'street_name': [address_type_conf_lookup['street_name'], header_lookup['street_name']],
+                'location': [address_type_conf_lookup['location'], [header_lookup['long'], header_lookup['lat']], 'point'],
+                'district': [address_type_conf_lookup['district'], header_lookup['info']],
+            }
+
+            params = {
+                'entity_type_id': address_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing addresses')
+            batch_process(
+                cur,
+                addresses,
+                params,
+                add_entity,
+                prop_conf
+            )
+
+            # import relation between addresses and cities
+            relation_config = [header_lookup['sequential_id'], header_lookup['city_id']]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': address_type_id,
+                'domain_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
+                'range_type_id': city_type_id,
+                'range_prop': f'p_{dtu(city_type_id)}_{city_type_conf_lookup["original_id"]}',
+                'relation_type_id': city_relation_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing director relations')
+            batch_process(
+                cur,
+                [a for a in addresses if a[header_lookup['city_id']] != ''],
+                params,
+                add_relation,
+                relation_config,
                 prop_conf
             )
