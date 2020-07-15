@@ -273,12 +273,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             "6": {
                                 "system_name": "status",
                                 "display_name": "Status",
-                                "type": "Int"
+                                "type": "String"
                             },
                             "7": {
                                 "system_name": "type",
                                 "display_name": "Type",
-                                "type": "Int"
+                                "type": "String"
                             }
                         },
                         "display": {
