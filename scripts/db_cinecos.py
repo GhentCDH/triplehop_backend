@@ -425,13 +425,27 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
-                    'city',
+                    'address_city',
                     'City',
                     '{
                         "data": {},
                         "display": {
                             "domain_title": "City",
                             "range_title": "Address",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'venue_address',
+                    'Address',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Address",
+                            "range_title": "Venue",
                             "layout": []
                         }
                     }',
@@ -444,6 +458,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'film'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'address_city'),
+                    (SELECT id FROM app.entity WHERE system_name = 'address'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_address'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -452,12 +476,24 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
                     (SELECT id FROM app.entity WHERE system_name = 'person'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'address_city'),
+                    (SELECT id FROM app.entity WHERE system_name = 'city'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_address'),
+                    (SELECT id FROM app.entity WHERE system_name = 'address'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.relation_count (id)
                 VALUES
-                    ((SELECT relation.id FROM app.relation WHERE system_name = 'director'))
+                    ((SELECT relation.id FROM app.relation WHERE system_name = 'director')),
+                    ((SELECT relation.id FROM app.relation WHERE system_name = 'address_city')),
+                    ((SELECT relation.id FROM app.relation WHERE system_name = 'venue_address'))
                 ON CONFLICT DO NOTHING;
             '''
         )
@@ -561,11 +597,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 WHERE relation.system_name = %(relation_type_name)s;
             ''',
             {
-                'relation_type_name': 'city',
+                'relation_type_name': 'address_city',
             }
         )
         (city_relation_type_id, city_relation_type_conf) = list(cur.fetchone())
         city_relation_type_conf = {city_relation_type_conf['data'][k]['system_name']: int(k) for k in city_relation_type_conf['data'].keys()}
+
+        cur.execute(
+            '''
+                SELECT
+                    relation.id,
+                    relation.config
+                FROM app.relation
+                WHERE relation.system_name = %(relation_type_name)s;
+            ''',
+            {
+                'relation_type_name': 'venue_address',
+            }
+        )
+        (address_relation_type_id, address_relation_type_conf) = list(cur.fetchone())
+        address_relation_type_conf = {address_relation_type_conf['data'][k]['system_name']: int(k) for k in address_relation_type_conf['data'].keys()}
 
         cur.execute(
             '''
@@ -699,6 +750,120 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
+        with open('data/tblAddress.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header.append('city_id')
+            header.append('long')
+            header.append('lat')
+            header_lookup = {h: header.index(h) for h in header}
+
+            # extract cities from addresses
+            city_counter = 1
+            city_lookup = {}
+            cities = []
+
+            addresses = []
+            for row in csv_reader:
+                # clean n/a
+                for col in ['city_name', 'street_name', 'geodata', 'postal_code', 'info']:
+                    if row[header_lookup[col]] in ['N/A', '?']:
+                        row[header_lookup[col]] = ''
+
+                # cities
+                city_key = f'{row[header_lookup["city_name"]]}_{row[header_lookup["postal_code"]]}'
+                if city_key == '_':
+                    row.append('')
+                else:
+                    if city_key not in city_lookup:
+                        cities.append([city_counter, row[header_lookup["city_name"]], row[header_lookup["postal_code"]]])
+                        city_lookup[city_key] = city_counter
+                        city_counter += 1
+                    row.append(city_lookup[city_key])
+
+                # long, lat
+                if row[header_lookup['geodata']] != '':
+                    split = row[header_lookup['geodata']].split(',')
+                    if len(split) != 2:
+                        print(row)
+                    row.append(split[1])
+                    row.append(split[0])
+                else:
+                    row.append('')
+                    row.append('')
+                addresses.append(row)
+
+            # import cities
+            prop_conf = {
+                'id': [None, 0, 'int'],
+                'original_id': [city_type_conf_lookup['original_id'], 0, 'int'],
+                'name': [city_type_conf_lookup['name'], 1],
+                'postal_code': [city_type_conf_lookup['postal_code'], 2, 'int'],
+            }
+
+            params = {
+                'entity_type_id': city_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing cities')
+            batch_process(
+                cur,
+                cities,
+                params,
+                add_entity,
+                prop_conf
+            )
+
+            # import addresses
+            prop_conf = {
+                'id': [None, header_lookup['sequential_id'], 'int'],
+                'original_id': [address_type_conf_lookup['original_id'], header_lookup['address_id']],
+                'street_name': [address_type_conf_lookup['street_name'], header_lookup['street_name']],
+                'location': [address_type_conf_lookup['location'], [header_lookup['long'], header_lookup['lat']], 'point'],
+                'district': [address_type_conf_lookup['district'], header_lookup['info']],
+            }
+
+            params = {
+                'entity_type_id': address_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing addresses')
+            batch_process(
+                cur,
+                addresses,
+                params,
+                add_entity,
+                prop_conf
+            )
+
+            # import relation between addresses and cities
+            relation_config = [header_lookup['address_id'], header_lookup['city_id']]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': address_type_id,
+                'domain_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
+                'range_type_id': city_type_id,
+                'range_prop': f'p_{dtu(city_type_id)}_{city_type_conf_lookup["original_id"]}',
+                'relation_type_id': city_relation_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing address city relations')
+            batch_process(
+                cur,
+                [a for a in addresses if a[header_lookup['city_id']] != ''],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
         with open('data/tblVenue.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
@@ -777,6 +942,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
                 venues.append(row)
 
+            # import venues
             prop_conf = {
                 'id': [None, header_lookup['sequential_id'], 'int'],
                 'original_id': [venue_type_conf_lookup['original_id'], header_lookup['venue_id']],
@@ -803,114 +969,24 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
-        with open('data/tblAddress.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            header.append('city_id')
-            header.append('long')
-            header.append('lat')
-            header_lookup = {h: header.index(h) for h in header}
-
-            # extract cities from addresses
-            city_counter = 1
-            city_lookup = {}
-            cities = []
-
-            addresses = []
-            for row in csv_reader:
-                # clean n/a
-                for col in ['city_name', 'street_name', 'geodata', 'postal_code', 'info']:
-                    if row[header_lookup[col]] in ['N/A', '?']:
-                        row[header_lookup[col]] = ''
-
-                # cities
-                city_key = f'{row[header_lookup["city_name"]]}_{row[header_lookup["postal_code"]]}'
-                if city_key == '_':
-                    row.append('')
-                else:
-                    if city_key not in city_lookup:
-                        cities.append([city_counter, row[header_lookup["city_name"]], row[header_lookup["postal_code"]]])
-                        city_lookup[city_key] = city_counter
-                        city_counter += 1
-                    row.append(city_lookup[city_key])
-
-                # long, lat
-                if row[header_lookup['geodata']] != '':
-                    split = row[header_lookup['geodata']].split(',')
-                    if len(split) != 2:
-                        print(row)
-                    row.append(split[1])
-                    row.append(split[0])
-                else:
-                    row.append('')
-                    row.append('')
-                addresses.append(row)
-
-            # import cities
-            prop_conf = {
-                'id': [None, 0, 'int'],
-                'original_id': [city_type_conf_lookup['original_id'], 0, 'int'],
-                'name': [city_type_conf_lookup['name'], 1],
-                'postal_code': [city_type_conf_lookup['postal_code'], 2, 'int'],
-            }
-
-            params = {
-                'entity_type_id': city_type_id,
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing cities')
-            batch_process(
-                cur,
-                cities,
-                params,
-                add_entity,
-                prop_conf
-            )
-
-            # import addresses
-            prop_conf = {
-                'id': [None, header_lookup['sequential_id'], 'int'],
-                'original_id': [address_type_conf_lookup['original_id'], header_lookup['sequential_id']],
-                'street_name': [address_type_conf_lookup['street_name'], header_lookup['street_name']],
-                'location': [address_type_conf_lookup['location'], [header_lookup['long'], header_lookup['lat']], 'point'],
-                'district': [address_type_conf_lookup['district'], header_lookup['info']],
-            }
-
-            params = {
-                'entity_type_id': address_type_id,
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing addresses')
-            batch_process(
-                cur,
-                addresses,
-                params,
-                add_entity,
-                prop_conf
-            )
-
-            # import relation between addresses and cities
-            relation_config = [header_lookup['sequential_id'], header_lookup['city_id']]
+            # import relation between venues and addresses
+            relation_config = [header_lookup['venue_id'], header_lookup['address_id']]
 
             prop_conf = {}
 
             params = {
-                'domain_type_id': address_type_id,
-                'domain_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
-                'range_type_id': city_type_id,
-                'range_prop': f'p_{dtu(city_type_id)}_{city_type_conf_lookup["original_id"]}',
-                'relation_type_id': city_relation_type_id,
+                'domain_type_id': venue_type_id,
+                'domain_prop': f'p_{dtu(venue_type_id)}_{venue_type_conf_lookup["original_id"]}',
+                'range_type_id': address_type_id,
+                'range_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
+                'relation_type_id': address_relation_type_id,
                 'user_id': user_id,
             }
 
-            print('Cinecos importing director relations')
+            print('Cinecos importing venue address relations')
             batch_process(
                 cur,
-                [a for a in addresses if a[header_lookup['city_id']] != ''],
+                [v for v in venues if v[header_lookup['address_id']] != ''],
                 params,
                 add_relation,
                 relation_config,
