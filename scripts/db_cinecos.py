@@ -5,7 +5,6 @@ from config import DATABASE_CONNECTION_STRING
 
 from utils import add_entity, add_relation, batch_process, dtu, update_entity
 
-
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
         cur.execute(
@@ -234,6 +233,80 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'venue',
+                    'Venue',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "date_opened_display",
+                                "display_name": "Date opened",
+                                "type": "String"
+                            },
+                            "3": {
+                                "system_name": "date_opened",
+                                "display_name": "Date opened",
+                                "type": "Int"
+                            },
+                            "4": {
+                                "system_name": "date_closed_display",
+                                "display_name": "Date closed",
+                                "type": "String"
+                            },
+                            "5": {
+                                "system_name": "date_closed",
+                                "display_name": "Date opened",
+                                "type": "Int"
+                            },
+                            "6": {
+                                "system_name": "status",
+                                "display_name": "Status",
+                                "type": "Int"
+                            },
+                            "7": {
+                                "system_name": "type",
+                                "display_name": "Type",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        },
+                                        {
+                                            "field": "4"
+                                        },
+                                        {
+                                            "field": "6"
+                                        },
+                                        {
+                                            "field": "7"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -327,6 +400,21 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         )
         (director_type_id, director_type_conf) = list(cur.fetchone())
         director_type_conf_lookup = {director_type_conf['data'][k]['system_name']: int(k) for k in director_type_conf['data'].keys()}
+
+        cur.execute(
+            '''
+                SELECT
+                    entity.id,
+                    entity.config
+                FROM app.entity
+                WHERE entity.system_name = %(entity_type_name)s;
+                ''',
+            {
+                'entity_type_name': 'venue',
+            }
+        )
+        (venue_type_id, venue_type_conf) = list(cur.fetchone())
+        venue_type_conf_lookup = {venue_type_conf['data'][k]['system_name']: int(k) for k in venue_type_conf['data'].keys()}
 
         cur.execute(
             '''
@@ -457,5 +545,109 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 params,
                 add_relation,
                 relation_config,
+                prop_conf
+            )
+
+        with open('data/tblVenue.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header.append('date_opened_system')
+            header.append('date_closed_system')
+            header_lookup = {h: header.index(h) for h in header}
+
+            # Process dates: process question marks, X, asterisks and N/A
+            venues = []
+            for row in csv_reader:
+                # Clean up N/A and X
+                for col in ['date_opened', 'date_closed']:
+                    val = row[header_lookup[col]]
+                    if val in ['', 'N/A', 'NA?']:
+                        row[header_lookup[col]] = ''
+                    elif len(val) == 4 and val[:3].isnumeric() and val[3:] == '?':
+                        row[header_lookup[col]] = f'{val[:3]}X'
+                    elif len(val) == 5 and val[:3].isnumeric() and val[3:] == 'X?':
+                        row[header_lookup[col]] = f'{val[:3]}X'
+                    elif val == '1967-1968?':
+                        row[header_lookup[col]] = '[1967,1968]'
+                    elif val == '1935/36':
+                        row[header_lookup[col]] = '[1935,1936]'
+                    elif val == '1962/68':
+                        row[header_lookup[col]] = '[1963..1968]'
+
+                for col in ['date_opened', 'date_closed']:
+                    val = row[header_lookup[col]]
+                    if val == '':
+                        row.append('')
+                    elif val == '*':
+                        row.append('..')
+                    elif val.isnumeric():
+                        row.append(val)
+                    elif len(val) == 4 and val[:3].isnumeric() and val[3:] == 'X':
+                        # Make interval as wide as possible
+                        if col == 'date_opened':
+                            row.append(f'{val[:3]}0')
+                        else:
+                            row.append(f'{val[:3]}9')
+                    elif len(val) == 5 and val[:4].isnumeric() and val[4:] == '?':
+                        row.append(val[:4])
+                    elif val[0] == '[' and val[-1] == ']':
+                        # Make interval as wide as possible
+                        if col == 'date_opened':
+                            row.append(val[1:-1].replace('..', ',').split(',')[0])
+                        else:
+                            row.append(val[1:-1].replace('..', ',').split(',')[-1])
+                    else:
+                        print('incorrect date')
+                        print(row)
+                        print(col)
+                        print(val)
+
+                # create an interval if only opening or closing year is known
+                for col in ['date_opened', 'date_closed']:
+                    other_col = 'date_opened' if col == 'date_closed' else 'date_opened'
+                    if row[header_lookup[col]] == '' and row[header_lookup[other_col]] != '':
+                        val = row[header_lookup[other_col]]
+                        if val.isnumeric():
+                            row[header_lookup[f'{col}_system']] = val
+                        elif len(val) == 4 and val[:3].isnumeric() and val[3:] == 'X':
+                            if col == 'date_opened':
+                                row[header_lookup[f'{col}_system']] = f'{val[:3]}0'
+                            else:
+                                row[header_lookup[f'{col}_system']] = f'{val[:3]}9'
+                        elif len(val) == 5 and val[:4].isnumeric() and val[4:] == '?':
+                            row[header_lookup[f'{col}_system']] = val[:4]
+                        else:
+                            print('incorrect date when creating interval')
+                            print(row)
+                            print(col)
+                            print(val)
+
+                venues.append(row)
+
+            prop_conf = {
+                'id': [None, header_lookup['sequential_id'], 'int'],
+                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['venue_id']],
+                'name': [venue_type_conf_lookup['name'], header_lookup['name']],
+                'date_opened_display': [venue_type_conf_lookup['date_opened_display'], header_lookup['date_opened']],
+                'date_opened': [venue_type_conf_lookup['date_opened'], header_lookup['date_opened_system']],
+                'date_closed_display': [venue_type_conf_lookup['date_closed_display'], header_lookup['date_closed']],
+                'date_closed': [venue_type_conf_lookup['date_closed'], header_lookup['date_closed_system']],
+                'status': [venue_type_conf_lookup['status'], header_lookup['status']],
+                'type': [venue_type_conf_lookup['type'], header_lookup['type']],
+            }
+
+            params = {
+                'entity_type_id': person_type_id,
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing venues')
+            batch_process(
+                cur,
+                venues,
+                params,
+                add_entity,
                 prop_conf
             )
