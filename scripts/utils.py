@@ -71,6 +71,9 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
         if len(indices) == 3 and indices[2] == 'point':
             if row[indices[1][0]] != '' and row[indices[1][1]] != '':
                 properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: ST_SetSRID(ST_MakePoint(%(value_{counter}_{indices[0]}_lon)s, %(value_{counter}_{indices[0]}_lat)s),4326)')
+        elif len(indices) == 3 and indices[2] == 'array':
+            # TODO
+            raise Exception('Not yet implemented')
         elif row[indices[1]] != '':
             properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
@@ -111,6 +114,10 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
                 # )
                 params[f'value_{counter}_{indices[0]}_lon'] = float(row[indices[1][0]])
                 params[f'value_{counter}_{indices[0]}_lat'] = float(row[indices[1][1]])
+
+        elif len(indices) == 3 and indices[2] == 'array':
+            # TODO
+            raise Exception('Not yet implemented')
 
         elif row[indices[1]] != '':
             valid = True
