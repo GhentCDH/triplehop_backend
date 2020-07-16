@@ -402,7 +402,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
-                ON CONFLICT DO NOTHING;
+                ON CONFLICT (project_id, system_name) DO UPDATE
+                SET config = EXCLUDED.config;
 
                 INSERT INTO app.entity_count (id)
                 SELECT entity.id from app.entity
@@ -451,7 +452,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
-                ON CONFLICT DO NOTHING;
+                ON CONFLICT (project_id, system_name) DO UPDATE
+                SET config = EXCLUDED.config;
 
                 INSERT INTO app.relation_domain (relation_id, entity_id, user_id)
                 VALUES (
