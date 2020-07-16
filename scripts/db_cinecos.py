@@ -656,7 +656,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header = next(csv_reader)
             file_lookup = {h: header.index(h) for h in header}
 
-            relation_config = [file_lookup['film_id'], file_lookup['person_id']]
+            relation_config = [
+                [file_lookup['film_id'], 'int'],
+                [file_lookup['person_id'], 'int'],
+            ]
 
             prop_conf = {}
 
@@ -770,7 +773,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
 
             # import relation between addresses and cities
-            relation_config = [file_lookup['address_id'], file_lookup['city_id']]
+            relation_config = [
+                [file_lookup['address_id']],
+                [file_lookup['city_id'], 'int'],
+            ]
 
             prop_conf = {}
 
@@ -899,7 +905,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
 
             # import relation between venues and addresses
-            relation_config = [file_lookup['venue_id'], file_lookup['address_id']]
+            relation_config = [
+                [file_lookup['venue_id']],
+                [file_lookup['address_id']],
+            ]
 
             prop_conf = {}
 

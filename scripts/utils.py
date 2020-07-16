@@ -324,8 +324,14 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
         )
     )
 
-    params[f'domain_id_{counter}'] = row[relation_conf[0]]
-    params[f'range_id_{counter}'] = row[relation_conf[1]]
+    if len(relation_conf[0]) == 2 and relation_conf[0][1] == 'int':
+        params[f'domain_id_{counter}'] = int(row[relation_conf[0][0]])
+    else:
+        params[f'domain_id_{counter}'] = row[relation_conf[0][0]]
+    if len(relation_conf[1]) == 2 and relation_conf[1][1] == 'int':
+        params[f'range_id_{counter}'] = int(row[relation_conf[1][0]])
+    else:
+        params[f'range_id_{counter}'] = row[relation_conf[1][0]]
 
     # TODO: add relation node, add revision, add properties
 
