@@ -1,5 +1,6 @@
 import csv
 import psycopg2
+from datetime import datetime, timedelta
 
 from config import DATABASE_CONNECTION_STRING
 
@@ -401,6 +402,73 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme',
+                    'Programme',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "String"
+                            },
+                            "3": {
+                                "system_name": "dates_mentioned",
+                                "display_name": "Date(s) mentioned",
+                                "type": "[String]"
+                            }
+                        },
+                        "display": {
+                            "title": "Programme ($1 - $2)",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        },
+                                        {
+                                            "field": "3"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_item',
+                    'Programme item',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "title": "Programme item",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT (project_id, system_name) DO UPDATE
                 SET config = EXCLUDED.config;
@@ -451,6 +519,62 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_item',
+                    'Programme item',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Programme item",
+                            "range_title": "Programme",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_film',
+                    'Film',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "mentioned_title",
+                                "display_name": "Mentioned title",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "Film",
+                            "range_title": "Programme",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_venue',
+                    'Venue',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Venue",
+                            "range_title": "Programme",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "0"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT (project_id, system_name) DO UPDATE
                 SET config = EXCLUDED.config;
@@ -470,6 +594,21 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'venue_address'),
                     (SELECT id FROM app.entity WHERE system_name = 'venue'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_item'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -488,6 +627,21 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'venue_address'),
                     (SELECT id FROM app.entity WHERE system_name = 'address'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_item'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme_item'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -504,6 +658,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'venue',
             'address',
             'city',
+            'programme',
+            'programme_item',
         ]:
             cur.execute(
                 '''
@@ -528,6 +684,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'director',
             'address_city',
             'venue_address',
+            'programme_item',
+            'programme_film',
+            'programme_venue',
         ]:
             cur.execute(
                 '''
@@ -927,6 +1086,195 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             batch_process(
                 cur,
                 [v for v in venues if v[file_lookup['address_id']] != ''],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblProgramme.csv') as input_file, \
+             open('data/tblProgrammeDate.csv') as date_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header.append('date_start')
+            header.append('date_end')
+            header.append('dates_mentioned')
+            file_lookup = {h: header.index(h) for h in header}
+
+            date_lines = date_file.readlines()
+            date_reader = csv.reader(date_lines)
+
+            date_header = next(date_reader)
+            date_file_lookup = {h: date_header.index(h) for h in date_header}
+
+            dates_index = {r[0]: r for r in date_reader}
+
+            programmes = []
+            for row in csv_reader:
+                if 'Vertoningsdag' in row[file_lookup['programme_info']]:
+                    start_date = dates_index[row[0]][date_file_lookup['programme_date']]
+                    row.append(start_date)
+                    row.append(start_date)
+                    row.append([start_date])
+                else:
+                    start_date = dates_index[row[0]][date_file_lookup['programme_date']]
+                    end_date = datetime.strftime(
+                        datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=7),
+                        '%Y-%m-%d'
+                    )
+                    # create list with only dates (between parentheses)
+                    mentioned_dates = [d.split(')')[0] for d in row[file_lookup['programme_info']].split('(')[1:]]
+                    row.append(start_date)
+                    row.append(end_date)
+                    row.append(mentioned_dates)
+                programmes.append(row)
+
+            # Import program items (without mentioned dates)
+            prop_conf = {
+                'id': [None, file_lookup['programme_id'], 'int'],
+                'original_id': [types['programme']['cl']['original_id'], file_lookup['programme_id']],
+                'date_start': [types['programme']['cl']['date_start'], file_lookup['date_start']],
+                'date_end': [types['programme']['cl']['date_end'], file_lookup['date_end']],
+            }
+
+            params = {
+                'entity_type_id': types['programme']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programmes (without mentioned dates)')
+            batch_process(
+                cur,
+                programmes,
+                params,
+                add_entity,
+                prop_conf,
+            )
+
+            programmes_mentioned = []
+            for programme in programmes:
+                for date_mentioned in programme[file_lookup['dates_mentioned']]:
+                    programmes_mentioned.append([programme[0], date_mentioned])
+
+            # Import program items (mentioned dates)
+            prop_conf = {
+                'id': [None, 0, 'int'],
+                'dates_mentioned': [types['programme']['cl']['dates_mentioned'], 1, 'array'],
+            }
+
+            params = {
+                'entity_type_id': types['programme']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programmes (mentioned dates)')
+            batch_process(
+                cur,
+                programmes_mentioned,
+                params,
+                update_entity,
+                prop_conf,
+            )
+
+            # import relation between programmes and venues
+            relation_config = [
+                [file_lookup['programme_id'], 'int'],
+                [file_lookup['venue_id']],
+            ]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': types['programme']['id'],
+                'domain_prop': f'p_{dtu(types["programme"]["id"])}_{types["programme"]["cl"]["original_id"]}',
+                'range_type_id': types['venue']['id'],
+                'range_prop': f'p_{dtu(types["venue"]["id"])}_{types["venue"]["cl"]["original_id"]}',
+                'relation_type_id': relations['programme_venue']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programme venue relations')
+            batch_process(
+                cur,
+                programmes,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblProgrammeItem.csv') as input_file, \
+             open('data/tblFilmTitleVariation.csv') as tv_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            header.append('mentioned_title')
+            file_lookup = {h: header.index(h) for h in header}
+
+            tv_lines = tv_file.readlines()
+            tv_reader = csv.reader(tv_lines)
+
+            tv_header = next(tv_reader)
+            tv_lookup = {h: tv_header.index(h) for h in tv_header}
+
+            tv_index = {}
+            for row in tv_reader:
+                tv_index[row[tv_lookup['film_variation_id']]] = row[tv_lookup['title']]
+
+            programme_items = []
+            for row in csv_reader:
+                film_variation_id = row[file_lookup['film_variation_id']]
+                if film_variation_id != '':
+                    row.append(tv_index[film_variation_id])
+                else:
+                    row.append('')
+                programme_items.append(row)
+
+            prop_conf = {
+                'id': [None, file_lookup['programme_item_id'], 'int'],
+                'original_id': [types['programme_item']['cl']['original_id'], file_lookup['programme_item_id'], 'int'],
+            }
+
+            params = {
+                'entity_type_id': types['programme_item']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programme items')
+            batch_process(
+                cur,
+                programme_items,
+                params,
+                add_entity,
+                prop_conf,
+            )
+
+            # import relation between programme item and film
+            relation_config = [
+                [file_lookup['programme_item_id'], 'int'],
+                [file_lookup['film_id'], 'int'],
+            ]
+
+            prop_conf = {
+                'mentioned_title': [relations['programme_film']['cl']['mentioned_title'], file_lookup['mentioned_title']],
+            }
+
+            params = {
+                'domain_type_id': types['programme_item']['id'],
+                'domain_prop': f'p_{dtu(types["programme_item"]["id"])}_{types["programme_item"]["cl"]["original_id"]}',
+                'range_type_id': types['film']['id'],
+                'range_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'relation_type_id': relations['programme_film']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programme item film relations')
+            batch_process(
+                cur,
+                programme_items,
                 params,
                 add_relation,
                 relation_config,
