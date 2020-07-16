@@ -312,9 +312,9 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
 
     # Create relation, relation node and initial revision
     properties = ['id: (SELECT current_id FROM app.relation_count WHERE id = %(relation_type_id)s)']
-    # for (key, indices) in prop_conf.items():
-    #     if row[indices[1]] != '':
-    #         properties.append(f'p_{entity_type_id}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
+    for (key, indices) in prop_conf.items():
+        if row[indices[1]] != '':
+            properties.append(f'p_{dtu(initial_parameters["relation_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
     query.append(
         '''
@@ -343,22 +343,38 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
 
     # TODO: add relation node, add revision, add properties
 
-    # # Add properties and corresponding relations
-    # for (key, indices) in prop_conf.items():
-    #     if row[indices[1]] != '':
-    #         query.append('''
-    #         CREATE
-    #             (ve_{counter})
-    #             -[:e_property]->
-    #             (vp_{counter}_%(property_id_{counter}_{id})s:v%(entity_type_id)s_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
-    #         CREATE
-    #             (vp_{counter}_%(property_id_{counter}_{id})s)
-    #             -[:e_revision]->
-    #             (vr_{counter});
-    #         '''.format(counter=counter, id=indices[0]))
-    #         params[f'domain_id_{counter}'] = relation_conf[0]
-    #         params[f'range_id_{counter}'] = relation_conf[1]
-    #         # params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+    # Add properties and corresponding relations
+    for (key, indices) in prop_conf.items():
+        valid = False
+        if row[indices[1]] != '':
+            valid = True
+            # query.append('''
+            # CREATE
+            #     (ve_{counter})
+            #     -[:e_property]->
+            #     (vp_{counter}_%(property_id_{counter}_{id})s:v%(entity_type_id)s_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+            # CREATE
+            #     (vp_{counter}_%(property_id_{counter}_{id})s)
+            #     -[:e_revision]->
+            #     (vr_{counter});
+            # '''.format(counter=counter, id=indices[0]))
+            # params[f'domain_id_{counter}'] = relation_conf[0]
+            # params[f'range_id_{counter}'] = relation_conf[1]
+            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+
+        if valid:
+            # query.append(
+            #     '''
+            #         CREATE
+            #             (vp_{counter}_%(property_id_{counter}_{id})s)
+            #             -[:e_revision]->
+            #             (vr_{counter});
+            #     '''.format(
+            #         counter=counter,
+            #         id=indices[0],
+            #     )
+            # )
+            params[f'property_id_{counter}_{indices[0]}'] = indices[0]
 
     # remove semicolons (present for code readibility only, except for the last one, which is re-added later)
     query = [q.replace(';', '') if i > 0 else q for i, q in enumerate(query)]
