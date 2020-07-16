@@ -405,12 +405,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.entity_count (id)
-                VALUES
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'film')),
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'person')),
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'venue')),
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'address')),
-                    ((select entity.id FROM app.entity WHERE entity.system_name = 'city'))
+                SELECT entity.id from app.entity
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.relation (project_id, system_name, display_name, config, user_id)
@@ -495,170 +490,99 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ON CONFLICT DO NOTHING;
 
                 INSERT INTO app.relation_count (id)
-                VALUES
-                    ((SELECT relation.id FROM app.relation WHERE system_name = 'director')),
-                    ((SELECT relation.id FROM app.relation WHERE system_name = 'address_city')),
-                    ((SELECT relation.id FROM app.relation WHERE system_name = 'venue_address'))
+                SELECT relation.id FROM app.relation
                 ON CONFLICT DO NOTHING;
             '''
         )
 
-        cur.execute(
-            '''
-                SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
-            ''',
-            {
-                'entity_type_name': 'film',
-            }
-        )
-        (film_type_id, film_type_conf) = list(cur.fetchone())
-        film_type_conf_lookup = {film_type_conf['data'][k]['system_name']: int(k) for k in film_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
+        types = {}
+        for type_name in [
+            'film',
+            'person',
+            'venue',
+            'address',
+            'city',
+        ]:
+            cur.execute(
+                '''
+                    SELECT
+                        entity.id,
+                        entity.config
+                    FROM app.entity
+                    WHERE entity.system_name = %(entity_type_name)s;
                 ''',
-            {
-                'entity_type_name': 'person',
+                {
+                    'entity_type_name': type_name,
+                }
+            )
+            (id, conf) = list(cur.fetchone())
+            types[type_name] = {
+                'id': id,
+                'cl': {conf['data'][k]['system_name']: int(k) for k in conf['data'].keys()},
             }
-        )
-        (person_type_id, person_type_conf) = list(cur.fetchone())
-        person_type_conf_lookup = {person_type_conf['data'][k]['system_name']: int(k) for k in person_type_conf['data'].keys()}
 
-        cur.execute(
-            '''
-                SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
+        relations = {}
+        for relation_name in [
+            'director',
+            'address_city',
+            'venue_address',
+        ]:
+            cur.execute(
+                '''
+                    SELECT
+                        relation.id,
+                        relation.config
+                    FROM app.relation
+                    WHERE relation.system_name = %(relation_type_name)s;
                 ''',
-            {
-                'entity_type_name': 'venue',
+                {
+                    'relation_type_name': relation_name,
+                }
+            )
+            (id, conf) = list(cur.fetchone())
+            relations[relation_name] = {
+                'id': id,
+                'cl': {conf['data'][k]['system_name']: int(k) for k in conf['data'].keys()},
             }
-        )
-        (venue_type_id, venue_type_conf) = list(cur.fetchone())
-        venue_type_conf_lookup = {venue_type_conf['data'][k]['system_name']: int(k) for k in venue_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
-                ''',
-            {
-                'entity_type_name': 'address',
-            }
-        )
-        (address_type_id, address_type_conf) = list(cur.fetchone())
-        address_type_conf_lookup = {address_type_conf['data'][k]['system_name']: int(k) for k in address_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    entity.id,
-                    entity.config
-                FROM app.entity
-                WHERE entity.system_name = %(entity_type_name)s;
-                ''',
-            {
-                'entity_type_name': 'city',
-            }
-        )
-        (city_type_id, city_type_conf) = list(cur.fetchone())
-        city_type_conf_lookup = {city_type_conf['data'][k]['system_name']: int(k) for k in city_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    relation.id,
-                    relation.config
-                FROM app.relation
-                WHERE relation.system_name = %(relation_type_name)s;
-            ''',
-            {
-                'relation_type_name': 'director',
-            }
-        )
-        (director_type_id, director_type_conf) = list(cur.fetchone())
-        director_type_conf_lookup = {director_type_conf['data'][k]['system_name']: int(k) for k in director_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    relation.id,
-                    relation.config
-                FROM app.relation
-                WHERE relation.system_name = %(relation_type_name)s;
-            ''',
-            {
-                'relation_type_name': 'address_city',
-            }
-        )
-        (city_relation_type_id, city_relation_type_conf) = list(cur.fetchone())
-        city_relation_type_conf = {city_relation_type_conf['data'][k]['system_name']: int(k) for k in city_relation_type_conf['data'].keys()}
-
-        cur.execute(
-            '''
-                SELECT
-                    relation.id,
-                    relation.config
-                FROM app.relation
-                WHERE relation.system_name = %(relation_type_name)s;
-            ''',
-            {
-                'relation_type_name': 'venue_address',
-            }
-        )
-        (address_relation_type_id, address_relation_type_conf) = list(cur.fetchone())
-        address_relation_type_conf = {address_relation_type_conf['data'][k]['system_name']: int(k) for k in address_relation_type_conf['data'].keys()}
 
         cur.execute(
             '''
                 DROP GRAPH IF EXISTS g_{project_id} CASCADE;
                 CREATE GRAPH g_{project_id};
-
-                CREATE VLABEL v_{film_type_id};
-                CREATE VLABEL v_{person_type_id};
-                CREATE PROPERTY INDEX ON v_{film_type_id} ( id );
-                CREATE PROPERTY INDEX ON v_{film_type_id} ( p_{film_type_id}_0 );
-                CREATE PROPERTY INDEX ON v_{person_type_id} ( id );
-                CREATE PROPERTY INDEX ON v_{person_type_id} ( p_{person_type_id}_0 );
             '''.format(
                 project_id=dtu(project_id),
-                film_type_id=dtu(film_type_id),
-                person_type_id=dtu(person_type_id),
             )
         )
+
+        for id in [v['id'] for v in types.values()]:
+            cur.execute(
+                '''
+                    CREATE VLABEL v_{id};
+                    CREATE PROPERTY INDEX ON v_{id} ( id );
+                    CREATE PROPERTY INDEX ON v_{id} ( p_{id}_0 );
+                '''.format(
+                    id=dtu(id),
+                )
+            )
 
         with open('data/tblFilm.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [None, header_lookup['film_id'], 'int'],
-                'original_id': [film_type_conf_lookup['original_id'], header_lookup['film_id'], 'int'],
-                'title': [film_type_conf_lookup['title'], header_lookup['title']],
-                'year': [film_type_conf_lookup['year'], header_lookup['film_year'], 'int'],
-                'imdb_id': [film_type_conf_lookup['imdb_id'], header_lookup['imdb']],
-                'wikidata_id': [film_type_conf_lookup['wikidata_id'], header_lookup['wikidata']],
+                'id': [None, file_lookup['film_id'], 'int'],
+                'original_id': [types['film']['cl']['original_id'], file_lookup['film_id'], 'int'],
+                'title': [types['film']['cl']['title'], file_lookup['title']],
+                'year': [types['film']['cl']['year'], file_lookup['film_year'], 'int'],
+                'imdb_id': [types['film']['cl']['imdb_id'], file_lookup['imdb']],
+                'wikidata_id': [types['film']['cl']['wikidata_id'], file_lookup['wikidata']],
             }
 
             params = {
-                'entity_type_id': film_type_id,
+                'entity_type_id': types['film']['id'],
                 'user_id': user_id,
             }
 
@@ -676,15 +600,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [None, header_lookup['film_id'], 'int'],
-                'title_variations': [film_type_conf_lookup['title_variations'], header_lookup['title'], 'array'],
+                'id': [None, file_lookup['film_id'], 'int'],
+                'title_variations': [types['film']['cl']['title_variations'], file_lookup['title'], 'array'],
             }
 
             params = {
-                'entity_type_id': film_type_id,
+                'entity_type_id': types['film']['id'],
                 'user_id': user_id,
             }
 
@@ -702,24 +626,24 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
             prop_conf = {
-                'id': [None, header_lookup['person_id'], 'int'],
-                'original_id': [person_type_conf_lookup['original_id'], header_lookup['person_id'], 'int'],
-                'name': [person_type_conf_lookup['name'], header_lookup['name']],
-                'wikidata_id': [person_type_conf_lookup['wikidata_id'], header_lookup['wikidata']],
+                'id': [None, file_lookup['person_id'], 'int'],
+                'original_id': [types['person']['cl']['original_id'], file_lookup['person_id'], 'int'],
+                'name': [types['person']['cl']['name'], file_lookup['name']],
+                'wikidata_id': [types['person']['cl']['wikidata_id'], file_lookup['wikidata']],
             }
 
             params = {
-                'entity_type_id': person_type_id,
+                'entity_type_id': types['person']['id'],
                 'user_id': user_id,
             }
 
             print('Cinecos importing persons')
             batch_process(
                 cur,
-                [r for r in csv_reader if r[header_lookup['name']] != ''],
+                [r for r in csv_reader if r[file_lookup['name']] != ''],
                 params,
                 add_entity,
                 prop_conf
@@ -730,25 +654,25 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
-            relation_config = [header_lookup['film_id'], header_lookup['person_id']]
+            relation_config = [file_lookup['film_id'], file_lookup['person_id']]
 
             prop_conf = {}
 
             params = {
-                'domain_type_id': film_type_id,
-                'domain_prop': f'p_{dtu(film_type_id)}_{film_type_conf_lookup["original_id"]}',
-                'range_type_id': person_type_id,
-                'range_prop': f'p_{dtu(person_type_id)}_{person_type_conf_lookup["original_id"]}',
-                'relation_type_id': director_type_id,
+                'domain_type_id': types['film']['id'],
+                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'range_type_id': types['person']['id'],
+                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+                'relation_type_id': relations['director']['id'],
                 'user_id': user_id,
             }
 
             print('Cinecos importing director relations')
             batch_process(
                 cur,
-                [r for r in csv_reader if r[header_lookup['info']] == 'director'],
+                [r for r in csv_reader if r[file_lookup['info']] == 'director'],
                 params,
                 add_relation,
                 relation_config,
@@ -763,7 +687,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header.append('city_id')
             header.append('long')
             header.append('lat')
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
             # extract cities from addresses
             city_counter = 1
@@ -774,23 +698,23 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             for row in csv_reader:
                 # clean n/a
                 for col in ['city_name', 'street_name', 'geodata', 'postal_code', 'info']:
-                    if row[header_lookup[col]] in ['N/A', '?']:
-                        row[header_lookup[col]] = ''
+                    if row[file_lookup[col]] in ['N/A', '?']:
+                        row[file_lookup[col]] = ''
 
                 # cities
-                city_key = f'{row[header_lookup["city_name"]]}_{row[header_lookup["postal_code"]]}'
+                city_key = f'{row[file_lookup["city_name"]]}_{row[file_lookup["postal_code"]]}'
                 if city_key == '_':
                     row.append('')
                 else:
                     if city_key not in city_lookup:
-                        cities.append([city_counter, row[header_lookup["city_name"]], row[header_lookup["postal_code"]]])
+                        cities.append([city_counter, row[file_lookup["city_name"]], row[file_lookup["postal_code"]]])
                         city_lookup[city_key] = city_counter
                         city_counter += 1
                     row.append(city_lookup[city_key])
 
                 # long, lat
-                if row[header_lookup['geodata']] != '':
-                    split = row[header_lookup['geodata']].split(',')
+                if row[file_lookup['geodata']] != '':
+                    split = row[file_lookup['geodata']].split(',')
                     if len(split) != 2:
                         print(row)
                     row.append(split[1])
@@ -803,13 +727,13 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             # import cities
             prop_conf = {
                 'id': [None, 0, 'int'],
-                'original_id': [city_type_conf_lookup['original_id'], 0, 'int'],
-                'name': [city_type_conf_lookup['name'], 1],
-                'postal_code': [city_type_conf_lookup['postal_code'], 2, 'int'],
+                'original_id': [types['city']['cl']['original_id'], 0, 'int'],
+                'name': [types['city']['cl']['name'], 1],
+                'postal_code': [types['city']['cl']['postal_code'], 2, 'int'],
             }
 
             params = {
-                'entity_type_id': city_type_id,
+                'entity_type_id': types['city']['id'],
                 'user_id': user_id,
             }
 
@@ -824,15 +748,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             # import addresses
             prop_conf = {
-                'id': [None, header_lookup['sequential_id'], 'int'],
-                'original_id': [address_type_conf_lookup['original_id'], header_lookup['address_id']],
-                'street_name': [address_type_conf_lookup['street_name'], header_lookup['street_name']],
-                'location': [address_type_conf_lookup['location'], [header_lookup['long'], header_lookup['lat']], 'point'],
-                'district': [address_type_conf_lookup['district'], header_lookup['info']],
+                'id': [None, file_lookup['sequential_id'], 'int'],
+                'original_id': [types['address']['cl']['original_id'], file_lookup['address_id']],
+                'street_name': [types['address']['cl']['street_name'], file_lookup['street_name']],
+                'location': [types['address']['cl']['location'], [file_lookup['long'], file_lookup['lat']], 'point'],
+                'district': [types['address']['cl']['district'], file_lookup['info']],
             }
 
             params = {
-                'entity_type_id': address_type_id,
+                'entity_type_id': types['address']['id'],
                 'user_id': user_id,
             }
 
@@ -846,23 +770,23 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
 
             # import relation between addresses and cities
-            relation_config = [header_lookup['address_id'], header_lookup['city_id']]
+            relation_config = [file_lookup['address_id'], file_lookup['city_id']]
 
             prop_conf = {}
 
             params = {
-                'domain_type_id': address_type_id,
-                'domain_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
-                'range_type_id': city_type_id,
-                'range_prop': f'p_{dtu(city_type_id)}_{city_type_conf_lookup["original_id"]}',
-                'relation_type_id': city_relation_type_id,
+                'domain_type_id': types['address']['id'],
+                'domain_prop': f'p_{dtu(types["address"]["id"])}_{types["address"]["cl"]["original_id"]}',
+                'range_type_id': types['city']['id'],
+                'range_prop': f'p_{dtu(types["city"]["id"])}_{types["city"]["cl"]["original_id"]}',
+                'relation_type_id': relations['address_city']['id'],
                 'user_id': user_id,
             }
 
             print('Cinecos importing address city relations')
             batch_process(
                 cur,
-                [a for a in addresses if a[header_lookup['city_id']] != ''],
+                [a for a in addresses if a[file_lookup['city_id']] != ''],
                 params,
                 add_relation,
                 relation_config,
@@ -876,29 +800,29 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header = next(csv_reader)
             header.append('date_opened_system')
             header.append('date_closed_system')
-            header_lookup = {h: header.index(h) for h in header}
+            file_lookup = {h: header.index(h) for h in header}
 
             # Process dates: process question marks, X, asterisks and N/A
             venues = []
             for row in csv_reader:
                 # Clean up N/A and X
                 for col in ['date_opened', 'date_closed']:
-                    val = row[header_lookup[col]]
+                    val = row[file_lookup[col]]
                     if val in ['', 'N/A', 'NA?']:
-                        row[header_lookup[col]] = ''
+                        row[file_lookup[col]] = ''
                     elif len(val) == 4 and val[:3].isnumeric() and val[3:] == '?':
-                        row[header_lookup[col]] = f'{val[:3]}X'
+                        row[file_lookup[col]] = f'{val[:3]}X'
                     elif len(val) == 5 and val[:3].isnumeric() and val[3:] == 'X?':
-                        row[header_lookup[col]] = f'{val[:3]}X'
+                        row[file_lookup[col]] = f'{val[:3]}X'
                     elif val == '1967-1968?':
-                        row[header_lookup[col]] = '[1967,1968]'
+                        row[file_lookup[col]] = '[1967,1968]'
                     elif val == '1935/36':
-                        row[header_lookup[col]] = '[1935,1936]'
+                        row[file_lookup[col]] = '[1935,1936]'
                     elif val == '1962/68':
-                        row[header_lookup[col]] = '[1963..1968]'
+                        row[file_lookup[col]] = '[1963..1968]'
 
                 for col in ['date_opened', 'date_closed']:
-                    val = row[header_lookup[col]]
+                    val = row[file_lookup[col]]
                     if val == '':
                         row.append('')
                     elif val == '*':
@@ -928,17 +852,17 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 # create an interval if only opening or closing year is known
                 for col in ['date_opened', 'date_closed']:
                     other_col = 'date_opened' if col == 'date_closed' else 'date_opened'
-                    if row[header_lookup[col]] == '' and row[header_lookup[other_col]] != '':
-                        val = row[header_lookup[other_col]]
+                    if row[file_lookup[col]] == '' and row[file_lookup[other_col]] != '':
+                        val = row[file_lookup[other_col]]
                         if val.isnumeric():
-                            row[header_lookup[f'{col}_system']] = val
+                            row[file_lookup[f'{col}_system']] = val
                         elif len(val) == 4 and val[:3].isnumeric() and val[3:] == 'X':
                             if col == 'date_opened':
-                                row[header_lookup[f'{col}_system']] = f'{val[:3]}0'
+                                row[file_lookup[f'{col}_system']] = f'{val[:3]}0'
                             else:
-                                row[header_lookup[f'{col}_system']] = f'{val[:3]}9'
+                                row[file_lookup[f'{col}_system']] = f'{val[:3]}9'
                         elif len(val) == 5 and val[:4].isnumeric() and val[4:] == '?':
-                            row[header_lookup[f'{col}_system']] = val[:4]
+                            row[file_lookup[f'{col}_system']] = val[:4]
                         else:
                             print('incorrect date when creating interval')
                             print(row)
@@ -949,19 +873,19 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             # import venues
             prop_conf = {
-                'id': [None, header_lookup['sequential_id'], 'int'],
-                'original_id': [venue_type_conf_lookup['original_id'], header_lookup['venue_id']],
-                'name': [venue_type_conf_lookup['name'], header_lookup['name']],
-                'date_opened_display': [venue_type_conf_lookup['date_opened_display'], header_lookup['date_opened']],
-                'date_opened': [venue_type_conf_lookup['date_opened'], header_lookup['date_opened_system']],
-                'date_closed_display': [venue_type_conf_lookup['date_closed_display'], header_lookup['date_closed']],
-                'date_closed': [venue_type_conf_lookup['date_closed'], header_lookup['date_closed_system']],
-                'status': [venue_type_conf_lookup['status'], header_lookup['status']],
-                'type': [venue_type_conf_lookup['type'], header_lookup['type']],
+                'id': [None, file_lookup['sequential_id'], 'int'],
+                'original_id': [types['venue']['cl']['original_id'], file_lookup['venue_id']],
+                'name': [types['venue']['cl']['name'], file_lookup['name']],
+                'date_opened_display': [types['venue']['cl']['date_opened_display'], file_lookup['date_opened']],
+                'date_opened': [types['venue']['cl']['date_opened'], file_lookup['date_opened_system']],
+                'date_closed_display': [types['venue']['cl']['date_closed_display'], file_lookup['date_closed']],
+                'date_closed': [types['venue']['cl']['date_closed'], file_lookup['date_closed_system']],
+                'status': [types['venue']['cl']['status'], file_lookup['status']],
+                'type': [types['venue']['cl']['type'], file_lookup['type']],
             }
 
             params = {
-                'entity_type_id': venue_type_id,
+                'entity_type_id': types['venue']['id'],
                 'user_id': user_id,
             }
 
@@ -975,23 +899,23 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
 
             # import relation between venues and addresses
-            relation_config = [header_lookup['venue_id'], header_lookup['address_id']]
+            relation_config = [file_lookup['venue_id'], file_lookup['address_id']]
 
             prop_conf = {}
 
             params = {
-                'domain_type_id': venue_type_id,
-                'domain_prop': f'p_{dtu(venue_type_id)}_{venue_type_conf_lookup["original_id"]}',
-                'range_type_id': address_type_id,
-                'range_prop': f'p_{dtu(address_type_id)}_{address_type_conf_lookup["original_id"]}',
-                'relation_type_id': address_relation_type_id,
+                'domain_type_id': types['venue']['id'],
+                'domain_prop': f'p_{dtu(types["venue"]["id"])}_{types["venue"]["cl"]["original_id"]}',
+                'range_type_id': types['address']['id'],
+                'range_prop': f'p_{dtu(types["address"]["id"])}_{types["address"]["cl"]["original_id"]}',
+                'relation_type_id': relations['venue_address']['id'],
                 'user_id': user_id,
             }
 
             print('Cinecos importing venue address relations')
             batch_process(
                 cur,
-                [v for v in venues if v[header_lookup['address_id']] != ''],
+                [v for v in venues if v[file_lookup['address_id']] != ''],
                 params,
                 add_relation,
                 relation_config,
