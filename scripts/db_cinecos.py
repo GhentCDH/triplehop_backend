@@ -108,6 +108,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "5",
                                             "type": "online_identifier",
                                             "base_url": "https://www.wikidata.org/wiki/"
+                                        },
+                                        {
+                                            "field": "5",
+                                            "label": "Wikidata images",
+                                            "type": "wikidata_images"
                                         }
                                     ]
                                 }
