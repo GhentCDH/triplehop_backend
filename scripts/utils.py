@@ -91,6 +91,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
     for (key, indices) in prop_conf.items():
         if key == 'id':
             params[f'value_{counter}_id'] = int(row[indices[1]])
+            continue
 
         valid = False
         if len(indices) == 3 and indices[2] == 'point':
