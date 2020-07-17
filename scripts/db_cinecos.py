@@ -242,6 +242,94 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'company',
+                    'Company',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "String"
+                            },
+                            "3": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "String"
+                            },
+                            "4": {
+                                "system_name": "info",
+                                "display_name": "Info",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        },
+                                        {
+                                            "field": "3"
+                                        },
+                                        {
+                                            "field": "4"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'company_branch',
+                    'Company Branch',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'venue',
                     'Venue',
                     '{
@@ -508,6 +596,78 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'distributor',
+                    'Distributor',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Distributor",
+                            "range_title": "Distributor of",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'production_company',
+                    'Production company',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Production company",
+                            "range_title": "Production company of",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'subsidiary',
+                    'Subsidiary',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "subsidiary_type",
+                                "display_name": "Subsidiary type",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "String"
+                            },
+                            "2": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "Subsidiary",
+                            "range_title": "Subsidiary of",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'branch',
+                    'Branch',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Branch",
+                            "range_title": "Company",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'address_city',
                     'City',
                     '{
@@ -611,6 +771,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'distributor'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'production_company'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'subsidiary'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'branch'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'address_city'),
                     (SELECT id FROM app.entity WHERE system_name = 'address'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -646,6 +826,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 (
                     (SELECT id FROM app.relation WHERE system_name = 'actor'),
                     (SELECT id FROM app.entity WHERE system_name = 'person'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'distributor'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'production_company'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'subsidiary'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'branch'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company_branch'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
@@ -685,6 +885,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         for type_name in [
             'film',
             'person',
+            'company',
+            'company_branch',
             'venue',
             'address',
             'city',
@@ -713,6 +915,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         for relation_name in [
             'director',
             'actor',
+            'distributor',
+            'production_company',
+            'subsidiary',
+            'branch',
             'address_city',
             'venue_address',
             'programme_venue',
@@ -919,6 +1125,199 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 relation_config,
                 prop_conf
             )
+
+        with open('data/tblCompany.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            prop_conf = {
+                'id': [None, file_lookup['company_id'], 'int'],
+                'original_id': [types['company']['cl']['original_id'], file_lookup['company_id'], 'int'],
+                'name': [types['company']['cl']['name'], file_lookup['name']],
+                'date_start': [types['company']['cl']['date_start'], file_lookup['date_extablished']],
+                'date_end': [types['company']['cl']['date_end'], file_lookup['date_disbanded']],
+                'info': [types['company']['cl']['info'], file_lookup['info']],
+            }
+
+            params = {
+                'entity_type_id': types['company']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing companies')
+            batch_process(
+                cur,
+                [r for r in csv_reader],
+                params,
+                add_entity,
+                prop_conf
+            )
+
+        with open('data/tblJoinFilmCompany.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            film_companies = [r for r in csv_reader]
+
+            relation_config = [
+                [file_lookup['film_id'], 'int'],
+                [file_lookup['company_id'], 'int'],
+            ]
+
+            prop_conf = {}
+
+            # import distributor relations
+            params = {
+                'domain_type_id': types['film']['id'],
+                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'range_type_id': types['company']['id'],
+                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'relation_type_id': relations['distributor']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing distributor relations')
+            batch_process(
+                cur,
+                [r for r in film_companies if r[file_lookup['info']] == 'distributor'],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+            # import production company relations
+            params = {
+                'domain_type_id': types['film']['id'],
+                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'range_type_id': types['company']['id'],
+                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'relation_type_id': relations['production_company']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing production company relations')
+            batch_process(
+                cur,
+                [r for r in film_companies if r[file_lookup['info']] == 'production_company'],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+            with open('data/tblCompanyBranch.csv') as input_file:
+                lines = input_file.readlines()
+                csv_reader = csv.reader(lines)
+
+                header = next(csv_reader)
+                header.append('branch_id')
+                file_lookup = {h: header.index(h) for h in header}
+
+                branches_header = ['branch_id', 'branch_name']
+                branches_lookup = {h: branches_header.index(h) for h in branches_header}
+                branches = [
+                    ['1', 'Film distribution'],
+                ]
+
+                company_branches = []
+                for row in csv_reader:
+                    if row[file_lookup['branch_name']] == 'film distribution':
+                        row.append('1')
+                    else:
+                        print('unknown branch type')
+                    company_branches.append(row)
+
+                # Import company branches
+                prop_conf = {
+                    'id': [None, branches_lookup['branch_id'], 'int'],
+                    'original_id': [types['company_branch']['cl']['original_id'], branches_lookup['branch_id'], 'int'],
+                    'name': [types['company_branch']['cl']['name'], branches_lookup['branch_name']],
+                }
+
+                params = {
+                    'entity_type_id': types['company_branch']['id'],
+                    'user_id': user_id,
+                }
+
+                print('Cinecos importing company branches')
+                batch_process(
+                    cur,
+                    branches,
+                    params,
+                    add_entity,
+                    prop_conf
+                )
+
+                # import company branch relations
+                relation_config = [
+                    [file_lookup['company_id'], 'int'],
+                    [file_lookup['branch_id'], 'int'],
+                ]
+
+                prop_conf = {}
+
+                params = {
+                    'domain_type_id': types['company']['id'],
+                    'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                    'range_type_id': types['company_branch']['id'],
+                    'range_prop': f'p_{dtu(types["company_branch"]["id"])}_{types["company_branch"]["cl"]["original_id"]}',
+                    'relation_type_id': relations['branch']['id'],
+                    'user_id': user_id,
+                }
+
+                print('Cinecos importing company branch relations')
+                batch_process(
+                    cur,
+                    company_branches,
+                    params,
+                    add_relation,
+                    relation_config,
+                    prop_conf
+                )
+
+            with open('data/tblJoinCompanyCompany.csv') as input_file:
+                lines = input_file.readlines()
+                csv_reader = csv.reader(lines)
+
+                header = next(csv_reader)
+                file_lookup = {h: header.index(h) for h in header}
+
+                relation_config = [
+                    [file_lookup['company_id'], 'int'],
+                    [file_lookup['subsidiary_id'], 'int'],
+                ]
+
+                prop_conf = {
+                    'subsidiary_type': [relations['subsidiary']['cl']['subsidiary_type'], file_lookup['subsidiary_type']],
+                    'date_start': [relations['subsidiary']['cl']['date_start'], file_lookup['start_date']],
+                    'date_end': [relations['subsidiary']['cl']['date_end'], file_lookup['end_date']],
+                }
+
+                params = {
+                    'domain_type_id': types['company']['id'],
+                    'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                    'range_type_id': types['company']['id'],
+                    'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                    'relation_type_id': relations['subsidiary']['id'],
+                    'user_id': user_id,
+                }
+
+                print('Cinecos importing subsidiary relations')
+                batch_process(
+                    cur,
+                    [r for r in csv_reader],
+                    params,
+                    add_relation,
+                    relation_config,
+                    prop_conf
+                )
 
         with open('data/tblAddress.csv') as input_file:
             lines = input_file.readlines()
