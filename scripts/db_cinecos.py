@@ -64,8 +64,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "String"
                             },
                             "2": {
-                                "system_name": "title_variations",
-                                "display_name": "Alternative title(s)",
+                                "system_name": "mentioned_titles",
+                                "display_name": "Mentioned title(s)",
                                 "type": "[String]"
                             },
                             "3": {
@@ -127,10 +127,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             },
                             "1": {
-                                "system_name": "title_variations",
-                                "display_name": "Alternative title(s)",
-                                "selector_value": "$title_variations",
-                                "type": "text_array"
+                                "system_name": "mentioned_titles",
+                                "display_name": "Mentioned title(s)",
+                                "selector_value": "$mentioned_titles",
+                                "type": "text"
                             },
                             "2": {
                                 "system_name": "year",
@@ -1126,7 +1126,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             prop_conf = {
                 'id': [None, file_lookup['film_id'], 'int'],
-                'title_variations': [types['film']['cl']['title_variations'], file_lookup['title'], 'array'],
+                'mentioned_titles': [types['film']['cl']['mentioned_titles'], file_lookup['title'], 'array'],
             }
 
             params = {
