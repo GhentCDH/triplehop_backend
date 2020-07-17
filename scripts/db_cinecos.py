@@ -613,11 +613,20 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "original_id",
                                 "display_name": "Original id",
                                 "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "mentioned_venue",
+                                "display_name": "Mentioned venue name",
+                                "type": "String"
                             }
                         },
                         "display": {
                             "title": "Programme item",
-                            "layout": []
+                            "layout": [
+                                {
+                                    "field": "1"
+                                }
+                            ]
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -795,15 +804,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         "display": {
                             "domain_title": "Venue",
                             "range_title": "Programme",
-                            "layout": [
-                                {
-                                    "fields": [
-                                        {
-                                            "field": "0"
-                                        }
-                                    ]
-                                }
-                            ]
+                            "layout": []
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -1954,6 +1955,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             prop_conf = {
                 'id': [None, file_lookup['programme_item_id'], 'int'],
                 'original_id': [types['programme_item']['cl']['original_id'], file_lookup['programme_item_id'], 'int'],
+                'mentioned_venue': [types['programme_item']['cl']['mentioned_venue'], file_lookup['info']],
             }
 
             params = {
