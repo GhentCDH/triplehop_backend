@@ -494,6 +494,20 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'actor',
+                    'Actor',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Cast",
+                            "range_title": "Filmography",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'address_city',
                     'City',
                     '{
@@ -592,6 +606,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'actor'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'address_city'),
                     (SELECT id FROM app.entity WHERE system_name = 'address'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -621,6 +640,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 INSERT INTO app.relation_range (relation_id, entity_id, user_id)
                 VALUES (
                     (SELECT id FROM app.relation WHERE system_name = 'director'),
+                    (SELECT id FROM app.entity WHERE system_name = 'person'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'actor'),
                     (SELECT id FROM app.entity WHERE system_name = 'person'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -688,6 +712,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
         relations = {}
         for relation_name in [
             'director',
+            'actor',
             'address_city',
             'venue_address',
             'programme_venue',
@@ -788,12 +813,35 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
-        with open('data/tblPerson.csv') as input_file:
+        with open('data/tblPerson.csv') as input_file, \
+             open('data/tblPersonFirstNames.csv') as fn_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
             file_lookup = {h: header.index(h) for h in header}
+
+            fn_lines = fn_file.readlines()
+            fn_reader = csv.reader(fn_lines)
+
+            fn_header = next(fn_reader)
+            fn_lookup = {h: fn_header.index(h) for h in fn_header}
+
+            fn_index = {}
+            for row in fn_reader:
+                person_id = row[fn_lookup['person_id']]
+                if person_id not in fn_index:
+                    fn_index[person_id] = []
+                fn_index[person_id].append(row[fn_lookup['first_name']])
+
+            persons = []
+            for row in csv_reader:
+                if row[file_lookup['name']] == '':
+                    first_name = ' / '.join(fn_index[row[file_lookup['person_id']]])
+                    last_name = row[file_lookup['last_name']]
+                    suffix = row[file_lookup['suffix']]
+                    row[file_lookup['name']] = f'{first_name} {last_name} {suffix}'.replace('  ', ' ').strip()
+                persons.append(row)
 
             prop_conf = {
                 'id': [None, file_lookup['person_id'], 'int'],
@@ -810,7 +858,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             print('Cinecos importing persons')
             batch_process(
                 cur,
-                [r for r in csv_reader if r[file_lookup['name']] != ''],
+                [r for r in persons],
                 params,
                 add_entity,
                 prop_conf
@@ -823,6 +871,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header = next(csv_reader)
             file_lookup = {h: header.index(h) for h in header}
 
+            film_persons = [r for r in csv_reader]
+
             relation_config = [
                 [file_lookup['film_id'], 'int'],
                 [file_lookup['person_id'], 'int'],
@@ -830,6 +880,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             prop_conf = {}
 
+            # import director relations
             params = {
                 'domain_type_id': types['film']['id'],
                 'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
@@ -842,7 +893,27 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             print('Cinecos importing director relations')
             batch_process(
                 cur,
-                [r for r in csv_reader if r[file_lookup['info']] == 'director'],
+                [r for r in film_persons if r[file_lookup['info']] == 'director'],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+            # import actor relations
+            params = {
+                'domain_type_id': types['film']['id'],
+                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'range_type_id': types['person']['id'],
+                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+                'relation_type_id': relations['actor']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing actor relations')
+            batch_process(
+                cur,
+                [r for r in film_persons if r[file_lookup['info']] == 'actor'],
                 params,
                 add_relation,
                 relation_config,
