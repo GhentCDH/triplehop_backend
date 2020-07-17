@@ -624,7 +624,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             "title": "Programme item",
                             "layout": [
                                 {
-                                    "field": "1"
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
                                 }
                             ]
                         }
