@@ -218,7 +218,7 @@ def update_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf:
     # Add properties and corresponding relations
     for (key, indices) in prop_conf.items():
         if key == 'id':
-            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+            params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
 
         valid = False
         if len(indices) == 3 and indices[2] == 'point' and row[indices[1][0]] != '' and row[indices[1][1]] != '':
