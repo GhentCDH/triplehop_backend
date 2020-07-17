@@ -293,7 +293,31 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "es_data": {
+                            "0": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "selector_value": "$name",
+                                "type": "text"
+                            }
+                        },
+                        "es_filters": [
+                            {
+                                "filters": [
+                                    {
+                                        "filter": "0",
+                                        "type": "autocomplete"
+                                    }
+                                ]
+                            }
+                        ],
+                        "es_columns": [
+                            {
+                                "column": "0",
+                                "sortable": true
+                            }
+                        ]
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -349,7 +373,51 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "es_data": {
+                            "0": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "selector_value": "$name",
+                                "type": "text"
+                            },
+                            "1": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "selector_value": "$date_start",
+                                "type": "text"
+                            },
+                            "2": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "selector_value": "$date_end",
+                                "type": "text"
+                            }
+                        },
+                        "es_filters": [
+                            {
+                                "filters": [
+                                    {
+                                        "filter": "0",
+                                        "type": "autocomplete"
+                                    }
+                                ]
+                            }
+                        ],
+                        "es_columns": [
+                            {
+                                "column": "0",
+                                "sortable": true
+                            },
+                            {
+                                "column": "1",
+                                "sortable": true
+                            },
+                            {
+                                "column": "2",
+                                "sortable": true
+                            }
+                        ]
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -519,7 +587,31 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "es_data": {
+                            "0": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "selector_value": "$name",
+                                "type": "text"
+                            }
+                        },
+                        "es_filters": [
+                            {
+                                "filters": [
+                                    {
+                                        "filter": "0",
+                                        "type": "autocomplete"
+                                    }
+                                ]
+                            }
+                        ],
+                        "es_columns": [
+                            {
+                                "column": "0",
+                                "sortable": true
+                            }
+                        ]
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -657,7 +749,67 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "es_data": {
+                            "0": {
+                                "system_name": "id",
+                                "display_name": "Id",
+                                "selector_value": "$original_id",
+                                "type": "integer"
+                            },
+                            "1": {
+                                "system_name": "venue",
+                                "display_name": "Venue",
+                                "selector_value": "$venue",
+                                "relation": "r_programme_venue",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_programme_venue->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_programme_venue->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "2": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "selector_value": "$date_start",
+                                "type": "text"
+                            },
+                            "3": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "selector_value": "$date_end",
+                                "type": "text"
+                            }
+                        },
+                        "es_filters": [
+                            {
+                                "filters": [
+                                    {
+                                        "filter": "1"
+                                    }
+                                ]
+                            }
+                        ],
+                        "es_columns": [
+                            {
+                                "column": "0",
+                                "sortable": true
+                            },
+                            {
+                                "column": "1",
+                                "sortable": true
+                            },
+                            {
+                                "column": "2",
+                                "sortable": true
+                            }
+                        ]
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
