@@ -616,18 +616,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "Int"
                             },
                             "1": {
+                                "system_name": "mentioned_film",
+                                "display_name": "Mentioned film title",
+                                "type": "String"
+                            },
+                            "2": {
                                 "system_name": "mentioned_venue",
                                 "display_name": "Mentioned venue name",
                                 "type": "String"
                             }
                         },
                         "display": {
-                            "title": "Programme item",
+                            "title": "$1",
                             "layout": [
                                 {
                                     "fields": [
                                         {
                                             "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
                                         }
                                     ]
                                 }
@@ -839,13 +847,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     'programme_item_film',
                     'Film',
                     '{
-                        "data": {
-                            "0": {
-                                "system_name": "mentioned_title",
-                                "display_name": "Mentioned title",
-                                "type": "String"
-                            }
-                        },
+                        "data": {},
                         "display": {
                             "domain_title": "Film",
                             "range_title": "Programme item",
@@ -1960,6 +1962,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             prop_conf = {
                 'id': [None, file_lookup['programme_item_id'], 'int'],
                 'original_id': [types['programme_item']['cl']['original_id'], file_lookup['programme_item_id'], 'int'],
+                'mentioned_film': [types['programme_item']['cl']['mentioned_film'], file_lookup['mentioned_title']],
                 'mentioned_venue': [types['programme_item']['cl']['mentioned_venue'], file_lookup['info']],
             }
 
@@ -1983,9 +1986,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 [file_lookup['film_id'], 'int'],
             ]
 
-            prop_conf = {
-                'mentioned_title': [relations['programme_item_film']['cl']['mentioned_title'], file_lookup['mentioned_title']],
-            }
+            prop_conf = {}
 
             params = {
                 'domain_type_id': types['programme_item']['id'],
