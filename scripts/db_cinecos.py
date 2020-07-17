@@ -594,7 +594,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "2"
                                         },
                                         {
-                                            "field": "3"
+                                            "field": "3",
+                                            "type": "list"
                                         }
                                     ]
                                 }
