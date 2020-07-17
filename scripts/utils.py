@@ -360,7 +360,10 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
             # '''.format(counter=counter, id=indices[0]))
             # params[f'domain_id_{counter}'] = relation_conf[0]
             # params[f'range_id_{counter}'] = relation_conf[1]
-            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+            if len(indices) == 3 and indices[2] == 'int':
+                params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
+            else:
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
 
         if valid:
             # query.append(
