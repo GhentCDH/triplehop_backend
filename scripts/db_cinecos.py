@@ -1241,6 +1241,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     row.append('')
                 programme_items.append(row)
 
+            # import programme items
             prop_conf = {
                 'id': [None, file_lookup['programme_item_id'], 'int'],
                 'original_id': [types['programme_item']['cl']['original_id'], file_lookup['programme_item_id'], 'int'],
