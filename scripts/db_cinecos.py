@@ -153,6 +153,54 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     }
                                 },
                                 "type": "nested"
+                            },
+                            "4": {
+                                "system_name": "distributor",
+                                "display_name": "Distributor(s)",
+                                "relation": "r_distributor",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_distributor->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_distributor->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "5": {
+                                "system_name": "production_company",
+                                "display_name": "Production company(-ies)",
+                                "relation": "r_production_company",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_production_company->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_production_company->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "6": {
+                                "system_name": "country",
+                                "display_name": "Country(-ies)",
+                                "relation": "r_film_country",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_film_country->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_film_country->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
                             }
                         },
                         "es_filters": [
@@ -173,6 +221,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     },
                                     {
                                         "filter": "3"
+                                    },
+                                    {
+                                        "filter": "4"
+                                    },
+                                    {
+                                        "filter": "5"
+                                    },
+                                    {
+                                        "filter": "6"
                                     }
                                 ]
                             }
