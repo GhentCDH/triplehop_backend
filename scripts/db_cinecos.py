@@ -330,6 +330,70 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'country',
+                    'Country',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'continent',
+                    'Continent',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "original_id",
+                                "display_name": "Original id",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "name",
+                                "display_name": "Name",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "title": "$1",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'venue',
                     'Venue',
                     '{
@@ -668,6 +732,34 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'country_continent',
+                    'Continent',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Continent",
+                            "range_title": "Country",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'film_country',
+                    'Country',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Country",
+                            "range_title": "Film",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'address_city',
                     'City',
                     '{
@@ -791,6 +883,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'country_continent'),
+                    (SELECT id FROM app.entity WHERE system_name = 'country'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'film_country'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'address_city'),
                     (SELECT id FROM app.entity WHERE system_name = 'address'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -849,6 +951,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'country_continent'),
+                    (SELECT id FROM app.entity WHERE system_name = 'continent'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'film_country'),
+                    (SELECT id FROM app.entity WHERE system_name = 'country'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'address_city'),
                     (SELECT id FROM app.entity WHERE system_name = 'city'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -887,6 +999,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'person',
             'company',
             'company_branch',
+            'country',
+            'continent',
             'venue',
             'address',
             'city',
@@ -918,6 +1032,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'distributor',
             'production_company',
             'subsidiary',
+            'country_continent',
+            'film_country',
             'branch',
             'address_city',
             'venue_address',
@@ -1318,6 +1434,129 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     relation_config,
                     prop_conf
                 )
+
+        with open('data/tblContinent.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            prop_conf = {
+                'id': [None, file_lookup['continent_id'], 'int'],
+                'original_id': [types['continent']['cl']['original_id'], file_lookup['code']],
+                'name': [types['continent']['cl']['name'], file_lookup['name']],
+            }
+
+            params = {
+                'entity_type_id': types['continent']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing continents')
+            batch_process(
+                cur,
+                [r for r in csv_reader],
+                params,
+                add_entity,
+                prop_conf,
+            )
+
+        with open('data/tblCountry.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            countries = [r for r in csv_reader]
+
+            prop_conf = {
+                'id': [None, file_lookup['country_id'], 'int'],
+                'original_id': [types['country']['cl']['original_id'], file_lookup['code']],
+                'name': [types['country']['cl']['name'], file_lookup['name']],
+            }
+
+            params = {
+                'entity_type_id': types['country']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing countries')
+            batch_process(
+                cur,
+                countries,
+                params,
+                add_entity,
+                prop_conf,
+            )
+
+            # import relation between countries and continents
+            relation_config = [
+                [file_lookup['code']],
+                [file_lookup['continent_code']],
+            ]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': types['country']['id'],
+                'domain_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
+                'range_type_id': types['continent']['id'],
+                'range_prop': f'p_{dtu(types["continent"]["id"])}_{types["continent"]["cl"]["original_id"]}',
+                'relation_type_id': relations['country_continent']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing country continent relations')
+            batch_process(
+                cur,
+                [c for c in countries if c[file_lookup['continent_code']] != ''],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblFilm.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            fc_header = ['film_id', 'country_code']
+            fc_lookup = {h: fc_header.index(h) for h in fc_header}
+            film_countries = []
+            for row in csv_reader:
+                for country_code in row[file_lookup['country']].split('|'):
+                    film_countries.append([row[file_lookup['film_id']], country_code])
+
+            relation_config = [
+                [fc_lookup['film_id'], 'int'],
+                [fc_lookup['country_code']],
+            ]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': types['film']['id'],
+                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'range_type_id': types['country']['id'],
+                'range_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
+                'relation_type_id': relations['film_country']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing film country relations')
+            batch_process(
+                cur,
+                film_countries,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
 
         with open('data/tblAddress.csv') as input_file:
             lines = input_file.readlines()
