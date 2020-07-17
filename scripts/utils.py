@@ -136,7 +136,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
             if len(indices) == 3 and indices[2] == 'int':
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
             else:
-                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]].replace('\n', '\\n')
 
         if valid:
             # query.append(
@@ -253,7 +253,7 @@ def update_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf:
             #         id=indices[0],
             #     )
             # )
-            params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+            params[f'value_{counter}_{indices[0]}'] = row[indices[1]].replace('\n', '\\n')
 
         elif row[indices[1]] != '':
             valid = True
@@ -272,7 +272,7 @@ def update_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf:
             if len(indices) == 3 and indices[2] == 'int':
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
             else:
-                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]].replace('\n', '\\n')
 
         if valid:
             # query.append(
@@ -363,7 +363,7 @@ def add_relation(initial_parameters: Dict, counter: int, row: Tuple, relation_co
             if len(indices) == 3 and indices[2] == 'int':
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
             else:
-                params[f'value_{counter}_{indices[0]}'] = row[indices[1]]
+                params[f'value_{counter}_{indices[0]}'] = row[indices[1]].replace('\n', '\\n')
 
         if valid:
             # query.append(
