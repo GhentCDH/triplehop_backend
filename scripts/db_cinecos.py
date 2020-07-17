@@ -1232,6 +1232,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             programme_items = []
             for row in csv_reader:
+                # fix s_order: subtract 1
+                row[file_lookup['s_order']] = str(int(row[file_lookup['s_order']]) - 1)
                 film_variation_id = row[file_lookup['film_variation_id']]
                 if film_variation_id != '':
                     row.append(tv_index[film_variation_id])
