@@ -1140,7 +1140,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             # Import program items (without mentioned dates)
             prop_conf = {
                 'id': [None, file_lookup['programme_id'], 'int'],
-                'original_id': [types['programme']['cl']['original_id'], file_lookup['programme_id']],
+                'original_id': [types['programme']['cl']['original_id'], file_lookup['programme_id'], 'int'],
                 'date_start': [types['programme']['cl']['date_start'], file_lookup['date_start']],
                 'date_end': [types['programme']['cl']['date_end'], file_lookup['date_end']],
             }
