@@ -522,40 +522,6 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
-                    'programme_item',
-                    'Programme item',
-                    '{
-                        "data": {},
-                        "display": {
-                            "domain_title": "Programme item",
-                            "range_title": "Programme",
-                            "layout": []
-                        }
-                    }',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
-                ),
-                (
-                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
-                    'programme_film',
-                    'Film',
-                    '{
-                        "data": {
-                            "0": {
-                                "system_name": "mentioned_title",
-                                "display_name": "Mentioned title",
-                                "type": "String"
-                            }
-                        },
-                        "display": {
-                            "domain_title": "Film",
-                            "range_title": "Programme",
-                            "layout": []
-                        }
-                    }',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
-                ),
-                (
-                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'programme_venue',
                     'Venue',
                     '{
@@ -572,6 +538,46 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     ]
                                 }
                             ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_item',
+                    'Programme item',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "order",
+                                "display_name": "Order",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "Programme item",
+                            "range_title": "Programme",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_item_film',
+                    'Film',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "mentioned_title",
+                                "display_name": "Mentioned title",
+                                "type": "String"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "Film",
+                            "range_title": "Programme item",
+                            "layout": []
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -596,18 +602,18 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'programme_item'),
                     (SELECT id FROM app.entity WHERE system_name = 'programme'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
-                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
-                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
-                ),
-                (
-                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
-                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_item_film'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme_item'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
@@ -629,18 +635,18 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'programme_item'),
                     (SELECT id FROM app.entity WHERE system_name = 'programme_item'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
-                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_item_film'),
                     (SELECT id FROM app.entity WHERE system_name = 'film'),
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
-                ),
-                (
-                    (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
-                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
@@ -684,9 +690,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'director',
             'address_city',
             'venue_address',
-            'programme_item',
-            'programme_film',
             'programme_venue',
+            'programme_item',
+            'programme_item_film',
         ]:
             cur.execute(
                 '''
@@ -1259,7 +1265,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             ]
 
             prop_conf = {
-                'mentioned_title': [relations['programme_film']['cl']['mentioned_title'], file_lookup['mentioned_title']],
+                'mentioned_title': [relations['programme_item_film']['cl']['mentioned_title'], file_lookup['mentioned_title']],
             }
 
             params = {
@@ -1267,11 +1273,40 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'domain_prop': f'p_{dtu(types["programme_item"]["id"])}_{types["programme_item"]["cl"]["original_id"]}',
                 'range_type_id': types['film']['id'],
                 'range_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'relation_type_id': relations['programme_film']['id'],
+                'relation_type_id': relations['programme_item_film']['id'],
                 'user_id': user_id,
             }
 
             print('Cinecos importing programme item film relations')
+            batch_process(
+                cur,
+                programme_items,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+            # import relation between programme and programme_item
+            relation_config = [
+                [file_lookup['programme_id'], 'int'],
+                [file_lookup['programme_item_id'], 'int'],
+            ]
+
+            prop_conf = {
+                'order': [relations['programme_item']['cl']['order'], file_lookup['s_order'], 'int'],
+            }
+
+            params = {
+                'domain_type_id': types['programme']['id'],
+                'domain_prop': f'p_{dtu(types["programme"]["id"])}_{types["programme"]["cl"]["original_id"]}',
+                'range_type_id': types['programme_item']['id'],
+                'range_prop': f'p_{dtu(types["programme_item"]["id"])}_{types["programme_item"]["cl"]["original_id"]}',
+                'relation_type_id': relations['programme_item']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programme programme item relations')
             batch_process(
                 cur,
                 programme_items,
