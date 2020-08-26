@@ -203,55 +203,58 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "nested"
                             }
                         },
-                        "es_filters": [
-                            {
-                                "filters": [
-                                    {
-                                        "filter": "0",
-                                        "type": "autocomplete"
-                                    },
-                                    {
-                                        "filter": "1",
-                                        "type": "autocomplete"
-                                    },
-                                    {
-                                        "filter": "2",
-                                        "type": "histogram_slider",
-                                        "interval": 10
-                                    },
-                                    {
-                                        "filter": "3"
-                                    },
-                                    {
-                                        "filter": "4"
-                                    },
-                                    {
-                                        "filter": "5"
-                                    },
-                                    {
-                                        "filter": "6"
-                                    }
-                                ]
-                            }
-                        ],
-                        "es_columns": [
-                            {
-                                "column": "0",
-                                "sortable": true
-                            },
-                            {
-                                "column": "1",
-                                "sortable": true
-                            },
-                            {
-                                "column": "2",
-                                "sortable": true
-                            },
-                            {
-                                "column": "3",
-                                "sortable": true
-                            }
-                        ]
+                        "es_display": {
+                            "title": "Search films",
+                            "filters": [
+                                {
+                                    "filters": [
+                                        {
+                                            "filter": "0",
+                                            "type": "autocomplete"
+                                        },
+                                        {
+                                            "filter": "1",
+                                            "type": "autocomplete"
+                                        },
+                                        {
+                                            "filter": "2",
+                                            "type": "histogram_slider",
+                                            "interval": 10
+                                        },
+                                        {
+                                            "filter": "3"
+                                        },
+                                        {
+                                            "filter": "4"
+                                        },
+                                        {
+                                            "filter": "5"
+                                        },
+                                        {
+                                            "filter": "6"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "columns": [
+                                {
+                                    "column": "0",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "1",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "2",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "3",
+                                    "sortable": true
+                                }
+                            ]
+                        }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -302,22 +305,25 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             }
                         },
-                        "es_filters": [
-                            {
-                                "filters": [
-                                    {
-                                        "filter": "0",
-                                        "type": "autocomplete"
-                                    }
-                                ]
-                            }
-                        ],
-                        "es_columns": [
-                            {
-                                "column": "0",
-                                "sortable": true
-                            }
-                        ]
+                        "es_display": {
+                            "title": "Search persons",
+                            "filters": [
+                                {
+                                    "filters": [
+                                        {
+                                            "filter": "0",
+                                            "type": "autocomplete"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "columns": [
+                                {
+                                    "column": "0",
+                                    "sortable": true
+                                }
+                            ]
+                        }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -394,30 +400,33 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             }
                         },
-                        "es_filters": [
-                            {
-                                "filters": [
-                                    {
-                                        "filter": "0",
-                                        "type": "autocomplete"
-                                    }
-                                ]
-                            }
-                        ],
-                        "es_columns": [
-                            {
-                                "column": "0",
-                                "sortable": true
-                            },
-                            {
-                                "column": "1",
-                                "sortable": true
-                            },
-                            {
-                                "column": "2",
-                                "sortable": true
-                            }
-                        ]
+                        "es_display": {
+                            "title": "Search companies",
+                            "filters": [
+                                {
+                                    "filters": [
+                                        {
+                                            "filter": "0",
+                                            "type": "autocomplete"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "columns": [
+                                {
+                                    "column": "0",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "1",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "2",
+                                    "sortable": true
+                                }
+                            ]
+                        }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -596,22 +605,25 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             }
                         },
-                        "es_filters": [
-                            {
-                                "filters": [
-                                    {
-                                        "filter": "0",
-                                        "type": "autocomplete"
-                                    }
-                                ]
-                            }
-                        ],
-                        "es_columns": [
-                            {
-                                "column": "0",
-                                "sortable": true
-                            }
-                        ]
+                        "es_display": {
+                            "title": "Search venues",
+                            "filters": [
+                                {
+                                    "filters": [
+                                        {
+                                            "filter": "0",
+                                            "type": "autocomplete"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "columns": [
+                                {
+                                    "column": "0",
+                                    "sortable": true
+                                }
+                            ]
+                        }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
@@ -787,29 +799,32 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             }
                         },
-                        "es_filters": [
-                            {
-                                "filters": [
-                                    {
-                                        "filter": "1"
-                                    }
-                                ]
-                            }
-                        ],
-                        "es_columns": [
-                            {
-                                "column": "0",
-                                "sortable": true
-                            },
-                            {
-                                "column": "1",
-                                "sortable": true
-                            },
-                            {
-                                "column": "2",
-                                "sortable": true
-                            }
-                        ]
+                        "es_display": {
+                            "title": "Search programmes",
+                            "filters": [
+                                {
+                                    "filters": [
+                                        {
+                                            "filter": "1"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "columns": [
+                                {
+                                    "column": "0",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "1",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "2",
+                                    "sortable": true
+                                }
+                            ]
+                        }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),

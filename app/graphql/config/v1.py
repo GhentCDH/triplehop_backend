@@ -93,9 +93,17 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
             }
             if 'es_data' in entity_config['config']:
                 es_data_conf = entity_config['config']['es_data']
-                config_item['es_columns'] = _es_columns_converter(entity_config['config']['es_columns'], es_data_conf)
-                config_item['es_filters'] = _es_filters_converter(entity_config['config']['es_filters'], es_data_conf)
-            # TODO: es_filters, es_columns (es_data doesn't need to be exported)
+                config_item['elasticsearch'] = {
+                    'title': entity_config['config']['es_display']['title'],
+                    'columns': _es_columns_converter(
+                        entity_config['config']['es_display']['columns'],
+                        es_data_conf,
+                    ),
+                    'filters': _es_filters_converter(
+                        entity_config['config']['es_display']['filters'],
+                        es_data_conf,
+                    ),
+                }
             results.append(config_item)
 
         return results
@@ -152,8 +160,7 @@ async def create_type_defs():
             ['display_name', 'String!'],
             ['data', '[Data_config!]'],
             ['display', 'Entity_display_config!'],
-            ['es_columns', '[Es_column_config!]'],
-            ['es_filters', '[Es_filter_group_config!]'],
+            ['elasticsearch', 'Es_config'],
         ],
         'data_config': [
             ['system_name', 'String!'],
@@ -176,6 +183,11 @@ async def create_type_defs():
             # TODO: add overlays
             ['base_layer', 'String'],
             ['base_url', 'String'],
+        ],
+        'es_config': [
+            ['title', 'String!'],
+            ['columns', '[Es_column_config!]'],
+            ['filters', '[Es_filter_group_config!]'],
         ],
         'es_column_config': [
             ['system_name', 'String!'],
