@@ -743,8 +743,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "[String]"
                             },
                             "4": {
-                                "system_name": "image_url",
-                                "display_name": "Announcement in \"Vooruit\"",
+                                "system_name": "vooruit_image",
+                                "display_name": "Announcement in \\"Vooruit\\"",
                                 "type": "String"
                             }
                         },
@@ -2058,7 +2058,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
 
         with open('data/tblProgramme.csv') as input_file, \
-             open('data/tblProgrammeDate.csv') as date_file:
+             open('data/tblProgrammeDate.csv') as date_file, \
+             open('data/programmes_image_urls.csv') as image_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
@@ -2075,6 +2076,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             date_file_lookup = {h: date_header.index(h) for h in date_header}
 
             dates_index = {r[0]: r for r in date_reader}
+
+            image_lines = image_file.readlines()
+            image_reader = csv.reader(image_lines)
+
+            image_header = next(image_reader)
+            image_file_lookup = {h: image_header.index(h) for h in image_header}
 
             programmes = []
             for row in csv_reader:
@@ -2138,6 +2145,27 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             batch_process(
                 cur,
                 programmes_mentioned,
+                params,
+                update_entity,
+                prop_conf,
+            )
+
+            programmes_image_urls = [r for r in image_reader]
+            # Import Vooruit image urls
+            prop_conf = {
+                'id': [None, 0, 'int'],
+                'vooruit_image': [types['programme']['cl']['vooruit_image'], 1],
+            }
+
+            params = {
+                'entity_type_id': types['programme']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programmes (Vooruit image urls)')
+            batch_process(
+                cur,
+                programmes_image_urls,
                 params,
                 update_entity,
                 prop_conf,
