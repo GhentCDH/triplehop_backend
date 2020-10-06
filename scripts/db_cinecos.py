@@ -741,6 +741,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "dates_mentioned",
                                 "display_name": "Date(s) mentioned",
                                 "type": "[String]"
+                            },
+                            "4": {
+                                "system_name": "image_url",
+                                "display_name": "Announcement in \"Vooruit\"",
+                                "type": "String"
                             }
                         },
                         "display": {
@@ -757,6 +762,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         {
                                             "field": "3",
                                             "type": "list"
+                                        },
+                                        {
+                                            "field": "4",
+                                            "type": "vooruit_image"
                                         }
                                     ]
                                 }
