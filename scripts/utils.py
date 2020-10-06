@@ -74,7 +74,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
         elif len(indices) == 3 and indices[2] == 'array':
             # TODO
             raise Exception('Not yet implemented')
-        elif row[indices[1]] != '':
+        elif row[indices[1]] != '' and row[indices[1]] != 'N/A':
             properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
     query.append(
@@ -119,7 +119,7 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
             # TODO
             raise Exception('Not yet implemented')
 
-        elif row[indices[1]] != '':
+        elif row[indices[1]] != '' and row[indices[1]] != 'N/A':
             valid = True
             # query.append(
             #     '''
