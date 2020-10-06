@@ -1409,7 +1409,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             persons = []
             for row in csv_reader:
                 if row[file_lookup['name']] == '':
-                    first_name = ' / '.join(fn_index[row[file_lookup['person_id']]])
+                    if row[file_lookup['person_id']] in fn_index:
+                        first_name = ' / '.join(fn_index[row[file_lookup['person_id']]])
+                    else:
+                        first_name = ''
                     last_name = row[file_lookup['last_name']]
                     suffix = row[file_lookup['suffix']]
                     row[file_lookup['name']] = f'{first_name} {last_name} {suffix}'.replace('  ', ' ').strip()
