@@ -2095,10 +2095,13 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     row.append([start_date])
                 else:
                     start_date = dates_index[row[0]][date_file_lookup['programme_date']]
+                    # TODO: EDTF
                     end_date = datetime.strftime(
-                        datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=7),
+                        datetime.strptime(start_date.replace('193X', '1935'), '%Y-%m-%d') + timedelta(days=7),
                         '%Y-%m-%d'
                     )
+                    if ('193X' in start_date):
+                        end_date = end_date.replace('1935', '193X')
                     # create list with only dates (between parentheses)
                     mentioned_dates = [d.split(')')[0] for d in row[file_lookup['programme_info']].split('(')[1:]]
                     row.append(start_date)
