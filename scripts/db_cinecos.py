@@ -1578,112 +1578,112 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
-            with open('data/tblCompanyBranch.csv') as input_file:
-                lines = input_file.readlines()
-                csv_reader = csv.reader(lines)
+        with open('data/tblCompanyBranch.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
 
-                header = next(csv_reader)
-                header.append('branch_id')
-                file_lookup = {h: header.index(h) for h in header}
+            header = next(csv_reader)
+            header.append('branch_id')
+            file_lookup = {h: header.index(h) for h in header}
 
-                branches_header = ['branch_id', 'branch_name']
-                branches_lookup = {h: branches_header.index(h) for h in branches_header}
-                branches = [
-                    ['1', 'Film distribution'],
-                ]
+            branches_header = ['branch_id', 'branch_name']
+            branches_lookup = {h: branches_header.index(h) for h in branches_header}
+            branches = [
+                ['1', 'Film distribution'],
+            ]
 
-                company_branches = []
-                for row in csv_reader:
-                    if row[file_lookup['branch_name']] == 'film distribution':
-                        row.append('1')
-                    else:
-                        print('unknown branch type')
-                    company_branches.append(row)
+            company_branches = []
+            for row in csv_reader:
+                if row[file_lookup['branch_name']] == 'film distribution':
+                    row.append('1')
+                else:
+                    print('unknown branch type')
+                company_branches.append(row)
 
-                # Import company branches
-                prop_conf = {
-                    'id': [None, branches_lookup['branch_id'], 'int'],
-                    'original_id': [types['company_branch']['cl']['original_id'], branches_lookup['branch_id'], 'int'],
-                    'name': [types['company_branch']['cl']['name'], branches_lookup['branch_name']],
-                }
+            # Import company branches
+            prop_conf = {
+                'id': [None, branches_lookup['branch_id'], 'int'],
+                'original_id': [types['company_branch']['cl']['original_id'], branches_lookup['branch_id'], 'int'],
+                'name': [types['company_branch']['cl']['name'], branches_lookup['branch_name']],
+            }
 
-                params = {
-                    'entity_type_id': types['company_branch']['id'],
-                    'user_id': user_id,
-                }
+            params = {
+                'entity_type_id': types['company_branch']['id'],
+                'user_id': user_id,
+            }
 
-                print('Cinecos importing company branches')
-                batch_process(
-                    cur,
-                    branches,
-                    params,
-                    add_entity,
-                    prop_conf
-                )
+            print('Cinecos importing company branches')
+            batch_process(
+                cur,
+                branches,
+                params,
+                add_entity,
+                prop_conf
+            )
 
-                # import company branch relations
-                relation_config = [
-                    [file_lookup['company_id'], 'int'],
-                    [file_lookup['branch_id'], 'int'],
-                ]
+            # import company branch relations
+            relation_config = [
+                [file_lookup['company_id'], 'int'],
+                [file_lookup['branch_id'], 'int'],
+            ]
 
-                prop_conf = {}
+            prop_conf = {}
 
-                params = {
-                    'domain_type_id': types['company']['id'],
-                    'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                    'range_type_id': types['company_branch']['id'],
-                    'range_prop': f'p_{dtu(types["company_branch"]["id"])}_{types["company_branch"]["cl"]["original_id"]}',
-                    'relation_type_id': relations['branch']['id'],
-                    'user_id': user_id,
-                }
+            params = {
+                'domain_type_id': types['company']['id'],
+                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'range_type_id': types['company_branch']['id'],
+                'range_prop': f'p_{dtu(types["company_branch"]["id"])}_{types["company_branch"]["cl"]["original_id"]}',
+                'relation_type_id': relations['branch']['id'],
+                'user_id': user_id,
+            }
 
-                print('Cinecos importing company branch relations')
-                batch_process(
-                    cur,
-                    company_branches,
-                    params,
-                    add_relation,
-                    relation_config,
-                    prop_conf
-                )
+            print('Cinecos importing company branch relations')
+            batch_process(
+                cur,
+                company_branches,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
 
-            with open('data/tblJoinCompanyCompany.csv') as input_file:
-                lines = input_file.readlines()
-                csv_reader = csv.reader(lines)
+        with open('data/tblJoinCompanyCompany.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
 
-                header = next(csv_reader)
-                file_lookup = {h: header.index(h) for h in header}
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
 
-                relation_config = [
-                    [file_lookup['company_id'], 'int'],
-                    [file_lookup['subsidiary_id'], 'int'],
-                ]
+            relation_config = [
+                [file_lookup['company_id'], 'int'],
+                [file_lookup['subsidiary_id'], 'int'],
+            ]
 
-                prop_conf = {
-                    'subsidiary_type': [relations['subsidiary']['cl']['subsidiary_type'], file_lookup['subsidiary_type']],
-                    'date_start': [relations['subsidiary']['cl']['date_start'], file_lookup['start_date']],
-                    'date_end': [relations['subsidiary']['cl']['date_end'], file_lookup['end_date']],
-                }
+            prop_conf = {
+                'subsidiary_type': [relations['subsidiary']['cl']['subsidiary_type'], file_lookup['subsidiary_type']],
+                'date_start': [relations['subsidiary']['cl']['date_start'], file_lookup['start_date']],
+                'date_end': [relations['subsidiary']['cl']['date_end'], file_lookup['end_date']],
+            }
 
-                params = {
-                    'domain_type_id': types['company']['id'],
-                    'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                    'range_type_id': types['company']['id'],
-                    'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                    'relation_type_id': relations['subsidiary']['id'],
-                    'user_id': user_id,
-                }
+            params = {
+                'domain_type_id': types['company']['id'],
+                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'range_type_id': types['company']['id'],
+                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'relation_type_id': relations['subsidiary']['id'],
+                'user_id': user_id,
+            }
 
-                print('Cinecos importing subsidiary relations')
-                batch_process(
-                    cur,
-                    [r for r in csv_reader],
-                    params,
-                    add_relation,
-                    relation_config,
-                    prop_conf
-                )
+            print('Cinecos importing subsidiary relations')
+            batch_process(
+                cur,
+                [r for r in csv_reader],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
 
         with open('data/tblContinent.csv') as input_file:
             lines = input_file.readlines()
