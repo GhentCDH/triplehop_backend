@@ -1309,6 +1309,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             )
         )
 
+        cur.execute(
+            '''
+                SET graph_path = g_{project_id};
+            '''.format(
+                project_id=dtu(project_id),
+            )
+        )
+
+
         for id in [v['id'] for v in types.values()]:
             cur.execute(
                 '''
