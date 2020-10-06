@@ -1,8 +1,11 @@
 from typing import Dict
 
 from asyncpg.connection import Connection
+from asyncpg.exceptions import UndefinedObjectError
 from buildpg.main import Renderer
+from re import compile as re_compile
 
+EDGE_LABEL_DOES_NOT_EXIST_REGEX = re_compile(r'^edge label "e_[a-f0-9_]{36}" does not exist$')
 RENDERER = Renderer(regex=r'(?<![a-z:]):([a-z][a-z\d_]*)', sep='__')
 
 
@@ -31,8 +34,14 @@ class BaseRepository:
 
     # TODO: prepared statements with LRU cache?
     async def fetch(self, query_template: str, params: Dict = None):
-        query, args = self.__class__._render(query_template, params)
-        return await self._conn.fetch(query, *args)
+        try:
+            query, args = self.__class__._render(query_template, params)
+            return await self._conn.fetch(query, *args)
+        except UndefinedObjectError as e:
+            if EDGE_LABEL_DOES_NOT_EXIST_REGEX.match(e.message):
+                return []
+            else:
+                raise e
 
     # TODO: prepared statements with LRU cache?
     async def fetchrow(self, query_template: str, params: Dict = None):
