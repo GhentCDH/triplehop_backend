@@ -74,8 +74,12 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
         elif len(indices) == 3 and indices[2] == 'array':
             # TODO
             raise Exception('Not yet implemented')
-        elif row[indices[1]] != '' and row[indices[1]] != 'N/A':
-            properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
+        elif len(indices) == 3 and indices[2] == 'int':
+            if row[indices[1]] != '' and row[indices[1]] != 'N/A':
+                properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
+        else:
+            if row[indices[1]] != '':
+                properties.append(f'p_{dtu(initial_parameters["entity_type_id"])}_%(property_id_{counter}_{indices[0]})s: %(value_{counter}_{indices[0]})s')
 
     query.append(
         '''
@@ -119,23 +123,37 @@ def add_entity(initial_parameters: Dict, counter: int, row: Tuple, prop_conf: Di
             # TODO
             raise Exception('Not yet implemented')
 
-        elif row[indices[1]] != '' and row[indices[1]] != 'N/A':
-            valid = True
-            # query.append(
-            #     '''
-            #         CREATE
-            #             (ve_{counter})
-            #             -[:e_property]->
-            #             (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
-            #     '''.format(
-            #         counter=counter,
-            #         entity_type_id=dtu(initial_parameters['entity_type_id']),
-            #         id=indices[0],
-            #     )
-            # )
-            if len(indices) == 3 and indices[2] == 'int':
+        elif len(indices) == 3 and indices[2] == 'int':
+            if row[indices[1]] != '' and row[indices[1]] != 'N/A':
+                valid = True
+                # query.append(
+                #     '''
+                #         CREATE
+                #             (ve_{counter})
+                #             -[:e_property]->
+                #             (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+                #     '''.format(
+                #         counter=counter,
+                #         entity_type_id=dtu(initial_parameters['entity_type_id']),
+                #         id=indices[0],
+                #     )
+                # )
                 params[f'value_{counter}_{indices[0]}'] = int(row[indices[1]])
-            else:
+        else:
+            if row[indices[1]] != '':
+                valid = True
+                # query.append(
+                #     '''
+                #         CREATE
+                #             (ve_{counter})
+                #             -[:e_property]->
+                #             (vp_{counter}_%(property_id_{counter}_{id})s:v_{entity_type_id}_%(property_id_{counter}_{id})s {{value: %(value_{counter}_{id})s}})
+                #     '''.format(
+                #         counter=counter,
+                #         entity_type_id=dtu(initial_parameters['entity_type_id']),
+                #         id=indices[0],
+                #     )
+                # )
                 params[f'value_{counter}_{indices[0]}'] = row[indices[1]].replace('\n', '\\n')
 
         if valid:
