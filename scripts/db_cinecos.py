@@ -6,6 +6,10 @@ from config import DATABASE_CONNECTION_STRING
 
 from utils import add_entity, add_relation, batch_process, dtu, update_entity
 
+# venue address hack:
+# * add postal_code, city_name, street_name, geodata directly to venue
+# * add a relation directly from venue to city
+
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
         cur.execute(
@@ -601,6 +605,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "seats",
                                 "display_name": "Number of seats",
                                 "type": "[String]"
+                            },
+                            "14": {
+                                "system_name": "postal_code",
+                                "display_name": "Postal code",
+                                "type": "Int"
+                            },
+                            "15": {
+                                "system_name": "city_name",
+                                "display_name": "City",
+                                "type": "String"
+                            },
+                            "16": {
+                                "system_name": "street_name",
+                                "display_name": "Street",
+                                "type": "String"
+                            },
+                            "17": {
+                                "system_name": "location",
+                                "display_name": "Location",
+                                "type": "Geometry"
                             }
                         },
                         "display": {
@@ -640,6 +664,19 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         },
                                         {
                                             "field": "13"
+                                        },
+                                        {
+                                            "field": "14"
+                                        },
+                                        {
+                                            "field": "15"
+                                        },
+                                        {
+                                            "field": "16"
+                                        },
+                                        {
+                                            "field": "17",
+                                            "type": "geometry"
                                         }
                                     ]
                                 }
@@ -651,6 +688,46 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "display_name": "Name",
                                 "selector_value": "$name",
                                 "type": "text"
+                            },
+                            "1": {
+                                "system_name": "city",
+                                "display_name": "City",
+                                "relation": "r_venue_city",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_venue_city->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_venue_city->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "2": {
+                                "system_name": "street_name",
+                                "display_name": "Stret name",
+                                "selector_value": "$street_name",
+                                "type": "text"
+                            },
+                            "3": {
+                                "system_name": "date_opened",
+                                "display_name": "Date opened",
+                                "selector_value": "$date_opened_display",
+                                "type": "text"
+                            },
+                            "4": {
+                                "system_name": "date_closed",
+                                "display_name": "Date closed",
+                                "selector_value": "$date_closed_display",
+                                "type": "text"
+                            },
+                            "5": {
+                                "system_name": "city_name",
+                                "display_name": "City",
+                                "selector_value": "$city_name",
+                                "type": "text"
                             }
                         },
                         "es_display": {
@@ -661,6 +738,13 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         {
                                             "filter": "0",
                                             "type": "autocomplete"
+                                        },
+                                        {
+                                            "filter": "1"
+                                        },
+                                        {
+                                            "filter": "2",
+                                            "type": "autocomplete"
                                         }
                                     ]
                                 }
@@ -668,6 +752,18 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             "columns": [
                                 {
                                     "column": "0",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "5",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "3",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "4",
                                     "sortable": true
                                 }
                             ]
@@ -1223,6 +1319,20 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'venue_city',
+                    'City',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "",
+                            "range_title": "",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'programme_venue',
                     'Venue',
                     '{
@@ -1339,6 +1449,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_city'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
                     (SELECT id FROM app.entity WHERE system_name = 'programme'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -1422,6 +1537,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_city'),
+                    (SELECT id FROM app.entity WHERE system_name = 'city'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'programme_venue'),
                     (SELECT id FROM app.entity WHERE system_name = 'venue'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -1491,6 +1611,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'branch',
             'address_city',
             'venue_address',
+            'venue_city',
             'programme_venue',
             'programme_item',
             'programme_item_film',
@@ -2088,6 +2209,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             cities = []
 
             addresses = []
+            # TODO: remove venue address hack
+            address_lookup = {}
+            address_header_lookup = {h: header.index(h) for h in header}
+            # /hack
             for row in csv_reader:
                 # clean n/a
                 for col in ['city_name', 'street_name', 'geodata', 'postal_code', 'info']:
@@ -2116,6 +2241,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     row.append('')
                     row.append('')
                 addresses.append(row)
+                # TODO: remove venue address hack
+                address_lookup[row[0]] = row
+                # /hack
 
             # import cities
             prop_conf = {
@@ -2201,6 +2329,14 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header.append('date_closed_system')
             header.append('screens')
             header.append('seats')
+            # TODO: remove venue address hack
+            header.append('postal_code')
+            header.append('city_name')
+            header.append('street_name')
+            header.append('long')
+            header.append('lat')
+            header.append('city_id')
+            # /hack
             file_lookup = {h: header.index(h) for h in header}
 
             screen_reader = csv.reader(screen_file)
@@ -2300,6 +2436,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 else:
                     row.append([])
 
+                # TODO: remove venue address hack
+                address = address_lookup[row[file_lookup['address_id']]]
+                row.append(address[address_header_lookup['postal_code']])
+                row.append(address[address_header_lookup['city_name']])
+                row.append(address[address_header_lookup['street_name']])
+                row.append(address[address_header_lookup['long']])
+                row.append(address[address_header_lookup['lat']])
+                row.append(address[address_header_lookup['city_id']])
+                # /hack
+
                 venues.append(row)
 
             # import venues
@@ -2317,8 +2463,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'ideological_remark': [types['venue']['cl']['ideological_remark'], file_lookup['ideological_remark']],
                 'infrastructure_info': [types['venue']['cl']['infrastructure_info'], file_lookup['infrastructure_info']],
                 'name_remarks': [types['venue']['cl']['name_remarks'], file_lookup['name_remarks']],
-                'screens': [types['venue']['cl']['screens'], file_lookup['screens'], 'array'],
-                'seats': [types['venue']['cl']['seats'], file_lookup['seats'], 'array'],
+                # TODO: remove venue address hack
+                'postal_code': [types['venue']['cl']['postal_code'], file_lookup['postal_code']],
+                'city_name': [types['venue']['cl']['city_name'], file_lookup['city_name']],
+                'street_name': [types['venue']['cl']['street_name'], file_lookup['street_name']],
+                'location': [types['venue']['cl']['location'], [file_lookup['long'], file_lookup['lat']], 'point'],
+                # /hack
             }
 
             params = {
@@ -2333,6 +2483,35 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 params,
                 add_entity,
                 prop_conf
+            )
+
+            venue_screens_and_seats = []
+            for venue in venues:
+                if venue[file_lookup['screens']]:
+                    for screen in venue[file_lookup['screens']]:
+                        venue_screens_and_seats.append([venue[file_lookup['sequential_id']], screen, ''])
+                    for seat in venue[file_lookup['seats']]:
+                        venue_screens_and_seats.append([venue[file_lookup['sequential_id']], '', seat])
+
+            # import venue screens and seats (arrays) using update
+            prop_conf = {
+                'id': [None, 0, 'int'],
+                'screens': [types['venue']['cl']['screens'], 1, 'array'],
+                'seats': [types['venue']['cl']['seats'], 2, 'array'],
+            }
+
+            params = {
+                'entity_type_id': types['venue']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos venue screens and seats')
+            batch_process(
+                cur,
+                venue_screens_and_seats,
+                params,
+                update_entity,
+                prop_conf,
             )
 
             # import relation between venues and addresses
@@ -2361,6 +2540,35 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 relation_config,
                 prop_conf
             )
+
+            # TODO: remove venue address hack
+            # import relation between venues and cities
+            relation_config = [
+                [file_lookup['venue_id']],
+                [file_lookup['city_id'], 'int'],
+            ]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': types['venue']['id'],
+                'domain_prop': f'p_{dtu(types["venue"]["id"])}_{types["venue"]["cl"]["original_id"]}',
+                'range_type_id': types['city']['id'],
+                'range_prop': f'p_{dtu(types["city"]["id"])}_{types["city"]["cl"]["original_id"]}',
+                'relation_type_id': relations['venue_city']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing venue cities relations')
+            batch_process(
+                cur,
+                [v for v in venues if address_lookup[v[file_lookup['address_id']]][address_header_lookup['city_id']] != ''],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+            # /hack
 
         with open('data/tblJoinVenueCompany.csv') as input_file:
             lines = input_file.readlines()
