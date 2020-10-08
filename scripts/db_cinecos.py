@@ -571,6 +571,36 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "type",
                                 "display_name": "Type",
                                 "type": "String"
+                            },
+                            "8": {
+                                "system_name": "ideological_characteristic",
+                                "display_name": "Ideological characteristic",
+                                "type": "String"
+                            },
+                            "9": {
+                                "system_name": "ideological_remark",
+                                "display_name": "Ideological remark",
+                                "type": "String"
+                            },
+                            "10": {
+                                "system_name": "infrastructure_info",
+                                "display_name": "Infrastructure info",
+                                "type": "String"
+                            },
+                            "11": {
+                                "system_name": "name_remarks",
+                                "display_name": "Remarks about the name",
+                                "type": "String"
+                            },
+                            "12": {
+                                "system_name": "screens",
+                                "display_name": "Number of screens",
+                                "type": "[String]"
+                            },
+                            "13": {
+                                "system_name": "seats",
+                                "display_name": "Number of seats",
+                                "type": "[String]"
                             }
                         },
                         "display": {
@@ -592,6 +622,24 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         },
                                         {
                                             "field": "7"
+                                        },
+                                        {
+                                            "field": "8"
+                                        },
+                                        {
+                                            "field": "9"
+                                        },
+                                        {
+                                            "field": "10"
+                                        },
+                                        {
+                                            "field": "11"
+                                        },
+                                        {
+                                            "field": "12"
+                                        },
+                                        {
+                                            "field": "13"
                                         }
                                     ]
                                 }
@@ -652,6 +700,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "district",
                                 "display_name": "District",
                                 "type": "String"
+                            },
+                            "4": {
+                                "system_name": "architectural_info",
+                                "display_name": "Architectural information",
+                                "type": "String"
                             }
                         },
                         "display": {
@@ -668,6 +721,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         },
                                         {
                                             "field": "3"
+                                        },
+                                        {
+                                            "field": "4"
                                         }
                                     ]
                                 }
@@ -2090,6 +2146,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'street_name': [types['address']['cl']['street_name'], file_lookup['street_name']],
                 'location': [types['address']['cl']['location'], [file_lookup['long'], file_lookup['lat']], 'point'],
                 'district': [types['address']['cl']['district'], file_lookup['info']],
+                'architectural_info': [types['address']['cl']['architectural_info'], file_lookup['architectural_info']],
             }
 
             params = {
@@ -2133,14 +2190,38 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
-        with open('data/tblVenue.csv') as input_file:
+        with open('data/tblVenue.csv') as input_file, \
+             open('data/tblVenueScreen.csv') as screen_file, \
+             open('data/tblVenueSeats.csv') as seat_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
             header.append('date_opened_system')
             header.append('date_closed_system')
+            header.append('screens')
+            header.append('seats')
             file_lookup = {h: header.index(h) for h in header}
+
+            screen_reader = csv.reader(screen_file)
+            screen_lookup = {h: i for i, h in enumerate(next(screen_reader))}
+
+            screens = {}
+            for row in screen_reader:
+                venue_id = row[screen_lookup['venue_id']]
+                if venue_id not in screens:
+                    screens[venue_id] = []
+                screens[venue_id].append(f'{row[screen_lookup["number_of_screens"]]} ({row[screen_lookup["years"]]})')
+
+            seat_reader = csv.reader(seat_file)
+            seat_lookup = {h: i for i, h in enumerate(next(seat_reader))}
+
+            seats = {}
+            for row in seat_reader:
+                venue_id = row[seat_lookup['venue_id']]
+                if venue_id not in seats:
+                    seats[venue_id] = []
+                seats[venue_id].append(f'{row[seat_lookup["number_of_seats"]]} ({row[seat_lookup["years"]]})')
 
             # Process dates: process question marks, X, asterisks and N/A
             venues = []
@@ -2209,6 +2290,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             print(col)
                             print(val)
 
+                venue_id = row[file_lookup['venue_id']]
+                if venue_id in screens:
+                    row.append(screens[venue_id])
+                else:
+                    row.append([])
+                if venue_id in seats:
+                    row.append(seats[venue_id])
+                else:
+                    row.append([])
+
                 venues.append(row)
 
             # import venues
@@ -2222,6 +2313,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'date_closed': [types['venue']['cl']['date_closed'], file_lookup['date_closed_system']],
                 'status': [types['venue']['cl']['status'], file_lookup['status']],
                 'type': [types['venue']['cl']['type'], file_lookup['type']],
+                'ideological_characteristic': [types['venue']['cl']['ideological_characteristic'], file_lookup['ideological_characteristic']],
+                'ideological_remark': [types['venue']['cl']['ideological_remark'], file_lookup['ideological_remark']],
+                'infrastructure_info': [types['venue']['cl']['infrastructure_info'], file_lookup['infrastructure_info']],
+                'name_remarks': [types['venue']['cl']['name_remarks'], file_lookup['name_remarks']],
+                'screens': [types['venue']['cl']['screens'], file_lookup['screens'], 'array'],
+                'seats': [types['venue']['cl']['seats'], file_lookup['seats'], 'array'],
             }
 
             params = {
