@@ -943,6 +943,130 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 ),
                 (
                     (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'company_person',
+                    'Company person',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "job_type",
+                                "display_name": "Job type",
+                                "type": "String"
+                            },
+                            "1": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "Int"
+                            },
+                            "2": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "People",
+                            "range_title": "Companies",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "0"
+                                        },
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'venue_company',
+                    'Venue company',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "Int"
+                            },
+                            "1": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "Companies",
+                            "range_title": "Venues",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "0"
+                                        },
+                                        {
+                                            "field": "1"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'venue_person',
+                    'Venue person',
+                    '{
+                        "data": {
+                            "0": {
+                                "system_name": "job_type",
+                                "display_name": "Job type",
+                                "type": "String"
+                            },
+                            "1": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "Int"
+                            },
+                            "2": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "Int"
+                            }
+                        },
+                        "display": {
+                            "domain_title": "People",
+                            "range_title": "Venues",
+                            "layout": [
+                                {
+                                    "fields": [
+                                        {
+                                            "field": "0"
+                                        },
+                                        {
+                                            "field": "1"
+                                        },
+                                        {
+                                            "field": "2"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
                     'subsidiary',
                     'Subsidiary',
                     '{
@@ -1114,6 +1238,21 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
+                    (SELECT id FROM app.relation WHERE system_name = 'company_person'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_company'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_person'),
+                    (SELECT id FROM app.entity WHERE system_name = 'venue'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
                     (SELECT id FROM app.relation WHERE system_name = 'subsidiary'),
                     (SELECT id FROM app.entity WHERE system_name = 'company'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
@@ -1179,6 +1318,21 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 (
                     (SELECT id FROM app.relation WHERE system_name = 'production_company'),
                     (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'company_person'),
+                    (SELECT id FROM app.entity WHERE system_name = 'person'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_company'),
+                    (SELECT id FROM app.entity WHERE system_name = 'company'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'venue_person'),
+                    (SELECT id FROM app.entity WHERE system_name = 'person'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 ),
                 (
@@ -1272,6 +1426,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'actor',
             'distributor',
             'production_company',
+            'company_person',
+            'venue_company',
+            'venue_person',
             'subsidiary',
             'country_continent',
             'film_country',
@@ -1316,7 +1473,6 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 project_id=dtu(project_id),
             )
         )
-
 
         for id in [v['id'] for v in types.values()]:
             cur.execute(
@@ -1584,6 +1740,46 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             batch_process(
                 cur,
                 [r for r in film_companies if r[file_lookup['info']] == 'production_company'],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblJoinCompanyPerson.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            company_persons = [r for r in csv_reader]
+
+            relation_config = [
+                [file_lookup['company_id'], 'int'],
+                [file_lookup['person_id'], 'int'],
+            ]
+
+            prop_conf = {
+                'job_type': [relations['company_person']['cl']['job_type'], file_lookup['job_type']],
+                'date_start': [relations['company_person']['cl']['date_start'], file_lookup['start_date']],
+                'date_end': [relations['company_person']['cl']['date_end'], file_lookup['end_date']],
+            }
+
+            # import company_person relations
+            params = {
+                'domain_type_id': types['company']['id'],
+                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'range_type_id': types['person']['id'],
+                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+                'relation_type_id': relations['company_person']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing company person relations')
+            batch_process(
+                cur,
+                company_persons,
                 params,
                 add_relation,
                 relation_config,
@@ -2063,6 +2259,85 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             batch_process(
                 cur,
                 [v for v in venues if v[file_lookup['address_id']] != ''],
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblJoinVenueCompany.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            venue_companies = [r for r in csv_reader]
+
+            relation_config = [
+                [file_lookup['venue_id']],
+                [file_lookup['company_id'], 'int'],
+            ]
+
+            prop_conf = {
+                'date_start': [relations['venue_company']['cl']['date_start'], file_lookup['start_date']],
+                'date_end': [relations['venue_company']['cl']['date_end'], file_lookup['end_date']],
+            }
+
+            # import company_person relations
+            params = {
+                'domain_type_id': types['venue']['id'],
+                'domain_prop': f'p_{dtu(types["venue"]["id"])}_{types["venue"]["cl"]["original_id"]}',
+                'range_type_id': types['company']['id'],
+                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+                'relation_type_id': relations['venue_company']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing venue company relations')
+            batch_process(
+                cur,
+                venue_companies,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+
+        with open('data/tblJoinVenuePerson.csv') as input_file:
+            lines = input_file.readlines()
+            csv_reader = csv.reader(lines)
+
+            header = next(csv_reader)
+            file_lookup = {h: header.index(h) for h in header}
+
+            venue_persons = [r for r in csv_reader]
+
+            relation_config = [
+                [file_lookup['venue_id']],
+                [file_lookup['person_id'], 'int'],
+            ]
+
+            prop_conf = {
+                'job_type': [relations['venue_person']['cl']['job_type'], file_lookup['job_type']],
+                'date_start': [relations['venue_person']['cl']['date_start'], file_lookup['start_date']],
+                'date_end': [relations['venue_person']['cl']['date_end'], file_lookup['end_date']],
+            }
+
+            # import company_person relations
+            params = {
+                'domain_type_id': types['venue']['id'],
+                'domain_prop': f'p_{dtu(types["venue"]["id"])}_{types["venue"]["cl"]["original_id"]}',
+                'range_type_id': types['person']['id'],
+                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+                'relation_type_id': relations['venue_person']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing venue person relations')
+            batch_process(
+                cur,
+                venue_persons,
                 params,
                 add_relation,
                 relation_config,
