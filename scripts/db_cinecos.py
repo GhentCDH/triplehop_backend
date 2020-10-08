@@ -1329,6 +1329,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 )
             )
 
+        for id in [r['id'] for r in relations.values()]:
+            cur.execute(
+                '''
+                    CREATE ELABEL e_{id};
+                '''.format(
+                    id=dtu(id),
+                )
+            )
+
         with open('data/tblFilm.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)

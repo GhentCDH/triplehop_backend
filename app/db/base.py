@@ -1,7 +1,6 @@
 from typing import Dict
 
 from asyncpg.connection import Connection
-from asyncpg.exceptions import UndefinedObjectError
 from buildpg.main import Renderer
 from re import compile as re_compile
 
@@ -34,14 +33,8 @@ class BaseRepository:
 
     # TODO: prepared statements with LRU cache?
     async def fetch(self, query_template: str, params: Dict = None):
-        try:
-            query, args = self.__class__._render(query_template, params)
-            return await self._conn.fetch(query, *args)
-        except UndefinedObjectError as e:
-            if EDGE_LABEL_DOES_NOT_EXIST_REGEX.match(e.message):
-                return []
-            else:
-                raise e
+        query, args = self.__class__._render(query_template, params)
+        return await self._conn.fetch(query, *args)
 
     # TODO: prepared statements with LRU cache?
     async def fetchrow(self, query_template: str, params: Dict = None):
