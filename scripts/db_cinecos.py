@@ -660,10 +660,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "field": "11"
                                         },
                                         {
-                                            "field": "12"
+                                            "field": "12",
+                                            "type": "list"
                                         },
                                         {
-                                            "field": "13"
+                                            "field": "13",
+                                            "type": "list"
                                         },
                                         {
                                             "field": "14"
