@@ -9,6 +9,10 @@ from utils import add_entity, add_relation, batch_process, dtu, update_entity
 # venue address hack:
 # * add postal_code, city_name, street_name, geodata directly to venue
 # * add a relation directly from venue to city
+#
+# programe hack:
+# * add venue name directly to programme
+# * add relation directly from programme to film
 
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
@@ -904,10 +908,25 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "vooruit_image",
                                 "display_name": "Announcement in \\"Vooruit\\"",
                                 "type": "String"
+                            },
+                            "5": {
+                                "system_name": "year",
+                                "display_name": "Year",
+                                "type": "Int"
+                            },
+                            "6": {
+                                "system_name": "film_titles",
+                                "display_name": "Year",
+                                "type": "Int"
+                            },
+                            "7": {
+                                "system_name": "venue_name",
+                                "display_name": "Venue",
+                                "type": "String"
                             }
                         },
                         "display": {
-                            "title": "Programme ($1 - $2)",
+                            "title": "$7 ($1 - $2)",
                             "layout": [
                                 {
                                     "fields": [
@@ -964,6 +983,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "display_name": "End date",
                                 "selector_value": "$date_end",
                                 "type": "text"
+                            },
+                            "4": {
+                                "system_name": "year",
+                                "display_name": "Year",
+                                "selector_value": "$year",
+                                "type": "integer"
                             }
                         },
                         "es_display": {
@@ -973,21 +998,22 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     "filters": [
                                         {
                                             "filter": "1"
+                                        },
+                                        {
+                                            "filter": "4",
+                                            "type": "histogram_slider",
+                                            "interval": 10
                                         }
                                     ]
                                 }
                             ],
                             "columns": [
                                 {
-                                    "column": "0",
+                                    "column": "2",
                                     "sortable": true
                                 },
                                 {
                                     "column": "1",
-                                    "sortable": true
-                                },
-                                {
-                                    "column": "2",
                                     "sortable": true
                                 }
                             ]
@@ -1384,6 +1410,20 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         }
                     }',
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT project.id FROM app.project WHERE system_name = 'cinecos'),
+                    'programme_film',
+                    'Films',
+                    '{
+                        "data": {},
+                        "display": {
+                            "domain_title": "Films",
+                            "range_title": "Programme",
+                            "layout": []
+                        }
+                    }',
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT (project_id, system_name) DO UPDATE
                 SET config = EXCLUDED.config;
@@ -1473,6 +1513,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'programme_item_film'),
                     (SELECT id FROM app.entity WHERE system_name = 'programme_item'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
+                    (SELECT id FROM app.entity WHERE system_name = 'programme'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -1561,6 +1606,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     (SELECT id FROM app.relation WHERE system_name = 'programme_item_film'),
                     (SELECT id FROM app.entity WHERE system_name = 'film'),
                     (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                ),
+                (
+                    (SELECT id FROM app.relation WHERE system_name = 'programme_film'),
+                    (SELECT id FROM app.entity WHERE system_name = 'film'),
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
                 )
                 ON CONFLICT DO NOTHING;
 
@@ -1621,6 +1671,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             'programme_venue',
             'programme_item',
             'programme_item_film',
+            'programme_film',
         ]:
             cur.execute(
                 '''
@@ -2367,6 +2418,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             # Process dates: process question marks, X, asterisks and N/A
             venues = []
+            # TODO: remove programme hack
+            venues_lookup = {}
+            venues_header_lookup = {h: header.index(h) for h in header}
+            # /hack
             for row in csv_reader:
                 # Clean up N/A and X
                 for col in ['date_opened', 'date_closed']:
@@ -2453,6 +2508,9 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 # /hack
 
                 venues.append(row)
+                # TODO: remove programme hack
+                venues_lookup[row[file_lookup['venue_id']]] = row
+                # /hack
 
             # import venues
             prop_conf = {
@@ -2665,6 +2723,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header.append('date_start')
             header.append('date_end')
             header.append('dates_mentioned')
+            header.append('year')
+            header.append('venue_name')
             file_lookup = {h: header.index(h) for h in header}
 
             date_lines = date_file.readlines()
@@ -2683,13 +2743,17 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             programmes = []
             for row in csv_reader:
+                start_date = dates_index[row[0]][date_file_lookup['programme_date']]
+                year = start_date[:4]
+                if 'X' in year:
+                    year = ''
+
+                row.append(start_date)
+
                 if 'Vertoningsdag' in row[file_lookup['programme_info']]:
-                    start_date = dates_index[row[0]][date_file_lookup['programme_date']]
-                    row.append(start_date)
                     row.append(start_date)
                     row.append([start_date])
                 else:
-                    start_date = dates_index[row[0]][date_file_lookup['programme_date']]
                     # TODO: EDTF
                     end_date = datetime.strftime(
                         datetime.strptime(start_date.replace('193X', '1935'), '%Y-%m-%d') + timedelta(days=7),
@@ -2699,9 +2763,15 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                         end_date = end_date.replace('1935', '193X')
                     # create list with only dates (between parentheses)
                     mentioned_dates = [d.split(')')[0] for d in row[file_lookup['programme_info']].split('(')[1:]]
-                    row.append(start_date)
                     row.append(end_date)
                     row.append(mentioned_dates)
+
+                row.append(year)
+                if row[file_lookup['venue_id']] != '':
+                    row.append(venues_lookup[row[file_lookup['venue_id']]][venues_header_lookup['name']])
+                else:
+                    row.append('N/A')
+
                 programmes.append(row)
 
             # Import program items (without mentioned dates)
@@ -2710,6 +2780,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'original_id': [types['programme']['cl']['original_id'], file_lookup['programme_id'], 'int'],
                 'date_start': [types['programme']['cl']['date_start'], file_lookup['date_start']],
                 'date_end': [types['programme']['cl']['date_end'], file_lookup['date_end']],
+                'year': [types['programme']['cl']['year'], file_lookup['year']],
+                'venue_name': [types['programme']['cl']['venue_name'], file_lookup['venue_name']],
             }
 
             params = {
@@ -2906,3 +2978,32 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 relation_config,
                 prop_conf
             )
+
+            # programme hack
+            # import relation between programme and film
+            relation_config = [
+                [file_lookup['programme_id'], 'int'],
+                [file_lookup['film_id'], 'int'],
+            ]
+
+            prop_conf = {}
+
+            params = {
+                'domain_type_id': types['programme']['id'],
+                'domain_prop': f'p_{dtu(types["programme"]["id"])}_{types["programme"]["cl"]["original_id"]}',
+                'range_type_id': types['film']['id'],
+                'range_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+                'relation_type_id': relations['programme_film']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing programme film relations')
+            batch_process(
+                cur,
+                programme_items,
+                params,
+                add_relation,
+                relation_config,
+                prop_conf
+            )
+            # /hack
