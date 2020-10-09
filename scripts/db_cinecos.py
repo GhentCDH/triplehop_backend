@@ -759,6 +759,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                     "sortable": true
                                 },
                                 {
+                                    "column": "2",
+                                    "sortable": true
+                                },
+                                {
                                     "column": "3",
                                     "sortable": true
                                 },
