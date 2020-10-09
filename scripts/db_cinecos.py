@@ -707,7 +707,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "2": {
                                 "system_name": "street_name",
-                                "display_name": "Stret name",
+                                "display_name": "Street name",
                                 "selector_value": "$street_name",
                                 "type": "text"
                             },
