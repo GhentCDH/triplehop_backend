@@ -989,6 +989,23 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "display_name": "Year",
                                 "selector_value": "$year",
                                 "type": "integer"
+                            },
+                            "5": {
+                                "system_name": "film",
+                                "display_name": "Films",
+                                "selector_value": "$film",
+                                "relation": "r_programme_film",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$r_programme_film->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$r_programme_film->$title",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
                             }
                         },
                         "es_display": {
@@ -1003,6 +1020,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                             "filter": "4",
                                             "type": "histogram_slider",
                                             "interval": 10
+                                        },
+                                        {
+                                            "filter": "5",
+                                            "type": "nested"
                                         }
                                     ]
                                 }
@@ -1014,6 +1035,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 },
                                 {
                                     "column": "1",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "5",
                                     "sortable": true
                                 }
                             ]
