@@ -325,7 +325,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "type": "text"
                             },
                             "1": {
-                                "system_name": "fuction",
+                                "system_name": "function",
                                 "display_name": "Functions",
                                 "selector_value": "$function",
                                 "type": "text"
