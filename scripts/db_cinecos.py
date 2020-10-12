@@ -139,7 +139,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "1": {
                                 "system_name": "mentioned_titles",
-                                "display_name": "Mentioned title(s)",
+                                "display_name": "Mentioned titles",
                                 "selector_value": "$mentioned_titles",
                                 "type": "text"
                             },
@@ -151,7 +151,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "3": {
                                 "system_name": "director",
-                                "display_name": "Director(s)",
+                                "display_name": "Directors",
                                 "relation": "r_director",
                                 "parts": {
                                     "id": {
@@ -167,7 +167,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "4": {
                                 "system_name": "distributor",
-                                "display_name": "Distributor(s)",
+                                "display_name": "Distributors",
                                 "relation": "r_distributor",
                                 "parts": {
                                     "id": {
@@ -183,7 +183,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "5": {
                                 "system_name": "production_company",
-                                "display_name": "Production company(-ies)",
+                                "display_name": "Production companies",
                                 "relation": "r_production_company",
                                 "parts": {
                                     "id": {
@@ -199,7 +199,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             },
                             "6": {
                                 "system_name": "country",
-                                "display_name": "Country(-ies)",
+                                "display_name": "Countries",
                                 "relation": "r_film_country",
                                 "parts": {
                                     "id": {
