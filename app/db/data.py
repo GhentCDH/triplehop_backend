@@ -197,63 +197,75 @@ class DataRepository(BaseRepository):
             if query['relations']:
                 relation_types_config = await self._conf_repo.get_relation_types_config(project_name)
                 for relation in query['relations']:
-                    # TODO: inverse relations
                     if relation[:2] == 'r_':
-                        for etn in relation_types_config[relation[2:]]['range_names']:
-                            if etn not in entity_type_ids:
-                                entity_type_ids[etn] = \
-                                    await self._conf_repo.get_entity_type_id_by_name(project_name, etn)
+                        relation_name = relation[2:]
+                        entity_type_names = relation_types_config[relation_name]['range_names']
+                        raw_db_query = '''
+                            MATCH (ve:v_{entity_type_id})
+                            WHERE ve.id IN [{entity_ids}]
+                            MATCH (ve)-[e:e_{relation_type_id}]->(ver:v_{range_entity_type_id})
+                        '''
+                    elif relation[:3] == 'ri_':
+                        relation_name = relation[3:]
+                        entity_type_names = relation_types_config[relation_name]['domain_names']
+                        raw_db_query = '''
+                            MATCH (ve:v_{entity_type_id})
+                            WHERE ve.id IN [{entity_ids}]
+                            MATCH (ver:v_{range_entity_type_id})-[e:e_{relation_type_id}]->(ve)
+                        '''
+                    else:
+                        continue
 
-                            # TODO: find a way to use placeholders to pass list of ids
-                            db_query = \
-                                '''
-                                    MATCH (ve:v_{entity_type_id})
-                                    WHERE ve.id IN [{entity_ids}]
-                                    MATCH (ve)-[e:e_{relation_type_id}]->(ver:v_{range_entity_type_id})
-                                '''.format(
-                                    entity_type_id=dtu(entity_type_ids[entity_type_name]),
-                                    entity_ids=','.join([str(id) for id in entity_ids]),
-                                    relation_type_id=dtu(relation_types_config[relation[2:]]['id']),
-                                    range_entity_type_id=dtu(entity_type_ids[etn]),
+                    for etn in entity_type_names:
+                        if etn not in entity_type_ids:
+                            entity_type_ids[etn] = \
+                                await self._conf_repo.get_entity_type_id_by_name(project_name, etn)
+
+                        # TODO: find a way to use placeholders to pass list of ids
+                        db_query = raw_db_query.format(
+                            entity_type_id=dtu(entity_type_ids[entity_type_name]),
+                            entity_ids=','.join([str(id) for id in entity_ids]),
+                            relation_type_id=dtu(relation_types_config[relation_name]['id']),
+                            range_entity_type_id=dtu(entity_type_ids[etn]),
+                        )
+
+                        if etn not in mappings:
+                            mappings[etn] = \
+                                await self._conf_repo.get_entity_type_i_property_mapping(project_name, etn)
+
+                        query_return_parts = ['ve.id', f'label(ver) as __type__']
+                        # TODO: props on relation itself
+                        for prop in query['relations'][relation]['e_props']:
+                            if prop in mappings[etn]:
+                                query_return_parts.append(
+                                    f'ver.{mappings[etn][prop]} as {relation}_e_{prop}'
                                 )
 
-                            if etn not in mappings:
-                                mappings[etn] = \
-                                    await self._conf_repo.get_entity_type_i_property_mapping(project_name, etn)
+                        db_query += \
+                            '''
+                                RETURN {return_query}
+                            '''.format(
+                                return_query=', '.join(query_return_parts)
+                            )
 
-                            query_return_parts = ['ve.id', f'label(ver) as __type__']
-                            # TODO: props on relation itself
-                            for prop in query['relations'][relation]['e_props']:
-                                if prop in mappings[etn]:
-                                    query_return_parts.append(
-                                        f'ver.{mappings[etn][prop]} as {relation}_e_{prop}'
+                        records = await self.fetch(db_query)
+                        for record in records:
+                            if record['id'] not in results:
+                                results[record['id']] = {}
+                            # TODO: relations with cardinatlity 1
+                            if relation not in results[record['id']]:
+                                results[record['id']][relation] = []
+                            results[record['id']][relation].append(
+                                {
+                                    'e_props': {
+                                        p: self.convert_from_jsonb(record[f'{relation}_e_{p}'])
+                                        for p in query['relations'][relation]['e_props']
+                                    },
+                                    'entity_type_name': await self._conf_repo.get_entity_type_name_by_id(
+                                        project_name,
+                                        utd(self.convert_from_jsonb(record['__type__'])[2:])
                                     )
-
-                            db_query += \
-                                '''
-                                    RETURN {return_query}
-                                '''.format(
-                                    return_query=', '.join(query_return_parts)
-                                )
-
-                            records = await self.fetch(db_query)
-                            for record in records:
-                                if record['id'] not in results:
-                                    results[record['id']] = {}
-                                # TODO: relations with cardinatlity 1
-                                if relation not in results[record['id']]:
-                                    results[record['id']][relation] = []
-                                results[record['id']][relation].append(
-                                    {
-                                        'e_props': {
-                                            p: self.convert_from_jsonb(record[f'{relation}_e_{p}'])
-                                            for p in query['relations'][relation]['e_props']
-                                        },
-                                        'entity_type_name': await self._conf_repo.get_entity_type_name_by_id(
-                                            project_name,
-                                            utd(self.convert_from_jsonb(record[f'__type__'])[2:])
-                                        )
-                                    }
-                                )
+                                }
+                            )
 
             return results
