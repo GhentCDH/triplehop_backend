@@ -151,7 +151,7 @@ class Elasticsearch():
                         'type': 'completion'
                     },
                 }
-            if es_field_conf['type'] == 'nested':
+            elif es_field_conf['type'] == 'nested':
                 mapping['properties'] = {
                     'entity_type_name': {
                         'type': 'text',
