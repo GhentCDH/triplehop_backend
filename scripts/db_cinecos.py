@@ -13,6 +13,9 @@ from utils import add_entity, add_relation, batch_process, dtu, update_entity
 # programe hack:
 # * add venue name directly to programme
 # * add relation directly from programme to film
+#
+# programe item hack:
+# * add film title, venue name, programme start and end date directly to programme item
 
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
@@ -1066,10 +1069,30 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "mentioned_venue",
                                 "display_name": "Mentioned venue name",
                                 "type": "String"
+                            },
+                            "3": {
+                                "system_name": "film_title",
+                                "display_name": "Film",
+                                "type": "String"
+                            },
+                            "4": {
+                                "system_name": "venue_name",
+                                "display_name": "Venue",
+                                "type": "String"
+                            },
+                            "5": {
+                                "system_name": "date_start",
+                                "display_name": "Start date",
+                                "type": "String"
+                            },
+                            "6": {
+                                "system_name": "date_end",
+                                "display_name": "End date",
+                                "type": "String"
                             }
                         },
                         "display": {
-                            "title": "$1",
+                            "title": "$3 - $4 ($5 - $6)",
                             "layout": [
                                 {
                                     "fields": [
@@ -1760,6 +1783,16 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             header = next(csv_reader)
             file_lookup = {h: header.index(h) for h in header}
 
+            # programme item hack
+            films = []
+            films_lookup = {}
+            films_header_lookup = {h: header.index(h) for h in header}
+
+            for row in csv_reader:
+                films.append(row)
+                films_lookup[row[file_lookup['film_id']]] = row
+            # /hack
+
             prop_conf = {
                 'id': [None, file_lookup['film_id'], 'int'],
                 'original_id': [types['film']['cl']['original_id'], file_lookup['film_id'], 'int'],
@@ -1777,503 +1810,503 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             print('Cinecos importing films')
             batch_process(
                 cur,
-                [r for r in csv_reader],
+                films,
                 params,
                 add_entity,
                 prop_conf,
             )
 
-        with open('data/tblFilmTitleVariation.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            prop_conf = {
-                'id': [None, file_lookup['film_id'], 'int'],
-                'mentioned_titles': [types['film']['cl']['mentioned_titles'], file_lookup['title'], 'array'],
-            }
-
-            params = {
-                'entity_type_id': types['film']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing film title variations')
-            batch_process(
-                cur,
-                [r for r in csv_reader],
-                params,
-                update_entity,
-                prop_conf
-            )
-
-        with open('data/tblPerson.csv') as input_file, \
-             open('data/tblPersonFirstNames.csv') as fn_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            fn_lines = fn_file.readlines()
-            fn_reader = csv.reader(fn_lines)
-
-            fn_header = next(fn_reader)
-            fn_lookup = {h: fn_header.index(h) for h in fn_header}
-
-            fn_index = {}
-            for row in fn_reader:
-                person_id = row[fn_lookup['person_id']]
-                if person_id not in fn_index:
-                    fn_index[person_id] = []
-                fn_index[person_id].append(row[fn_lookup['first_name']])
-
-            persons = []
-            for row in csv_reader:
-                if row[file_lookup['name']] == '':
-                    if row[file_lookup['person_id']] in fn_index:
-                        first_name = ' / '.join(fn_index[row[file_lookup['person_id']]])
-                    else:
-                        first_name = ''
-                    last_name = row[file_lookup['last_name']]
-                    suffix = row[file_lookup['suffix']]
-                    row[file_lookup['name']] = f'{first_name} {last_name} {suffix}'.replace('  ', ' ').strip()
-                persons.append(row)
-
-            prop_conf = {
-                'id': [None, file_lookup['person_id'], 'int'],
-                'original_id': [types['person']['cl']['original_id'], file_lookup['person_id'], 'int'],
-                'name': [types['person']['cl']['name'], file_lookup['name']],
-                'wikidata_id': [types['person']['cl']['wikidata_id'], file_lookup['wikidata']],
-            }
-
-            params = {
-                'entity_type_id': types['person']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing persons')
-            batch_process(
-                cur,
-                [r for r in persons],
-                params,
-                add_entity,
-                prop_conf
-            )
-
-        with open('data/tblJoinFilmPerson.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            film_persons = [r for r in csv_reader]
-
-            relation_config = [
-                [file_lookup['film_id'], 'int'],
-                [file_lookup['person_id'], 'int'],
-            ]
-
-            prop_conf = {}
-
-            # import director relations
-            params = {
-                'domain_type_id': types['film']['id'],
-                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'range_type_id': types['person']['id'],
-                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
-                'relation_type_id': relations['director']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing director relations')
-            batch_process(
-                cur,
-                [r for r in film_persons if r[file_lookup['info']] == 'director'],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-            # import actor relations
-            params = {
-                'domain_type_id': types['film']['id'],
-                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'range_type_id': types['person']['id'],
-                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
-                'relation_type_id': relations['actor']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing actor relations')
-            batch_process(
-                cur,
-                [r for r in film_persons if r[file_lookup['info']] == 'actor'],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblCompany.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            prop_conf = {
-                'id': [None, file_lookup['company_id'], 'int'],
-                'original_id': [types['company']['cl']['original_id'], file_lookup['company_id'], 'int'],
-                'name': [types['company']['cl']['name'], file_lookup['name']],
-                'date_start': [types['company']['cl']['date_start'], file_lookup['date_extablished']],
-                'date_end': [types['company']['cl']['date_end'], file_lookup['date_disbanded']],
-                'info': [types['company']['cl']['info'], file_lookup['info']],
-            }
-
-            params = {
-                'entity_type_id': types['company']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing companies')
-            batch_process(
-                cur,
-                [r for r in csv_reader],
-                params,
-                add_entity,
-                prop_conf
-            )
-
-        with open('data/tblJoinFilmCompany.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            film_companies = [r for r in csv_reader]
-
-            relation_config = [
-                [file_lookup['film_id'], 'int'],
-                [file_lookup['company_id'], 'int'],
-            ]
-
-            prop_conf = {}
-
-            # import distributor relations
-            params = {
-                'domain_type_id': types['film']['id'],
-                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'range_type_id': types['company']['id'],
-                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'relation_type_id': relations['distributor']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing distributor relations')
-            batch_process(
-                cur,
-                [r for r in film_companies if r[file_lookup['info']] == 'distributor'],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-            # import production company relations
-            params = {
-                'domain_type_id': types['film']['id'],
-                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'range_type_id': types['company']['id'],
-                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'relation_type_id': relations['production_company']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing production company relations')
-            batch_process(
-                cur,
-                [r for r in film_companies if r[file_lookup['info']] == 'production_company'],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblJoinCompanyPerson.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            company_persons = [r for r in csv_reader]
-
-            relation_config = [
-                [file_lookup['company_id'], 'int'],
-                [file_lookup['person_id'], 'int'],
-            ]
-
-            prop_conf = {
-                'job_type': [relations['company_person']['cl']['job_type'], file_lookup['job_type']],
-                'date_start': [relations['company_person']['cl']['date_start'], file_lookup['start_date']],
-                'date_end': [relations['company_person']['cl']['date_end'], file_lookup['end_date']],
-            }
-
-            # import company_person relations
-            params = {
-                'domain_type_id': types['company']['id'],
-                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'range_type_id': types['person']['id'],
-                'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
-                'relation_type_id': relations['company_person']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing company person relations')
-            batch_process(
-                cur,
-                company_persons,
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblCompanyBranch.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            header.append('branch_id')
-            file_lookup = {h: header.index(h) for h in header}
-
-            branches_header = ['branch_id', 'branch_name']
-            branches_lookup = {h: branches_header.index(h) for h in branches_header}
-            branches = [
-                ['1', 'Film distribution'],
-            ]
-
-            company_branches = []
-            for row in csv_reader:
-                if row[file_lookup['branch_name']] == 'film distribution':
-                    row.append('1')
-                else:
-                    print('unknown branch type')
-                company_branches.append(row)
-
-            # Import company branches
-            prop_conf = {
-                'id': [None, branches_lookup['branch_id'], 'int'],
-                'original_id': [types['company_branch']['cl']['original_id'], branches_lookup['branch_id'], 'int'],
-                'name': [types['company_branch']['cl']['name'], branches_lookup['branch_name']],
-            }
-
-            params = {
-                'entity_type_id': types['company_branch']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing company branches')
-            batch_process(
-                cur,
-                branches,
-                params,
-                add_entity,
-                prop_conf
-            )
-
-            # import company branch relations
-            relation_config = [
-                [file_lookup['company_id'], 'int'],
-                [file_lookup['branch_id'], 'int'],
-            ]
-
-            prop_conf = {}
-
-            params = {
-                'domain_type_id': types['company']['id'],
-                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'range_type_id': types['company_branch']['id'],
-                'range_prop': f'p_{dtu(types["company_branch"]["id"])}_{types["company_branch"]["cl"]["original_id"]}',
-                'relation_type_id': relations['branch']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing company branch relations')
-            batch_process(
-                cur,
-                company_branches,
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblJoinCompanyCompany.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            relation_config = [
-                [file_lookup['company_id'], 'int'],
-                [file_lookup['subsidiary_id'], 'int'],
-            ]
-
-            prop_conf = {
-                'subsidiary_type': [relations['subsidiary']['cl']['subsidiary_type'], file_lookup['subsidiary_type']],
-                'date_start': [relations['subsidiary']['cl']['date_start'], file_lookup['start_date']],
-                'date_end': [relations['subsidiary']['cl']['date_end'], file_lookup['end_date']],
-            }
-
-            params = {
-                'domain_type_id': types['company']['id'],
-                'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'range_type_id': types['company']['id'],
-                'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
-                'relation_type_id': relations['subsidiary']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing subsidiary relations')
-            batch_process(
-                cur,
-                [r for r in csv_reader],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblContinent.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            prop_conf = {
-                'id': [None, file_lookup['continent_id'], 'int'],
-                'original_id': [types['continent']['cl']['original_id'], file_lookup['code']],
-                'name': [types['continent']['cl']['name'], file_lookup['name']],
-            }
-
-            params = {
-                'entity_type_id': types['continent']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing continents')
-            batch_process(
-                cur,
-                [r for r in csv_reader],
-                params,
-                add_entity,
-                prop_conf,
-            )
-
-        with open('data/tblCountry.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            countries = [r for r in csv_reader]
-
-            prop_conf = {
-                'id': [None, file_lookup['country_id'], 'int'],
-                'original_id': [types['country']['cl']['original_id'], file_lookup['code']],
-                'name': [types['country']['cl']['name'], file_lookup['name']],
-            }
-
-            params = {
-                'entity_type_id': types['country']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing countries')
-            batch_process(
-                cur,
-                countries,
-                params,
-                add_entity,
-                prop_conf,
-            )
-
-            # import relation between countries and continents
-            relation_config = [
-                [file_lookup['code']],
-                [file_lookup['continent_code']],
-            ]
-
-            prop_conf = {}
-
-            params = {
-                'domain_type_id': types['country']['id'],
-                'domain_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
-                'range_type_id': types['continent']['id'],
-                'range_prop': f'p_{dtu(types["continent"]["id"])}_{types["continent"]["cl"]["original_id"]}',
-                'relation_type_id': relations['country_continent']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing country continent relations')
-            batch_process(
-                cur,
-                [c for c in countries if c[file_lookup['continent_code']] != ''],
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
-
-        with open('data/tblFilm.csv') as input_file:
-            lines = input_file.readlines()
-            csv_reader = csv.reader(lines)
-
-            header = next(csv_reader)
-            file_lookup = {h: header.index(h) for h in header}
-
-            fc_header = ['film_id', 'country_code']
-            fc_lookup = {h: fc_header.index(h) for h in fc_header}
-            film_countries = []
-            for row in csv_reader:
-                for country_code in row[file_lookup['country']].split('|'):
-                    film_countries.append([row[file_lookup['film_id']], country_code])
-
-            relation_config = [
-                [fc_lookup['film_id'], 'int'],
-                [fc_lookup['country_code']],
-            ]
-
-            prop_conf = {}
-
-            params = {
-                'domain_type_id': types['film']['id'],
-                'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
-                'range_type_id': types['country']['id'],
-                'range_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
-                'relation_type_id': relations['film_country']['id'],
-                'user_id': user_id,
-            }
-
-            print('Cinecos importing film country relations')
-            batch_process(
-                cur,
-                film_countries,
-                params,
-                add_relation,
-                relation_config,
-                prop_conf
-            )
+        # with open('data/tblFilmTitleVariation.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     prop_conf = {
+        #         'id': [None, file_lookup['film_id'], 'int'],
+        #         'mentioned_titles': [types['film']['cl']['mentioned_titles'], file_lookup['title'], 'array'],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['film']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing film title variations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in csv_reader],
+        #         params,
+        #         update_entity,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblPerson.csv') as input_file, \
+        #      open('data/tblPersonFirstNames.csv') as fn_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     fn_lines = fn_file.readlines()
+        #     fn_reader = csv.reader(fn_lines)
+        #
+        #     fn_header = next(fn_reader)
+        #     fn_lookup = {h: fn_header.index(h) for h in fn_header}
+        #
+        #     fn_index = {}
+        #     for row in fn_reader:
+        #         person_id = row[fn_lookup['person_id']]
+        #         if person_id not in fn_index:
+        #             fn_index[person_id] = []
+        #         fn_index[person_id].append(row[fn_lookup['first_name']])
+        #
+        #     persons = []
+        #     for row in csv_reader:
+        #         if row[file_lookup['name']] == '':
+        #             if row[file_lookup['person_id']] in fn_index:
+        #                 first_name = ' / '.join(fn_index[row[file_lookup['person_id']]])
+        #             else:
+        #                 first_name = ''
+        #             last_name = row[file_lookup['last_name']]
+        #             suffix = row[file_lookup['suffix']]
+        #             row[file_lookup['name']] = f'{first_name} {last_name} {suffix}'.replace('  ', ' ').strip()
+        #         persons.append(row)
+        #
+        #     prop_conf = {
+        #         'id': [None, file_lookup['person_id'], 'int'],
+        #         'original_id': [types['person']['cl']['original_id'], file_lookup['person_id'], 'int'],
+        #         'name': [types['person']['cl']['name'], file_lookup['name']],
+        #         'wikidata_id': [types['person']['cl']['wikidata_id'], file_lookup['wikidata']],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['person']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing persons')
+        #     batch_process(
+        #         cur,
+        #         [r for r in persons],
+        #         params,
+        #         add_entity,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblJoinFilmPerson.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     film_persons = [r for r in csv_reader]
+        #
+        #     relation_config = [
+        #         [file_lookup['film_id'], 'int'],
+        #         [file_lookup['person_id'], 'int'],
+        #     ]
+        #
+        #     prop_conf = {}
+        #
+        #     # import director relations
+        #     params = {
+        #         'domain_type_id': types['film']['id'],
+        #         'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+        #         'range_type_id': types['person']['id'],
+        #         'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['director']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing director relations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in film_persons if r[file_lookup['info']] == 'director'],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        #     # import actor relations
+        #     params = {
+        #         'domain_type_id': types['film']['id'],
+        #         'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+        #         'range_type_id': types['person']['id'],
+        #         'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['actor']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing actor relations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in film_persons if r[file_lookup['info']] == 'actor'],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblCompany.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     prop_conf = {
+        #         'id': [None, file_lookup['company_id'], 'int'],
+        #         'original_id': [types['company']['cl']['original_id'], file_lookup['company_id'], 'int'],
+        #         'name': [types['company']['cl']['name'], file_lookup['name']],
+        #         'date_start': [types['company']['cl']['date_start'], file_lookup['date_extablished']],
+        #         'date_end': [types['company']['cl']['date_end'], file_lookup['date_disbanded']],
+        #         'info': [types['company']['cl']['info'], file_lookup['info']],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['company']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing companies')
+        #     batch_process(
+        #         cur,
+        #         [r for r in csv_reader],
+        #         params,
+        #         add_entity,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblJoinFilmCompany.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     film_companies = [r for r in csv_reader]
+        #
+        #     relation_config = [
+        #         [file_lookup['film_id'], 'int'],
+        #         [file_lookup['company_id'], 'int'],
+        #     ]
+        #
+        #     prop_conf = {}
+        #
+        #     # import distributor relations
+        #     params = {
+        #         'domain_type_id': types['film']['id'],
+        #         'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+        #         'range_type_id': types['company']['id'],
+        #         'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['distributor']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing distributor relations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in film_companies if r[file_lookup['info']] == 'distributor'],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        #     # import production company relations
+        #     params = {
+        #         'domain_type_id': types['film']['id'],
+        #         'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+        #         'range_type_id': types['company']['id'],
+        #         'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['production_company']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing production company relations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in film_companies if r[file_lookup['info']] == 'production_company'],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblJoinCompanyPerson.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     company_persons = [r for r in csv_reader]
+        #
+        #     relation_config = [
+        #         [file_lookup['company_id'], 'int'],
+        #         [file_lookup['person_id'], 'int'],
+        #     ]
+        #
+        #     prop_conf = {
+        #         'job_type': [relations['company_person']['cl']['job_type'], file_lookup['job_type']],
+        #         'date_start': [relations['company_person']['cl']['date_start'], file_lookup['start_date']],
+        #         'date_end': [relations['company_person']['cl']['date_end'], file_lookup['end_date']],
+        #     }
+        #
+        #     # import company_person relations
+        #     params = {
+        #         'domain_type_id': types['company']['id'],
+        #         'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'range_type_id': types['person']['id'],
+        #         'range_prop': f'p_{dtu(types["person"]["id"])}_{types["person"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['company_person']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing company person relations')
+        #     batch_process(
+        #         cur,
+        #         company_persons,
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblCompanyBranch.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     header.append('branch_id')
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     branches_header = ['branch_id', 'branch_name']
+        #     branches_lookup = {h: branches_header.index(h) for h in branches_header}
+        #     branches = [
+        #         ['1', 'Film distribution'],
+        #     ]
+        #
+        #     company_branches = []
+        #     for row in csv_reader:
+        #         if row[file_lookup['branch_name']] == 'film distribution':
+        #             row.append('1')
+        #         else:
+        #             print('unknown branch type')
+        #         company_branches.append(row)
+        #
+        #     # Import company branches
+        #     prop_conf = {
+        #         'id': [None, branches_lookup['branch_id'], 'int'],
+        #         'original_id': [types['company_branch']['cl']['original_id'], branches_lookup['branch_id'], 'int'],
+        #         'name': [types['company_branch']['cl']['name'], branches_lookup['branch_name']],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['company_branch']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing company branches')
+        #     batch_process(
+        #         cur,
+        #         branches,
+        #         params,
+        #         add_entity,
+        #         prop_conf
+        #     )
+        #
+        #     # import company branch relations
+        #     relation_config = [
+        #         [file_lookup['company_id'], 'int'],
+        #         [file_lookup['branch_id'], 'int'],
+        #     ]
+        #
+        #     prop_conf = {}
+        #
+        #     params = {
+        #         'domain_type_id': types['company']['id'],
+        #         'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'range_type_id': types['company_branch']['id'],
+        #         'range_prop': f'p_{dtu(types["company_branch"]["id"])}_{types["company_branch"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['branch']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing company branch relations')
+        #     batch_process(
+        #         cur,
+        #         company_branches,
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblJoinCompanyCompany.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     relation_config = [
+        #         [file_lookup['company_id'], 'int'],
+        #         [file_lookup['subsidiary_id'], 'int'],
+        #     ]
+        #
+        #     prop_conf = {
+        #         'subsidiary_type': [relations['subsidiary']['cl']['subsidiary_type'], file_lookup['subsidiary_type']],
+        #         'date_start': [relations['subsidiary']['cl']['date_start'], file_lookup['start_date']],
+        #         'date_end': [relations['subsidiary']['cl']['date_end'], file_lookup['end_date']],
+        #     }
+        #
+        #     params = {
+        #         'domain_type_id': types['company']['id'],
+        #         'domain_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'range_type_id': types['company']['id'],
+        #         'range_prop': f'p_{dtu(types["company"]["id"])}_{types["company"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['subsidiary']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing subsidiary relations')
+        #     batch_process(
+        #         cur,
+        #         [r for r in csv_reader],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblContinent.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     prop_conf = {
+        #         'id': [None, file_lookup['continent_id'], 'int'],
+        #         'original_id': [types['continent']['cl']['original_id'], file_lookup['code']],
+        #         'name': [types['continent']['cl']['name'], file_lookup['name']],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['continent']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing continents')
+        #     batch_process(
+        #         cur,
+        #         [r for r in csv_reader],
+        #         params,
+        #         add_entity,
+        #         prop_conf,
+        #     )
+        #
+        # with open('data/tblCountry.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     countries = [r for r in csv_reader]
+        #
+        #     prop_conf = {
+        #         'id': [None, file_lookup['country_id'], 'int'],
+        #         'original_id': [types['country']['cl']['original_id'], file_lookup['code']],
+        #         'name': [types['country']['cl']['name'], file_lookup['name']],
+        #     }
+        #
+        #     params = {
+        #         'entity_type_id': types['country']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing countries')
+        #     batch_process(
+        #         cur,
+        #         countries,
+        #         params,
+        #         add_entity,
+        #         prop_conf,
+        #     )
+        #
+        #     # import relation between countries and continents
+        #     relation_config = [
+        #         [file_lookup['code']],
+        #         [file_lookup['continent_code']],
+        #     ]
+        #
+        #     prop_conf = {}
+        #
+        #     params = {
+        #         'domain_type_id': types['country']['id'],
+        #         'domain_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
+        #         'range_type_id': types['continent']['id'],
+        #         'range_prop': f'p_{dtu(types["continent"]["id"])}_{types["continent"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['country_continent']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing country continent relations')
+        #     batch_process(
+        #         cur,
+        #         [c for c in countries if c[file_lookup['continent_code']] != ''],
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
+        #
+        # with open('data/tblFilm.csv') as input_file:
+        #     lines = input_file.readlines()
+        #     csv_reader = csv.reader(lines)
+        #
+        #     header = next(csv_reader)
+        #     file_lookup = {h: header.index(h) for h in header}
+        #
+        #     fc_header = ['film_id', 'country_code']
+        #     fc_lookup = {h: fc_header.index(h) for h in fc_header}
+        #     film_countries = []
+        #     for row in csv_reader:
+        #         for country_code in row[file_lookup['country']].split('|'):
+        #             film_countries.append([row[file_lookup['film_id']], country_code])
+        #
+        #     relation_config = [
+        #         [fc_lookup['film_id'], 'int'],
+        #         [fc_lookup['country_code']],
+        #     ]
+        #
+        #     prop_conf = {}
+        #
+        #     params = {
+        #         'domain_type_id': types['film']['id'],
+        #         'domain_prop': f'p_{dtu(types["film"]["id"])}_{types["film"]["cl"]["original_id"]}',
+        #         'range_type_id': types['country']['id'],
+        #         'range_prop': f'p_{dtu(types["country"]["id"])}_{types["country"]["cl"]["original_id"]}',
+        #         'relation_type_id': relations['film_country']['id'],
+        #         'user_id': user_id,
+        #     }
+        #
+        #     print('Cinecos importing film country relations')
+        #     batch_process(
+        #         cur,
+        #         film_countries,
+        #         params,
+        #         add_relation,
+        #         relation_config,
+        #         prop_conf
+        #     )
 
         with open('data/tblAddress.csv') as input_file:
             lines = input_file.readlines()
@@ -2767,6 +2800,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             image_file_lookup = {h: image_header.index(h) for h in image_header}
 
             programmes = []
+            # programme item hack
+            programmes_lookup = {}
+            programmes_header_lookup = {h: header.index(h) for h in header}
+            # /hack
             for row in csv_reader:
                 start_date = dates_index[row[0]][date_file_lookup['programme_date']]
                 year = start_date[:4]
@@ -2798,8 +2835,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     row.append('N/A')
 
                 programmes.append(row)
+                # programme item hack
+                programmes_lookup[row[file_lookup['programme_id']]] = row
+                # /hack
 
-            # Import program items (without mentioned dates)
+            # Import programmes (without mentioned dates)
             prop_conf = {
                 'id': [None, file_lookup['programme_id'], 'int'],
                 'original_id': [types['programme']['cl']['original_id'], file_lookup['programme_id'], 'int'],
@@ -2903,6 +2943,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
             header = next(csv_reader)
             header.append('mentioned_title')
+            header.append('film_title')
+            header.append('venue_name')
+            header.append('date_start')
+            header.append('date_end')
             file_lookup = {h: header.index(h) for h in header}
 
             tv_lines = tv_file.readlines()
@@ -2924,6 +2968,18 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                     row.append(tv_index[film_variation_id])
                 else:
                     row.append('')
+
+                # programme item hack
+                film_title = films_lookup[row[file_lookup['film_id']]][films_header_lookup['title']]
+                if film_title == '':
+                    film_title = 'N/A'
+                row.append(film_title)
+                programme = programmes_lookup[row[file_lookup['programme_id']]]
+                row.append(programme[programmes_header_lookup['venue_name']])
+                row.append(programme[programmes_header_lookup['date_start']])
+                row.append(programme[programmes_header_lookup['date_end']])
+                # /hack
+
                 programme_items.append(row)
 
             # import programme items
@@ -2932,6 +2988,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 'original_id': [types['programme_item']['cl']['original_id'], file_lookup['programme_item_id'], 'int'],
                 'mentioned_film': [types['programme_item']['cl']['mentioned_film'], file_lookup['mentioned_title']],
                 'mentioned_venue': [types['programme_item']['cl']['mentioned_venue'], file_lookup['info']],
+                'film_title': [types['programme_item']['cl']['film_title'], file_lookup['film_title']],
+                'venue_name': [types['programme_item']['cl']['venue_name'], file_lookup['venue_name']],
+                'date_start': [types['programme_item']['cl']['date_start'], file_lookup['date_start']],
+                'date_end': [types['programme_item']['cl']['date_end'], file_lookup['date_end']],
             }
 
             params = {
