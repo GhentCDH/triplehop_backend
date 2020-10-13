@@ -124,7 +124,7 @@ class Elasticsearch():
                     'char_filter': {
                         'remove_special': {
                             'type': 'pattern_replace',
-                            'pattern': '[^a-zA-Z0-9 ]',
+                            'pattern': '[.\']',
                             'replacement': '',
                         },
                         'numbers_last': {
