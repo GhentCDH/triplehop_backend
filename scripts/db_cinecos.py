@@ -1968,6 +1968,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             films_header_lookup = {h: header.index(h) for h in header}
 
             for row in csv_reader:
+                row[file_lookup['title']] = row[file_lookup['title']].strip()
                 films.append(row)
                 films_lookup[row[file_lookup['film_id']]] = row
             # /hack
