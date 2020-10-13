@@ -19,7 +19,11 @@ from utils import add_entity, add_relation, batch_process, dtu, update_entity
 #
 # person function hack:
 # * add function directly to person
+#
+# company function hack:
+# * add function directly to company
 person_functions = set()
+company_functions = set()
 
 with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
     with conn.cursor() as cur:
@@ -467,6 +471,11 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "system_name": "info",
                                 "display_name": "Info",
                                 "type": "String"
+                            },
+                            "5": {
+                                "system_name": "function",
+                                "display_name": "Function",
+                                "type": "String"
                             }
                         },
                         "display": {
@@ -508,6 +517,60 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                 "display_name": "End date",
                                 "selector_value": "$date_end",
                                 "type": "text"
+                            },
+                            "3": {
+                                "system_name": "function",
+                                "display_name": "Function",
+                                "selector_value": "$function",
+                                "type": "text"
+                            },
+                            "4": {
+                                "system_name": "venue",
+                                "display_name": "Venues",
+                                "relation": "ri_venue_company",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$ri_venue_company->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$ri_venue_company->$name",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "5": {
+                                "system_name": "film_distributed",
+                                "display_name": "Films distributed",
+                                "relation": "ri_distributor",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$ri_distributor->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$ri_distributor->$title",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
+                            },
+                            "6": {
+                                "system_name": "film_produced",
+                                "display_name": "Films produced",
+                                "relation": "ri_production_company",
+                                "parts": {
+                                    "id": {
+                                        "selector_value": "$ri_production_company->$id",
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "selector_value": "$ri_production_company->$title",
+                                        "type": "text"
+                                    }
+                                },
+                                "type": "nested"
                             }
                         },
                         "es_display": {
@@ -518,6 +581,19 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                                         {
                                             "filter": "0",
                                             "type": "autocomplete"
+                                        },
+                                        {
+                                            "filter": "3",
+                                            "type": "dropdown"
+                                        },
+                                        {
+                                            "filter": "4"
+                                        },
+                                        {
+                                            "filter": "5"
+                                        },
+                                        {
+                                            "filter": "6"
                                         }
                                     ]
                                 }
@@ -525,6 +601,10 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                             "columns": [
                                 {
                                     "column": "0",
+                                    "sortable": true
+                                },
+                                {
+                                    "column": "3",
                                     "sortable": true
                                 },
                                 {
@@ -2008,11 +2088,14 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             film_persons = []
             for row in csv_reader:
                 # person function hack
-                function = f'Film {row[file_lookup["info"]]}'
-                person_functions_key = f'{row[file_lookup["person_id"]]}_{function}'
-                if person_functions_key not in person_functions:
-                    person_functions.add(person_functions_key)
-                    row.append(function)
+                if row[file_lookup['info']] != '':
+                    function = f'Film {row[file_lookup["info"]]}'
+                    person_functions_key = f'{row[file_lookup["person_id"]]}_{function}'
+                    if person_functions_key not in person_functions:
+                        person_functions.add(person_functions_key)
+                        row.append(function)
+                    else:
+                        row.append('')
                 else:
                     row.append('')
                 # /hack
@@ -2121,9 +2204,26 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
+            # company function hack
+            header.append('function')
+            # /hack
             file_lookup = {h: header.index(h) for h in header}
 
-            film_companies = [r for r in csv_reader]
+            film_companies = []
+            for row in csv_reader:
+                # company function hack
+                if row[file_lookup['info']] != '':
+                    function = f'Film {row[file_lookup["info"]]}'.replace('_company', '')
+                    company_functions_key = f'{row[file_lookup["company_id"]]}_{function}'
+                    if company_functions_key not in company_functions:
+                        company_functions.add(company_functions_key)
+                        row.append(function)
+                    else:
+                        row.append('')
+                else:
+                    row.append('')
+                # /hack
+                film_companies.append(row)
 
             relation_config = [
                 [file_lookup['film_id'], 'int'],
@@ -2172,6 +2272,27 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
 
+            # company function hack
+            prop_conf = {
+                'id': [None, file_lookup['company_id'], 'int'],
+                'function': [types['company']['cl']['function'], file_lookup['function'], 'array'],
+            }
+
+            params = {
+                'entity_type_id': types['company']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing company functions')
+            batch_process(
+                cur,
+                [r for r in film_companies if r[file_lookup['function']] != ''],
+                params,
+                update_entity,
+                prop_conf
+            )
+            # /hack
+
         with open('data/tblJoinCompanyPerson.csv') as input_file:
             lines = input_file.readlines()
             csv_reader = csv.reader(lines)
@@ -2185,11 +2306,14 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             company_persons = []
             for row in csv_reader:
                 # person function hack
-                function = f'Company {row[file_lookup["job_type"]]}'
-                person_functions_key = f'{row[file_lookup["person_id"]]}_{function}'
-                if person_functions_key not in person_functions:
-                    person_functions.add(person_functions_key)
-                    row.append(function)
+                if row[file_lookup['job_type']] != '':
+                    function = f'Company {row[file_lookup["job_type"]]}'
+                    person_functions_key = f'{row[file_lookup["person_id"]]}_{function}'
+                    if person_functions_key not in person_functions:
+                        person_functions.add(person_functions_key)
+                        row.append(function)
+                    else:
+                        row.append('')
                 else:
                     row.append('')
                 # /hack
@@ -2866,9 +2990,23 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
             csv_reader = csv.reader(lines)
 
             header = next(csv_reader)
+            # company function hack
+            header.append('function')
+            # /hack
             file_lookup = {h: header.index(h) for h in header}
 
-            venue_companies = [r for r in csv_reader]
+            venue_companies = []
+            for row in csv_reader:
+                # company function hack
+                function = 'Venue company'
+                company_functions_key = f'{row[file_lookup["company_id"]]}_{function}'
+                if company_functions_key not in company_functions:
+                    company_functions.add(company_functions_key)
+                    row.append(function)
+                else:
+                    row.append('')
+                # /hack
+                venue_companies.append(row)
 
             relation_config = [
                 [file_lookup['venue_id']],
@@ -2899,6 +3037,27 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 relation_config,
                 prop_conf
             )
+
+            # company function hack
+            prop_conf = {
+                'id': [None, file_lookup['company_id'], 'int'],
+                'function': [types['company']['cl']['function'], file_lookup['function'], 'array'],
+            }
+
+            params = {
+                'entity_type_id': types['company']['id'],
+                'user_id': user_id,
+            }
+
+            print('Cinecos importing company functions')
+            batch_process(
+                cur,
+                [r for r in venue_companies if r[file_lookup['function']] != ''],
+                params,
+                update_entity,
+                prop_conf
+            )
+            # /hack
 
         with open('data/tblJoinVenuePerson.csv') as input_file:
             lines = input_file.readlines()
