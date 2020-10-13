@@ -121,8 +121,24 @@ class Elasticsearch():
             },
             'settings': {
                 'analysis': {
+                    'char_filter': {
+                        'remove_special': {
+                            'type': 'pattern_replace',
+                            'pattern': '[^a-zA-Z0-9 ]',
+                            'replacement': '',
+                        },
+                        'numbers_last': {
+                            'type': 'pattern_replace',
+                            'pattern': '([0-9])',
+                            'replacement': 'zzz$1',
+                        },
+                    },
                     'normalizer': {
                         'icu_normalizer': {
+                            'char_filter': [
+                                'remove_special',
+                                'numbers_last',
+                            ],
                             'filter': [
                                 'icu_folding',
                                 'lowercase',
