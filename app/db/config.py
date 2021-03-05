@@ -13,7 +13,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
     @cached(key_builder=key_builder)
     async def _get_projects_config(self) -> Dict:
-        records = await self.fetch(
+        records = await self._db.fetch_all(
             '''
                 SELECT
                     project.id::text,
@@ -64,7 +64,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on entity config update
     @cached(key_builder=key_builder)
     async def get_entity_types_config(self, project_name: str) -> Dict:
-        records = await self.fetch(
+        records = await self._db.fetch_all(
             '''
                 SELECT
                     entity.id::text,
@@ -149,7 +149,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on relation config update
     @cached(key_builder=key_builder)
     async def get_relation_types_config(self, project_name: str) -> Dict:
-        records = await self.fetch(
+        records = await self._db.fetch_all(
             '''
                 SELECT
                     relation.id::text,

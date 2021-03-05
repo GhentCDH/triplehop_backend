@@ -1,0 +1,12 @@
+aiocache
+ariadne
+buildpg
+databases[postgresql]
+elasticsearch
+fastapi
+flake8
+gunicorn
+passlib
+python-multipart
+PyJWT
+tqdm

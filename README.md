@@ -2,24 +2,28 @@
 
 ## Prerequisites
 
-* An agensgraph running at localhost
+* A PostgreSQL server with the AGE extension running at localhost
 
     ```
-    # https://github.com/bitnine-oss/agensgraph
-    git clone https://github.com/bitnine-oss/agensgraph.git
-    sudo apt-get install build-essential libreadline-dev zlib1g-dev flex bison
+    # https://age.apache.org/docs/installation.html - https://github.com/apache/incubator-age/issues/33
+    wget https://github.com/bitnine-oss/AgensGraph-Extension/archive/master.zip
+    unzip master.unzip
+    cd AgensGraph-Extension-master
+    sudo apt-get install bison build-essential flex postgresql-server-dev-11
+    make clean
+    make
+    sudo make install
 
-    cd agensgraph
-    ./configure --prefix=$(pwd)
-    make install
-    . ag-env.sh
+    sudo -u postgres createuser --interactive --pwprompt
+        Enter name of role to add: crdb
+        Enter password for new role:
+        Enter it again:
+        Shall the new role be a superuser? (y/n) n
+        Shall the new role be allowed to create databases? (y/n) n
+        Shall the new role be allowed to create more new roles? (y/n) n
 
-    # https://bitnine.net/quick-start-guide-html/
-    mkdir ~/db_cluster
-    export AGDATA=/home/vagrant/db_cluster
-    initdb
-    ag_ctl start
-    createdb crdb
+    sudo -u postgres createdb -O crdb crdb
+    sudo -u postgres psql -d crdb -c "CREATE EXTENSION age;"
     ```
 
 * PostGIS
@@ -47,32 +51,31 @@
 * pgcrypto (gen_random_uuid)
 
     ```
-    cd ~/agensgraph/contrib/pgcrypto
-    make
-    make install
-    ```
-
-    Tijdens een verbinding met een databank (`agens -d crdb`):
-    ```
-    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    sudo -u postgres psql -d crdb -c "CREATE EXTENSION pgcrypto;"
     ```
 
 * A virtualenv running with requirements installed
 
     ```
-    virtualenv -p python3 venv_crdb_backend
-    source venv_crdb_backend/bin/activate
+    virtualenv -p python3 venv
+    source venv/bin/activate
     pip install -r requirements.txt
     ```
 
 * An elasticsearch server with the ICU Analysis Plugin
 
     ```
-    sudo /home/vagrant/install/elasticsearch6.sh
-    sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-icu
-    sudo systemctl stop elasticsearch.service
-    sudo systemctl start elasticsearch.service
+    sudo /home/vagrant/install/elasticsearch7.sh
+    sudo cp /etc/elasticsearch/elasticsearch.yml-orig /etc/elasticsearch/elasticsearch.yml
+    sudo vim /etc/elasticsearch/elasticsearch.yml
+
+        network.host: 0.0.0.0
+        discovery.type: single-node
+
+    sudo systemctl restart elasticsearch.service
     ```
+
+
 
 ## Usage
 

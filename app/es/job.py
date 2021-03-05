@@ -11,7 +11,7 @@ BATCH_SIZE = 500
 
 
 async def reindex(job_id: UUID, project_name: str, entity_type_name: str, request: Request):
-    data_repo = await get_repository_from_request(request, DataRepository)
+    data_repo = await get_repository_from_request(request, DataRepository, project_name)
     entity_ids = await data_repo.get_entity_ids_by_type_name(project_name, entity_type_name)
 
     job_repo = await get_repository_from_request(request, JobRepository)

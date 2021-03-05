@@ -57,8 +57,6 @@ def project_config_resolver_wrapper(request: Request, project_name: str):
         config_repo = await get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_project_config(project_name)
-        # TODO: find a way to close connections automatically
-        await config_repo.close()
 
         return db_result
 
@@ -71,8 +69,6 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
         config_repo = await get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_entity_types_config(project_name)
-        # TODO: find a way to close connections automatically
-        await config_repo.close()
 
         results = []
         for entity_system_name, entity_config in db_result.items():
@@ -117,8 +113,6 @@ def relation_configs_resolver_wrapper(request: Request, project_name: str):
         config_repo = await get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_relation_types_config(project_name)
-        # TODO: find a way to close connections automatically
-        await config_repo.close()
 
         results = []
         for relation_system_name, relation_config in db_result.items():
@@ -251,9 +245,6 @@ async def create_object_types(
 
 # TODO: cache per project_name (app always hangs after 6 requests when using cache)
 async def create_schema(request: Request):
-    config_repo = await get_repository_from_request(request, ConfigRepository)
-    await config_repo.close()
-
     type_defs = await create_type_defs()
     object_types = await create_object_types(
         request,

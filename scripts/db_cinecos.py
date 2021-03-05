@@ -1,5 +1,5 @@
-import csv
-import psycopg2
+from asyncio import get_event_loop
+from databases import Database
 from datetime import datetime, timedelta
 
 from config import DATABASE_CONNECTION_STRING
@@ -3456,3 +3456,12 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 prop_conf
             )
             # /hack
+
+
+def main():
+    loop = get_event_loop()
+    loop.run_until_complete(create_app_structure())
+    loop.close()
+
+if __name__ == '__main__':
+    main()

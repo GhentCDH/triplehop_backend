@@ -13,10 +13,12 @@ from app.graphql.base import construct_type_def
 # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
 def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
     async def resolver(*_, id):
-        data_repo = await get_repository_from_request(request, DataRepository)
-        result = await data_repo.get_entity(project_name, entity_type_name, id)
-        # TODO: find a way to close connections automatically
-        await data_repo.close()
+        print('entity resolver')
+        print('entity_type_name')
+        print(_)
+        print(id)
+        data_repo = await get_repository_from_request(request, DataRepository, project_name)
+        result = await data_repo.get_entity(entity_type_name, id)
 
         return result
 
@@ -30,19 +32,20 @@ def relation_resolver_wrapper(
     inverse: bool = False,
 ):
     async def resolver(parent, info):
+        print('relation resolver')
+        print('relation_type_name')
+        print(parent)
+        print(info)
         id = parent['id']
         entity_type_name = info.parent_type.name.lower()
 
-        data_repo = await get_repository_from_request(request, DataRepository)
+        data_repo = await get_repository_from_request(request, DataRepository, project_name)
         db_results = await data_repo.get_relations_with_entity(
-            project_name,
             entity_type_name,
             id,
             relation_type_name,
             inverse,
         )
-        # TODO: find a way to close connections automatically
-        await data_repo.close()
 
         results = []
         for db_result in db_results:
@@ -143,7 +146,6 @@ async def create_schema(request: Request):
     config_repo = await get_repository_from_request(request, ConfigRepository)
     entity_types_config = await config_repo.get_entity_types_config(request.path_params['project_name'])
     relation_types_config = await config_repo.get_relation_types_config(request.path_params['project_name'])
-    await config_repo.close()
 
     type_defs = await create_type_defs(entity_types_config, relation_types_config)
     object_types = await create_object_types(
