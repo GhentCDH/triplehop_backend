@@ -3,7 +3,6 @@ from databases import Database
 from datetime import datetime, timedelta
 
 from config import DATABASE_CONNECTION_STRING
-
 from utils import add_entity, add_relation, batch_process, dtu, update_entity
 
 # venue address hack:
@@ -25,13 +24,14 @@ from utils import add_entity, add_relation, batch_process, dtu, update_entity
 person_functions = set()
 company_functions = set()
 
-with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
-    with conn.cursor() as cur:
-        cur.execute(
+
+async def create_cinecos_structure():
+    with Database(DATABASE_CONNECTION_STRING) as db:
+        await db.execute(
             '''
             SELECT "user".id
             FROM app.user
-            WHERE "user".username = %(username)s;
+            WHERE "user".username = :username;
             ''',
             {
                 'username': 'info@cinemabelgica.be',
@@ -45,7 +45,7 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
                 VALUES (
                     'cinecos',
                     'Cinecos',
-                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be')
+                    (SELECT "user".id FROM app.user WHERE "user".username = 'info@cinemabelgica.be'),
                 )
                 ON CONFLICT DO NOTHING;
             '''
@@ -3460,7 +3460,8 @@ with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
 
 def main():
     loop = get_event_loop()
-    loop.run_until_complete(create_app_structure())
+    loop.run_until_complete(create_cinecos_structure())
+    loop.run_until_complete(create_cinecos_data())
     loop.close()
 
 if __name__ == '__main__':

@@ -1,58 +1,97 @@
-import psycopg2
+from asyncio import get_event_loop
+from databases import Database
 
 from config import DATABASE_CONNECTION_STRING, USER_PASS_1, USER_PASS_2
 
-with psycopg2.connect(DATABASE_CONNECTION_STRING) as conn:
-    with conn.cursor() as cur:
-        cur.execute('''
-        INSERT INTO app.user (username, display_name, hashed_password, disabled)
-        VALUES (
-            'pieterjan.depotter@ugent.be',
-            'Pieterjan De Potter',
-            %(user_pass_1)s,
-            'false'
+
+async def create_user_data():
+    with Database(DATABASE_CONNECTION_STRING) as db:
+        await db.execute_many(
+            '''
+                INSERT INTO app.user (username, display_name, hashed_password, disabled)
+                VALUES (:username, :display_name, :hashed_password, disabled)
+                ON CONFLICT DO NOTHING;
+            ''',
+            [
+                {
+                    'username': 'pieterjan.depotter@ugent.be',
+                    'display_name': 'Pieterjan De Potter',
+                    'hashed_password': USER_PASS_1,
+                    'disabled': False,
+                },
+                {
+                    'username': 'info@cinemabelgica.be',
+                    'display_name': 'Cinema Belgica',
+                    'hashed_password': USER_PASS_2,
+                    'disabled': False,
+                },
+            ]
         )
-        ON CONFLICT DO NOTHING;
-        INSERT INTO app.user (username, display_name, hashed_password, disabled)
-        VALUES (
-            'info@cinemabelgica.be',
-            'Cinema Belgica',
-            %(user_pass_2)s,
-            'false'
+
+        await db.execute(
+            '''
+                INSERT INTO app.group (system_name, display_name, description)
+                VALUES (:system_name, :display_name, :description);
+            ''',
+            {
+                'system_name': 'global_admin',
+                'display_name': 'Global administrator',
+                'description': 'Users in this group have all permissions',
+            }
         )
-        ON CONFLICT DO NOTHING;
 
-        INSERT INTO app.group (system_name, display_name, description)
-        VALUES (
-            'global_admin',
-            'Global administrator',
-            'Users in this group have all permissions'
-        );
-
-        INSERT INTO app.permission (system_name, display_name, description)
-        VALUES (
-            'es_index',
-            'Index data in Elasticsearch',
-            'Index data in Elasticsearch'
-        );
-
-        INSERT INTO app.users_groups (user_id, group_id)
-        VALUES (
-            (SELECT "user".id FROM app.user WHERE "user".username = 'pieterjan.depotter@ugent.be'),
-            (SELECT "group".id FROM app.group WHERE "group".system_name = 'global_admin')
-        );
-
-        INSERT INTO app.groups_permissions (group_id, permission_id, project_id, entity_id, relation_id)
-        VALUES (
-            (SELECT "group".id FROM app.group WHERE "group".system_name = 'global_admin'),
-            (SELECT permission.id FROM app.permission WHERE permission.system_name = 'es_index'),
-            (SELECT project.id FROM app.project WHERE project.system_name = '__all__'),
-            (SELECT entity.id FROM app.entity WHERE entity.system_name = '__all__'),
-            (SELECT relation.id FROM app.relation WHERE relation.system_name = '__all__')
-        );
-        ''',
-        {
-            'user_pass_1': USER_PASS_1,
-            'user_pass_2': USER_PASS_2,
-        }
+        await db.execute(
+            '''
+                INSERT INTO app.permission (system_name, display_name, description)
+                VALUES (:system_name, :display_name, :description);
+            ''',
+            {
+                'system_name': 'es_index',
+                'display_name': 'Index data in Elasticsearch',
+                'description': 'Users in with this permission can run batch jobs to index in elasticsearch',
+            }
         )
+
+        await db.execute(
+            '''
+                INSERT INTO app.users_groups (user_id, group_id)
+                VALUES (
+                    (SELECT "user".id FROM app.user WHERE "user".username = :username),
+                    (SELECT "group".id FROM app.group WHERE "group".system_name = :group_name)
+                );
+            ''',
+            {
+                'username': 'pieterjan.depotter@ugent.be',
+                'group_name': 'global_admin',
+            }
+        )
+
+        await db.execute(
+            '''
+                INSERT INTO app.groups_permissions (group_id, permission_id, project_id, entity_id, relation_id)
+                VALUES (
+                    (SELECT "group".id FROM app.group WHERE "group".system_name = :group_name),
+                    (SELECT permission.id FROM app.permission WHERE permission.system_name = :permission_name),
+                    (SELECT project.id FROM app.project WHERE project.system_name = :project_name),
+                    (SELECT entity.id FROM app.entity WHERE entity.system_name = :entity_name),
+                    (SELECT relation.id FROM app.relation WHERE relation.system_name = :relation_name)
+                );
+            ''',
+            {
+                'group_name': 'global_admin',
+                'permission_name': 'es_index',
+                'project_name': '__all__',
+                'entity_name': '__all__',
+                'relation_name': '__all__',
+            }
+        )
+
+
+def main():
+    loop = get_event_loop()
+    loop.run_until_complete(create_user_data())
+    loop.close()
+
+
+if __name__ == '__main__':
+    main()
