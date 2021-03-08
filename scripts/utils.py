@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+from asyncpg import PostgresError
+from asyncpg.exceptions import InternalServerError
 from databases import Database
 from json import loads as json_loads
 
@@ -7,6 +9,19 @@ from json import loads as json_loads
 def read_config_from_file(project_name: str, type: str, name: str):
     with open(f'./config/{project_name}/{type}/{name}.json') as config_file:
         return config_file.read()
+
+
+async def get_project_id(db: Database, project_name: str) -> str:
+    return await db.fetch_val(
+        '''
+            SELECT project.id::text
+            FROM app.project
+            WHERE project.system_name = :project_name;
+        ''',
+        {
+            'project_name': project_name,
+        }
+    )
 
 
 async def get_entity_type_id(db: Database, project_name: str, entity_type_name: str) -> str:
@@ -64,6 +79,22 @@ async def set_path(db: Database):
         '''
     )
 
+    # TODO: remove
+    # Attempt to execute match query and catch unhandled cypher(cstring) function call error,
+    # so there is no unhandled cypher(cstring) function call error later on
+    transaction = await db.transaction()
+    try:
+        await transaction.start()
+        await db.execute(
+            '''
+            SELECT * FROM cypher('h', $$MATCH (v) return v$$) as (a agtype);
+            '''
+        )
+    except InternalServerError:
+        await transaction.rollback()
+    else:
+        print('unhandled cypher(cstring) function call error no longer occurring')
+
 
 async def create_entity(
     db: Database,
@@ -119,17 +150,22 @@ async def create_entity(
         else:
             if value != '':
                 properties.append(f"p_{params['entity_type_id']}_{db_props_lookup[key]}: {value}")
-    # await db.execute(
-    #     '''
-    #         SELECT * FROM cypher(
-                (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
-                , $$
-    #             CREATE (v:Part {:properties})
-    #         $$
-    #         );
-    #     ''',
-    #     {
-    #         :graph_name =
-    #     }
-    # )
+
+    try:
+        await db.execute(
+            '''
+                SELECT * FROM cypher('h', $$CREATE (v:Part {id: 2})$$) as (a agtype);
+            ''',
+            # {
+            #     'project_id': params['project_id'],
+            #     # 'properties': ','.join(properties),
+            # }
+        )
+    except PostgresError as e:
+        print(e)
+        print(e.query)
+        print(e.position)
+        print(dir(e))
+    except Exception as e:
+        print(e)
 

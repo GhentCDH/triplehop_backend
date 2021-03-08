@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from config import DATABASE_CONNECTION_STRING
 # from utils import add_entity, add_relation, batch_process, dtu, read_config_from_file, update_entity
-from utils import create_entity, get_entity_type_id, get_props_lookup, get_user_id, read_config_from_file, set_path
+from utils import create_entity, get_entity_type_id, get_project_id, get_props_lookup, get_user_id, read_config_from_file, set_path
 
 # venue address hack:
 # * add postal_code, city_name, street_name, geodata directly to venue
@@ -88,52 +88,61 @@ async def create_cinecos_structure():
                     }
                 )
             except InvalidSchemaNameError as e:
+                print('Error dropping graph')
                 print(e)
 
-            await db.execute(
-                '''
-                    SELECT create_graph(
-                        (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
-                    );
-                ''',
-                {
-                    'project_name': 'cinecos',
-                }
-            )
+            try:
+                await db.execute(
+                    '''
+                        SELECT create_graph(
+                            (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
+                        );
+                    ''',
+                    {
+                        'project_name': 'cinecos',
+                    }
+                )
+            except Exception as e:
+                print('Error creating graph')
+                print(e)
 
 
 async def create_cinecos_data():
     async with Database(DATABASE_CONNECTION_STRING) as db:
-        with open('data/tblFilm.csv') as data_file:
-            data_csv = csv_reader(data_file)
+        async with db.transaction():
+            await set_path(db)
 
-            params = {
-                'entity_type_id': await get_entity_type_id(db, 'cinecos', 'film'),
-                'user_id': await get_user_id(db, 'info@cinemabelgica.be'),
-            }
+            with open('data/tblFilm.csv') as data_file:
+                data_csv = csv_reader(data_file)
 
-            file_header = next(data_csv)
-            file_header_lookup = {h: file_header.index(h) for h in file_header}
+                params = {
+                    'project_id': await get_project_id(db, 'cinecos'),
+                    'entity_type_id': await get_entity_type_id(db, 'cinecos', 'film'),
+                    'user_id': await get_user_id(db, 'info@cinemabelgica.be'),
+                }
 
-            db_props_lookup = await get_props_lookup(db, 'cinecos', 'film')
+                file_header = next(data_csv)
+                file_header_lookup = {h: file_header.index(h) for h in file_header}
 
-            prop_conf = {
-                'id': ['film_id', 'int'],
-                'original_id': ['film_id', 'int'],
-                'title': ['title'],
-                'year': ['film_year', 'int'],
-                'imdb_id': ['imdb'],
-                'wikidata_id': ['wikidata'],
-            }
+                db_props_lookup = await get_props_lookup(db, 'cinecos', 'film')
 
-            print('Cinecos importing films')
-            for row in tqdm(data_csv):
-                await create_entity(db, params, db_props_lookup, file_header_lookup, row, prop_conf)
+                prop_conf = {
+                    'id': ['film_id', 'int'],
+                    'original_id': ['film_id', 'int'],
+                    'title': ['title'],
+                    'year': ['film_year', 'int'],
+                    'imdb_id': ['imdb'],
+                    'wikidata_id': ['wikidata'],
+                }
+
+                print('Cinecos importing films')
+                for row in tqdm([row for row in data_csv][:10]):
+                    await create_entity(db, params, db_props_lookup, file_header_lookup, row, prop_conf)
 
 
 def main():
     loop = get_event_loop()
-    loop.run_until_complete(create_cinecos_structure())
+    # loop.run_until_complete(create_cinecos_structure())
     loop.run_until_complete(create_cinecos_data())
     loop.close()
 
