@@ -4,4 +4,4 @@ __pycache__
 app/config.py
 scripts/config.py
 
-data/*.csv
+scripts/data/*.csv

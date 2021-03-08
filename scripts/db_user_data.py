@@ -5,11 +5,11 @@ from config import DATABASE_CONNECTION_STRING, USER_PASS_1, USER_PASS_2
 
 
 async def create_user_data():
-    with Database(DATABASE_CONNECTION_STRING) as db:
+    async with Database(DATABASE_CONNECTION_STRING) as db:
         await db.execute_many(
             '''
                 INSERT INTO app.user (username, display_name, hashed_password, disabled)
-                VALUES (:username, :display_name, :hashed_password, disabled)
+                VALUES (:username, :display_name, :hashed_password, :disabled)
                 ON CONFLICT DO NOTHING;
             ''',
             [

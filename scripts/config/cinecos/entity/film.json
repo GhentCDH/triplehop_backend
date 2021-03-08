@@ -1,0 +1,205 @@
+{
+    "data": {
+        "0": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "1": {
+            "system_name": "title",
+            "display_name": "Title",
+            "type": "String"
+        },
+        "2": {
+            "system_name": "mentioned_titles",
+            "display_name": "Mentioned title(s)",
+            "type": "[String]"
+        },
+        "3": {
+            "system_name": "year",
+            "display_name": "Production year",
+            "type": "Int"
+        },
+        "4": {
+            "system_name": "imdb_id",
+            "display_name": "IMDb ID",
+            "type": "String"
+        },
+        "5": {
+            "system_name": "wikidata_id",
+            "display_name": "Wikidata ID",
+            "type": "String"
+        }
+    },
+    "display": {
+        "title": "$1 ($3)",
+        "layout": [
+            {
+                "label": "General",
+                "fields": [
+                    {
+                        "field": "1"
+                    },
+                    {
+                        "field": "2",
+                        "type": "list"
+                    },
+                    {
+                        "field": "3"
+                    },
+                    {
+                        "field": "4",
+                        "type": "online_identifier",
+                        "base_url": "https://www.imdb.com/title/"
+                    },
+                    {
+                        "field": "5",
+                        "type": "online_identifier",
+                        "base_url": "https://www.wikidata.org/wiki/"
+                    },
+                    {
+                        "field": "5",
+                        "label": "Wikidata images",
+                        "type": "wikidata_images"
+                    }
+                ]
+            }
+        ]
+    },
+    "es_data": {
+        "0": {
+            "system_name": "title",
+            "display_name": "Title",
+            "selector_value": "$title",
+            "type": "text"
+        },
+        "1": {
+            "system_name": "mentioned_titles",
+            "display_name": "Mentioned titles",
+            "selector_value": "$mentioned_titles",
+            "type": "text"
+        },
+        "2": {
+            "system_name": "year",
+            "display_name": "Production year",
+            "selector_value": "$year",
+            "type": "integer"
+        },
+        "3": {
+            "system_name": "director",
+            "display_name": "Directors",
+            "relation": "r_director",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_director->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_director->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        "4": {
+            "system_name": "distributor",
+            "display_name": "Distributors",
+            "relation": "r_distributor",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_distributor->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_distributor->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        "5": {
+            "system_name": "production_company",
+            "display_name": "Production companies",
+            "relation": "r_production_company",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_production_company->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_production_company->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        "6": {
+            "system_name": "country",
+            "display_name": "Countries",
+            "relation": "r_film_country",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_country->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_country->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        }
+    },
+    "es_display": {
+        "title": "Search films",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "0",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "1",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "2",
+                        "type": "histogram_slider",
+                        "interval": 10
+                    },
+                    {
+                        "filter": "3"
+                    },
+                    {
+                        "filter": "4"
+                    },
+                    {
+                        "filter": "5"
+                    },
+                    {
+                        "filter": "6"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "0",
+                "sortable": true
+            },
+            {
+                "column": "1",
+                "sortable": true
+            },
+            {
+                "column": "2",
+                "sortable": true
+            },
+            {
+                "column": "3",
+                "sortable": true
+            }
+        ]
+    }
+}
