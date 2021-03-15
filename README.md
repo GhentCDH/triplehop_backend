@@ -24,6 +24,8 @@
 
     sudo -u postgres createdb -O crdb crdb
     sudo -u postgres psql -d crdb -c "CREATE EXTENSION age;"
+    sudo -u postgres psql -d crdb -c "LOAD 'age';"
+    sudo -u postgres psql -d testdb -c "GRANT USAGE ON SCHEMA ag_catalog to crdb;"
     ```
 
 * PostGIS
