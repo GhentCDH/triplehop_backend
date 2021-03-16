@@ -100,7 +100,12 @@ def age_format_properties(properties: Dict):
 
 
 def age_create(graphname: str, label: str, properties: Dict):
-    return f'SELECT * FROM cypher(\'{graphname}\',$$CREATE (\:l_{label} {{{age_format_properties(properties)}}})$$) as (a agtype);'
+    return (
+        f'SELECT * FROM cypher('
+        f'\'{graphname}\', '
+        f'$$CREATE (\\:l_{label} {{{age_format_properties(properties)}}})$$'
+        f') as (a agtype);'
+    )
 
 
 async def create_entity(
