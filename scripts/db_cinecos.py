@@ -1,38 +1,16 @@
-from asyncio import get_event_loop
-from asyncpg.exceptions import InvalidSchemaNameError
-from csv import reader as csv_reader
-from databases import Database
-# from datetime import datetime, timedelta
-from tqdm import tqdm
+import asyncio
+import csv
+import databases
+import tqdm
 
-from config import DATABASE_CONNECTION_STRING
-# from utils import add_entity, add_relation, batch_process, dtu, read_config_from_file, update_entity
-from utils import create_entity, get_entity_type_id, get_project_id, get_props_lookup, get_user_id, read_config_from_file, set_path
-
-# venue address hack:
-# * add postal_code, city_name, street_name, geodata directly to venue
-# * add a relation directly from venue to city
-#
-# programe hack:
-# * add venue name directly to programme
-# * add relation directly from programme to film
-#
-# programe item hack:
-# * add film title, venue name, programme start and end date directly to programme item
-#
-# person function hack:
-# * add function directly to person
-#
-# company function hack:
-# * add function directly to company
-person_functions = set()
-company_functions = set()
+import config
+import utils
 
 
 async def create_cinecos_structure():
-    async with Database(DATABASE_CONNECTION_STRING) as db:
+    async with databases.Database(config.DATABASE_CONNECTION_STRING) as db:
         async with db.transaction():
-            await set_path(db)
+            await utils.init_age(db)
 
             await db.execute(
                 '''
@@ -69,62 +47,54 @@ async def create_cinecos_structure():
                         'project_name': 'cinecos',
                         'system_name': 'film',
                         'display_name': 'Film',
-                        'config': read_config_from_file('cinecos', 'entity', 'film'),
+                        'config': utils.read_config_from_file('cinecos', 'entity', 'film'),
                         'username': 'info@cinemabelgica.be',
                     },
                 ]
             )
+            await db.execute(
+                '''
+                    SELECT drop_graph(
+                        (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text,
+                        true
+                    );
+                ''',
+                {
+                    'project_name': 'cinecos',
+                }
+            )
 
-            try:
-                await db.execute(
-                    '''
-                        SELECT drop_graph(
-                            (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text,
-                            true
-                        );
-                    ''',
-                    {
-                        'project_name': 'cinecos',
-                    }
-                )
-            except InvalidSchemaNameError as e:
-                print('Error dropping graph')
-                print(e)
-
-            try:
-                await db.execute(
-                    '''
-                        SELECT create_graph(
-                            (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
-                        );
-                    ''',
-                    {
-                        'project_name': 'cinecos',
-                    }
-                )
-            except Exception as e:
-                print('Error creating graph')
-                print(e)
+            await db.execute(
+                '''
+                    SELECT create_graph(
+                        (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
+                    );
+                ''',
+                {
+                    'project_name': 'cinecos',
+                }
+            )
 
 
 async def create_cinecos_data():
-    async with Database(DATABASE_CONNECTION_STRING) as db:
+    # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
+    async with databases.Database(config.DATABASE_CONNECTION_STRING, statement_cache_size=0) as db:
         async with db.transaction():
-            await set_path(db)
+            await utils.init_age(db)
 
             with open('data/tblFilm.csv') as data_file:
-                data_csv = csv_reader(data_file)
+                data_csv = csv.reader(data_file)
 
                 params = {
-                    'project_id': await get_project_id(db, 'cinecos'),
-                    'entity_type_id': await get_entity_type_id(db, 'cinecos', 'film'),
-                    'user_id': await get_user_id(db, 'info@cinemabelgica.be'),
+                    'project_name': 'cinecos',
+                    'entity_type_name': 'film',
+                    'username': 'info@cinemabelgica.be',
                 }
 
                 file_header = next(data_csv)
                 file_header_lookup = {h: file_header.index(h) for h in file_header}
 
-                db_props_lookup = await get_props_lookup(db, 'cinecos', 'film')
+                db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
 
                 prop_conf = {
                     'id': ['film_id', 'int'],
@@ -136,15 +106,59 @@ async def create_cinecos_data():
                 }
 
                 print('Cinecos importing films')
-                for row in tqdm([row for row in data_csv][:10]):
-                    await create_entity(db, params, db_props_lookup, file_header_lookup, row, prop_conf)
+
+                for row in tqdm.tqdm([r for r in data_csv]):
+                    await utils.create_entity(
+                        db,
+                        row,
+                        params,
+                        db_props_lookup,
+                        file_header_lookup,
+                        prop_conf
+                    )
+
+            with open('data/tblVenue.csv') as data_file:
+                data_csv = csv.reader(data_file)
+
+                params = {
+                    'project_name': 'cinecos',
+                    'entity_type_name': 'film',
+                    'username': 'info@cinemabelgica.be',
+                }
+
+                file_header = next(data_csv)
+                file_header_lookup = {h: file_header.index(h) for h in file_header}
+
+                db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
+
+                prop_conf = {
+                    'id': ['film_id', 'int'],
+                    'original_id': ['film_id', 'int'],
+                    'title': ['title'],
+                    'year': ['film_year', 'int'],
+                    'imdb_id': ['imdb'],
+                    'wikidata_id': ['wikidata'],
+                }
+
+                print('Cinecos importing films')
+
+                for row in tqdm.tqdm([r for r in data_csv]):
+                    await utils.create_entity(
+                        db,
+                        row,
+                        params,
+                        db_props_lookup,
+                        file_header_lookup,
+                        prop_conf
+                    )
 
 
 def main():
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
     # loop.run_until_complete(create_cinecos_structure())
     loop.run_until_complete(create_cinecos_data())
     loop.close()
+
 
 if __name__ == '__main__':
     main()

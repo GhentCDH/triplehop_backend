@@ -4,7 +4,7 @@ import asyncpg
 
 async def main():
     # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-    pool = await asyncpg.create_pool('postgresql://testuser:testpass@127.0.0.1:5433/testdb', statement_cache_size=0)
+    pool = await asyncpg.create_pool('postgresql://testuser:testpass@127.0.0.1:5432/testdb', statement_cache_size=0)
     async with pool.acquire() as conn:
         await conn.execute(
             '''
@@ -33,9 +33,9 @@ async def main():
 
         await conn.execute(
             '''
-                SELECT * FROM cypher('testgraph', $$ CREATE (v:Person {name: $1}) $$) as (a agtype);
+                SELECT * FROM cypher('testgraph',$$ CREATE (:a_b {name: 'Tom'})$$) as (a agtype);
+                SELECT * FROM cypher('testgraph',$$ CREATE (:a_b {name: 'Jane'})$$) as (a agtype);
             ''',
-            'Tom',
         )
 
 asyncio.get_event_loop().run_until_complete(main())

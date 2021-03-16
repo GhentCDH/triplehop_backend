@@ -1,11 +1,11 @@
-from asyncio import get_event_loop
-from databases import Database
+import asyncio
+import databases
 
-from config import DATABASE_CONNECTION_STRING
+import config
 
 
 async def create_app_structure():
-    async with Database(DATABASE_CONNECTION_STRING) as db:
+    async with databases.Database(config.DATABASE_CONNECTION_STRING) as db:
 
         await db.execute(
             '''
@@ -396,7 +396,7 @@ async def create_app_structure():
 
 
 def main():
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(create_app_structure())
     loop.close()
 

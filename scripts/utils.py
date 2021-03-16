@@ -1,9 +1,16 @@
 from typing import Dict, List
-
-from asyncpg import PostgresError
-from asyncpg.exceptions import InternalServerError
 from databases import Database
-from json import loads as json_loads
+
+import aiocache
+import json
+import re
+
+RE_PROPERTY_VALUE = re.compile(r'(?<![$])[$]([0-9a-z_]+)')
+
+
+def dtu(string: str) -> str:
+    '''Replace all dashes in a string with underscores.'''
+    return string.replace('-', '_')
 
 
 def read_config_from_file(project_name: str, type: str, name: str):
@@ -11,6 +18,7 @@ def read_config_from_file(project_name: str, type: str, name: str):
         return config_file.read()
 
 
+@aiocache.cached()
 async def get_project_id(db: Database, project_name: str) -> str:
     return await db.fetch_val(
         '''
@@ -24,10 +32,11 @@ async def get_project_id(db: Database, project_name: str) -> str:
     )
 
 
+@aiocache.cached()
 async def get_entity_type_id(db: Database, project_name: str, entity_type_name: str) -> str:
     return await db.fetch_val(
         '''
-            SELECT entity.id
+            SELECT entity.id::text
             FROM app.entity
             INNER JOIN app.project
                 ON entity.project_id = project.id
@@ -41,6 +50,7 @@ async def get_entity_type_id(db: Database, project_name: str, entity_type_name: 
     )
 
 
+@aiocache.cached()
 async def get_user_id(db: Database, username: str) -> str:
     return await db.fetch_val(
         '''
@@ -55,7 +65,7 @@ async def get_user_id(db: Database, username: str) -> str:
 
 
 async def get_props_lookup(db: Database, project_name: str, entity_type_name: str) -> Dict:
-    config = json_loads(await db.fetch_val(
+    config = json.loads(await db.fetch_val(
         '''
             SELECT entity.config->'data'
             FROM app.entity
@@ -72,39 +82,38 @@ async def get_props_lookup(db: Database, project_name: str, entity_type_name: st
     return {config[k]['system_name']: k for k in config.keys()}
 
 
-async def set_path(db: Database):
+async def init_age(db: Database):
     await db.execute(
         '''
             SET search_path = ag_catalog, "$user", public;
         '''
     )
+    await db.execute(
+        '''
+            LOAD '$libdir/plugins/age';
+        '''
+    )
 
-    # TODO: remove
-    # Attempt to execute match query and catch unhandled cypher(cstring) function call error,
-    # so there is no unhandled cypher(cstring) function call error later on
-    transaction = await db.transaction()
-    try:
-        await transaction.start()
-        await db.execute(
-            '''
-            SELECT * FROM cypher('h', $$MATCH (v) return v$$) as (a agtype);
-            '''
-        )
-    except InternalServerError:
-        await transaction.rollback()
-    else:
-        print('unhandled cypher(cstring) function call error no longer occurring')
+
+def age_format_properties(properties: Dict):
+    return ', '.join({f'p_{k}: {v}' for (k, v) in properties.items()})
+
+
+def age_create(graphname: str, label: str, properties: Dict):
+    return f'SELECT * FROM cypher(\'{graphname}\',$$CREATE (\:l_{label} {{{age_format_properties(properties)}}})$$) as (a agtype);'
 
 
 async def create_entity(
     db: Database,
+    row: List,
     params: List,
     db_props_lookup: Dict,
     file_header_lookup: Dict,
-    data: List,
     prop_conf: Dict
 ) -> None:
-    properties = []
+    project_id = await get_project_id(db, params['project_name'])
+    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+    properties = {}
     if 'id' in prop_conf:
         await db.execute(
             '''
@@ -113,10 +122,10 @@ async def create_entity(
                 WHERE id = :entity_type_id;
             ''',
             {
-                'entity_type_id': params['entity_type_id']
+                'entity_type_id': entity_type_id
             }
         )
-        properties.append(f"id: {prop_conf['id']}")
+        properties['id'] = int(row[file_header_lookup[prop_conf['id'][0]]])
     else:
         await db.execute(
             '''
@@ -125,7 +134,7 @@ async def create_entity(
                 WHERE id = :entity_type_id;
             ''',
             {
-                'entity_type_id': params['entity_type_id']
+                'entity_type_id': entity_type_id
             }
         )
         id = await db.fetch_val(
@@ -135,37 +144,27 @@ async def create_entity(
                 WHERE id = :entity_type_id;
             ''',
             {
-                'entity_type_id': params['entity_type_id']
+                'entity_type_id': entity_type_id
             }
         )
-        properties.append(f"id: {id}")
+        properties['id'] = id
 
     for (key, conf) in prop_conf.items():
         if key == 'id':
             continue
-        value = data[file_header_lookup[conf[0]]]
+        value = row[file_header_lookup[conf[0]]]
         if len(conf) == 2 and conf[1] == 'int':
             if value not in ['', 'N/A']:
-                properties.append(f"p_{params['entity_type_id']}_{db_props_lookup[key]}: {int(value)}")
+                properties[db_props_lookup[key]] = value
         else:
             if value != '':
-                properties.append(f"p_{params['entity_type_id']}_{db_props_lookup[key]}: {value}")
+                properties[db_props_lookup[key]] = '\'' + value + '\''
 
-    try:
-        await db.execute(
-            '''
-                SELECT * FROM cypher('h', $$CREATE (v:Part {id: 2})$$) as (a agtype);
-            ''',
-            # {
-            #     'project_id': params['project_id'],
-            #     # 'properties': ','.join(properties),
-            # }
-        )
-    except PostgresError as e:
-        print(e)
-        print(e.query)
-        print(e.position)
-        print(dir(e))
-    except Exception as e:
-        print(e)
-
+    # https://github.com/apache/incubator-age/issues/43
+    # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
+    # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
+    # execute leads to a prepared statement => use execute_many
+    await db.execute_many(
+        age_create(project_id, dtu(entity_type_id), properties),
+        []
+    )

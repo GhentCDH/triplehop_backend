@@ -1,11 +1,11 @@
-from asyncio import get_event_loop
-from databases import Database
+import asyncio
+import databases
 
-from config import DATABASE_CONNECTION_STRING, USER_PASS_1, USER_PASS_2
+import config
 
 
 async def create_user_data():
-    async with Database(DATABASE_CONNECTION_STRING) as db:
+    async with databases.Database(config.DATABASE_CONNECTION_STRING) as db:
         await db.execute_many(
             '''
                 INSERT INTO app.user (username, display_name, hashed_password, disabled)
@@ -16,13 +16,13 @@ async def create_user_data():
                 {
                     'username': 'pieterjan.depotter@ugent.be',
                     'display_name': 'Pieterjan De Potter',
-                    'hashed_password': USER_PASS_1,
+                    'hashed_password': config.USER_PASS_1,
                     'disabled': False,
                 },
                 {
                     'username': 'info@cinemabelgica.be',
                     'display_name': 'Cinema Belgica',
-                    'hashed_password': USER_PASS_2,
+                    'hashed_password': config.USER_PASS_2,
                     'disabled': False,
                 },
             ]
@@ -88,7 +88,7 @@ async def create_user_data():
 
 
 def main():
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(create_user_data())
     loop.close()
 

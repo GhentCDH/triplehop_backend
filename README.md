@@ -6,13 +6,15 @@
 
     ```
     # https://age.apache.org/docs/installation.html - https://github.com/apache/incubator-age/issues/33
+    sudo apt-get install bison build-essential flex postgresql-server-dev-11 postgresql-client-11 postgresql-11 unzip
     wget https://github.com/bitnine-oss/AgensGraph-Extension/archive/master.zip
-    unzip master.unzip
+    unzip master.zip
     cd AgensGraph-Extension-master
-    sudo apt-get install bison build-essential flex postgresql-server-dev-11
     make clean
     make
     sudo make install
+    sudo mkdir /usr/lib/postgresql/11/lib/plugins
+    sudo ln -s /usr/lib/postgresql/11/lib/age.so /usr/lib/postgresql/11/lib/plugins/age.so
 
     sudo -u postgres createuser --interactive --pwprompt
         Enter name of role to add: crdb
@@ -24,30 +26,14 @@
 
     sudo -u postgres createdb -O crdb crdb
     sudo -u postgres psql -d crdb -c "CREATE EXTENSION age;"
-    sudo -u postgres psql -d crdb -c "LOAD 'age';"
-    sudo -u postgres psql -d testdb -c "GRANT USAGE ON SCHEMA ag_catalog to crdb;"
+    sudo -u postgres psql -d crdb -c "GRANT USAGE ON SCHEMA ag_catalog TO crdb;"
     ```
 
 * PostGIS
 
     ```
-    # https://github.com/bitnine-oss/agensgraph/issues/430#issuecomment-433169791
-    cd ~/agensgraph/src
-    wget -c https://download.osgeo.org/postgis/source/postgis-3.0.0.tar.gz
-    sudo apt-get install libxml2-dev libgeos-dev libgdal-dev libproj-dev
-    tar zxvf postgis-3.0.0.tar.gz
-    cd postgis-3.0.0/
-    ./configure
-    make
-    make install
-    ```
-
-    Tijdens een verbinding met een databank (`agens -d crdb`):
-    ```
-    -- https://postgis.net/install/
-    CREATE EXTENSION IF NOT EXISTS postgis;
-    -- CREATE EXTENSION IF NOT EXISTS postgis_raster;
-    -- CREATE EXTENSION IF NOT EXISTS postgis_topology;
+    sudo apt-get install postgis
+    sudo -u postgres psql -d crdb -c "CREATE EXTENSION postgis;"
     ```
 
 * pgcrypto (gen_random_uuid)
