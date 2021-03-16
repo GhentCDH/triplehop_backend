@@ -1,3 +1,6 @@
+from typing import IO
+from databases import Database
+
 import asyncio
 import csv
 import databases
@@ -50,6 +53,13 @@ async def create_cinecos_structure():
                         'config': utils.read_config_from_file('cinecos', 'entity', 'film'),
                         'username': 'info@cinemabelgica.be',
                     },
+                    {
+                        'project_name': 'cinecos',
+                        'system_name': 'venue',
+                        'display_name': 'Venue',
+                        'config': utils.read_config_from_file('cinecos', 'entity', 'venue'),
+                        'username': 'info@cinemabelgica.be',
+                    },
                 ]
             )
             await db.execute(
@@ -76,6 +86,23 @@ async def create_cinecos_structure():
             )
 
 
+async def get_cinecos_utils(db: Database, data_file: IO, entity_type_name: str):
+    data_reader = csv.reader(data_file)
+
+    params = {
+        'project_name': 'cinecos',
+        'entity_type_name': entity_type_name,
+        'username': 'info@cinemabelgica.be',
+    }
+
+    file_header = next(data_reader)
+    file_header_lookup = {h: file_header.index(h) for h in file_header}
+
+    db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
+
+    return [data_reader, params, file_header_lookup, db_props_lookup]
+
+
 async def create_cinecos_data():
     # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
     async with databases.Database(config.DATABASE_CONNECTION_STRING, statement_cache_size=0) as db:
@@ -83,18 +110,11 @@ async def create_cinecos_data():
             await utils.init_age(db)
 
             with open('data/tblFilm.csv') as data_file:
-                data_csv = csv.reader(data_file)
-
-                params = {
-                    'project_name': 'cinecos',
-                    'entity_type_name': 'film',
-                    'username': 'info@cinemabelgica.be',
-                }
-
-                file_header = next(data_csv)
-                file_header_lookup = {h: file_header.index(h) for h in file_header}
-
-                db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
+                (data_reader, params, file_header_lookup, db_props_lookup) = await get_cinecos_utils(
+                    db,
+                    data_file,
+                    'film'
+                )
 
                 prop_conf = {
                     'id': ['film_id', 'int'],
@@ -106,8 +126,7 @@ async def create_cinecos_data():
                 }
 
                 print('Cinecos importing films')
-
-                for row in tqdm.tqdm([r for r in data_csv]):
+                for row in tqdm.tqdm([r for r in data_reader][:10]):
                     await utils.create_entity(
                         db,
                         row,
@@ -117,33 +136,21 @@ async def create_cinecos_data():
                         prop_conf
                     )
 
-            with open('data/tblVenue.csv') as data_file:
-                data_csv = csv.reader(data_file)
-
-                params = {
-                    'project_name': 'cinecos',
-                    'entity_type_name': 'film',
-                    'username': 'info@cinemabelgica.be',
-                }
-
-                file_header = next(data_csv)
-                file_header_lookup = {h: file_header.index(h) for h in file_header}
-
-                db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
+            with open('data/tblFilmTitleVariation.csv') as data_file:
+                (data_reader, params, file_header_lookup, db_props_lookup) = await get_cinecos_utils(
+                    db,
+                    data_file,
+                    'film'
+                )
 
                 prop_conf = {
                     'id': ['film_id', 'int'],
-                    'original_id': ['film_id', 'int'],
-                    'title': ['title'],
-                    'year': ['film_year', 'int'],
-                    'imdb_id': ['imdb'],
-                    'wikidata_id': ['wikidata'],
+                    'mentioned_titles': ['title', 'array'],
                 }
 
-                print('Cinecos importing films')
-
-                for row in tqdm.tqdm([r for r in data_csv]):
-                    await utils.create_entity(
+                print('Cinecos importing film title variations')
+                for row in tqdm.tqdm([r for r in data_reader][:10]):
+                    await utils.update_entity(
                         db,
                         row,
                         params,
@@ -151,11 +158,46 @@ async def create_cinecos_data():
                         file_header_lookup,
                         prop_conf
                     )
+
+            # with open('data/tblVenue.csv') as data_file:
+            #     data_csv = csv.reader(data_file)
+
+            #     params = {
+            #         'project_name': 'cinecos',
+            #         'entity_type_name': 'film',
+            #         'username': 'info@cinemabelgica.be',
+            #     }
+
+            #     file_header = next(data_csv)
+            #     file_header_lookup = {h: file_header.index(h) for h in file_header}
+
+            #     db_props_lookup = await utils.get_props_lookup(db, 'cinecos', 'film')
+
+            #     prop_conf = {
+            #         'id': ['film_id', 'int'],
+            #         'original_id': ['film_id', 'int'],
+            #         'title': ['title'],
+            #         'year': ['film_year', 'int'],
+            #         'imdb_id': ['imdb'],
+            #         'wikidata_id': ['wikidata'],
+            #     }
+
+            #     print('Cinecos importing films')
+
+            #     for row in tqdm.tqdm([r for r in data_csv]):
+            #         await utils.create_entity(
+            #             db,
+            #             row,
+            #             params,
+            #             db_props_lookup,
+            #             file_header_lookup,
+            #             prop_conf
+            #         )
 
 
 def main():
     loop = asyncio.get_event_loop()
-    # loop.run_until_complete(create_cinecos_structure())
+    loop.run_until_complete(create_cinecos_structure())
     loop.run_until_complete(create_cinecos_data())
     loop.close()
 

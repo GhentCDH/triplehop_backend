@@ -96,16 +96,37 @@ async def init_age(db: Database):
 
 
 def age_format_properties(properties: Dict):
-    return ', '.join({f'p_{k}: {v}' for (k, v) in properties.items()})
+    formatted_properties = []
+    for (key, value) in properties.items():
+        if key == 'id':
+            formatted_properties.append(f'id: {value}')
+        else:
+            formatted_properties.append(f'p_{key}: {value}')
+    return ', '.join(formatted_properties)
 
 
 def age_create(graphname: str, label: str, properties: Dict):
     return (
         f'SELECT * FROM cypher('
         f'\'{graphname}\', '
-        f'$$CREATE (\\:l_{label} {{{age_format_properties(properties)}}})$$'
+        f'$$CREATE (:l_{label} {{{age_format_properties(properties)}}})$$'
         f') as (a agtype);'
     )
+
+
+def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict, prop_conf: Dict):
+    properties = {}
+    for (key, conf) in prop_conf.items():
+        if key == 'id':
+            continue
+        value = row[file_header_lookup[conf[0]]]
+        if len(conf) == 2 and conf[1] == 'int':
+            if value not in ['', 'N/A']:
+                properties[db_props_lookup[key]] = value
+        else:
+            if value != '':
+                properties[db_props_lookup[key]] = "'" + value.replace("'", "\\'") + "'"
+    return properties
 
 
 async def create_entity(
@@ -118,7 +139,7 @@ async def create_entity(
 ) -> None:
     project_id = await get_project_id(db, params['project_name'])
     entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
-    properties = {}
+    properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
     if 'id' in prop_conf:
         await db.execute(
             '''
@@ -154,22 +175,57 @@ async def create_entity(
         )
         properties['id'] = id
 
-    for (key, conf) in prop_conf.items():
-        if key == 'id':
-            continue
-        value = row[file_header_lookup[conf[0]]]
-        if len(conf) == 2 and conf[1] == 'int':
-            if value not in ['', 'N/A']:
-                properties[db_props_lookup[key]] = value
-        else:
-            if value != '':
-                properties[db_props_lookup[key]] = '\'' + value + '\''
-
     # https://github.com/apache/incubator-age/issues/43
     # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
     # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-    # execute leads to a prepared statement => use execute_many
-    await db.execute_many(
-        age_create(project_id, dtu(entity_type_id), properties),
-        []
+    # databases.Database().execute leads to a prepared statement
+    # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
+    # => use execute directly on asyncpg connection
+    async with db.connection() as conn:
+        await conn.raw_connection.execute(
+            age_create(project_id, dtu(entity_type_id), properties)
+        )
+
+    # TODO: revision, property relations
+
+
+def age_format_properties_set(vertex: str, properties: Dict):
+    return ' '.join({f'SET {vertex}.p_{k} = {v}' for (k, v) in properties.items()})
+
+
+def age_update(graphname: str, label: str, id: int, properties: Dict):
+    vertex = 've'
+    return (
+        f'SELECT * FROM cypher('
+        f'\'{graphname}\', '
+        f'$$MATCH ({vertex}:l_{label} {{id: {id}}}) {age_format_properties_set(vertex, properties)}$$'
+        f') as (a agtype);'
     )
+
+
+async def update_entity(
+    db: Database,
+    row: List,
+    params: List,
+    db_props_lookup: Dict,
+    file_header_lookup: Dict,
+    prop_conf: Dict
+) -> None:
+    project_id = await get_project_id(db, params['project_name'])
+    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+    properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
+
+    if properties:
+        entity_id = int(row[file_header_lookup[prop_conf['id'][0]]])
+        # https://github.com/apache/incubator-age/issues/43
+        # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
+        # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
+        # databases.Database().execute leads to a prepared statement
+        # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
+        # => use execute directly on asyncpg connection
+        async with db.connection() as conn:
+            await conn.raw_connection.execute(
+                age_update(project_id, dtu(entity_type_id), entity_id, properties)
+            )
+
+    # TODO: revision, property relations

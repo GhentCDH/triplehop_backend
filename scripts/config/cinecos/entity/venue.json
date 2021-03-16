@@ -1,0 +1,241 @@
+{
+    "data": {
+        "0": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "1": {
+            "system_name": "name",
+            "display_name": "Name",
+            "type": "String"
+        },
+        "2": {
+            "system_name": "date_opened_display",
+            "display_name": "Date opened",
+            "type": "String"
+        },
+        "3": {
+            "system_name": "date_opened",
+            "display_name": "Date opened",
+            "type": "Int"
+        },
+        "4": {
+            "system_name": "date_closed_display",
+            "display_name": "Date closed",
+            "type": "String"
+        },
+        "5": {
+            "system_name": "date_closed",
+            "display_name": "Date opened",
+            "type": "Int"
+        },
+        "6": {
+            "system_name": "status",
+            "display_name": "Status",
+            "type": "String"
+        },
+        "7": {
+            "system_name": "type",
+            "display_name": "Type",
+            "type": "String"
+        },
+        "8": {
+            "system_name": "ideological_characteristic",
+            "display_name": "Ideological characteristic",
+            "type": "String"
+        },
+        "9": {
+            "system_name": "ideological_remark",
+            "display_name": "Ideological remark",
+            "type": "String"
+        },
+        "10": {
+            "system_name": "infrastructure_info",
+            "display_name": "Infrastructure info",
+            "type": "String"
+        },
+        "11": {
+            "system_name": "name_remarks",
+            "display_name": "Remarks about the name",
+            "type": "String"
+        },
+        "12": {
+            "system_name": "screens",
+            "display_name": "Number of screens",
+            "type": "[String]"
+        },
+        "13": {
+            "system_name": "seats",
+            "display_name": "Number of seats",
+            "type": "[String]"
+        },
+        "14": {
+            "system_name": "postal_code",
+            "display_name": "Postal code",
+            "type": "Int"
+        },
+        "15": {
+            "system_name": "city_name",
+            "display_name": "City",
+            "type": "String"
+        },
+        "16": {
+            "system_name": "street_name",
+            "display_name": "Street",
+            "type": "String"
+        },
+        "17": {
+            "system_name": "location",
+            "display_name": "Location",
+            "type": "Geometry"
+        }
+    },
+    "display": {
+        "title": "$1",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "1"
+                    },
+                    {
+                        "field": "2"
+                    },
+                    {
+                        "field": "4"
+                    },
+                    {
+                        "field": "6"
+                    },
+                    {
+                        "field": "7"
+                    },
+                    {
+                        "field": "8"
+                    },
+                    {
+                        "field": "9"
+                    },
+                    {
+                        "field": "10"
+                    },
+                    {
+                        "field": "11"
+                    },
+                    {
+                        "field": "12",
+                        "type": "list"
+                    },
+                    {
+                        "field": "13",
+                        "type": "list"
+                    },
+                    {
+                        "field": "14"
+                    },
+                    {
+                        "field": "15"
+                    },
+                    {
+                        "field": "16"
+                    },
+                    {
+                        "field": "17",
+                        "type": "geometry"
+                    }
+                ]
+            }
+        ]
+    },
+    "es_data": {
+        "0": {
+            "system_name": "name",
+            "display_name": "Name",
+            "selector_value": "$name",
+            "type": "text"
+        },
+        "1": {
+            "system_name": "city",
+            "display_name": "City",
+            "relation": "r_venue_city",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_venue_city->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_venue_city->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        "2": {
+            "system_name": "street_name",
+            "display_name": "Street name",
+            "selector_value": "$street_name",
+            "type": "text"
+        },
+        "3": {
+            "system_name": "date_opened",
+            "display_name": "Date opened",
+            "selector_value": "$date_opened_display",
+            "type": "text"
+        },
+        "4": {
+            "system_name": "date_closed",
+            "display_name": "Date closed",
+            "selector_value": "$date_closed_display",
+            "type": "text"
+        },
+        "5": {
+            "system_name": "city_name",
+            "display_name": "City",
+            "selector_value": "$city_name",
+            "type": "text"
+        }
+    },
+    "es_display": {
+        "title": "Search venues",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "0",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "1"
+                    },
+                    {
+                        "filter": "2",
+                        "type": "autocomplete"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "0",
+                "sortable": true
+            },
+            {
+                "column": "5",
+                "sortable": true
+            },
+            {
+                "column": "2",
+                "sortable": true
+            },
+            {
+                "column": "3",
+                "sortable": true
+            },
+            {
+                "column": "4",
+                "sortable": true
+            }
+        ]
+    }
+}
