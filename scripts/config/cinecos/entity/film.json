@@ -11,28 +11,23 @@
             "type": "String"
         },
         "2": {
-            "system_name": "mentioned_titles",
-            "display_name": "Mentioned title(s)",
-            "type": "[String]"
-        },
-        "3": {
             "system_name": "year",
             "display_name": "Production year",
             "type": "Int"
         },
-        "4": {
+        "3": {
             "system_name": "imdb_id",
             "display_name": "IMDb ID",
             "type": "String"
         },
-        "5": {
+        "4": {
             "system_name": "wikidata_id",
             "display_name": "Wikidata ID",
             "type": "String"
         }
     },
     "display": {
-        "title": "$1 ($3)",
+        "title": "$title ($3)",
         "layout": [
             {
                 "label": "General",
@@ -41,24 +36,20 @@
                         "field": "1"
                     },
                     {
-                        "field": "2",
-                        "type": "list"
+                        "field": "2"
                     },
                     {
-                        "field": "3"
-                    },
-                    {
-                        "field": "4",
+                        "field": "3",
                         "type": "online_identifier",
                         "base_url": "https://www.imdb.com/title/"
                     },
                     {
-                        "field": "5",
+                        "field": "4",
                         "type": "online_identifier",
                         "base_url": "https://www.wikidata.org/wiki/"
                     },
                     {
-                        "field": "5",
+                        "field": "4",
                         "label": "Wikidata images",
                         "type": "wikidata_images"
                     }
@@ -76,7 +67,8 @@
         "1": {
             "system_name": "mentioned_titles",
             "display_name": "Mentioned titles",
-            "selector_value": "$mentioned_titles",
+            "relation": "r_mentioned_title",
+            "selector_value": "$r_mentioned_title->$title",
             "type": "text"
         },
         "2": {

@@ -1,0 +1,26 @@
+{
+    "data": {
+        "0": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "1": {
+            "system_name": "title",
+            "display_name": "Title",
+            "type": "String"
+        }
+    },
+    "display": {
+        "title": "$1",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "1"
+                    }
+                ]
+            }
+        ]
+    }
+}
