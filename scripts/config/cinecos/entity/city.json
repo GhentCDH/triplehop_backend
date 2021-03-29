@@ -1,0 +1,34 @@
+{
+    "data": {
+        "0": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "1": {
+            "system_name": "name",
+            "display_name": "Name",
+            "type": "String"
+        },
+        "2": {
+            "system_name": "postal_code",
+            "display_name": "Postal code",
+            "type": "Int"
+        }
+    },
+    "display": {
+        "title": "$1",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "1"
+                    },
+                    {
+                        "field": "2"
+                    }
+                ]
+            }
+        ]
+    }
+}

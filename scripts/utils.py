@@ -311,6 +311,9 @@ def age_format_properties(properties: Dict):
         elif value_type == 'string':
             value_value = value_value.replace("'", "\\'")
             formatted_properties.append(f"p_{key}: '{value_value}'")
+        # https://github.com/apache/incubator-age/issues/48
+        # elif value_type == 'point':
+        #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
         else:
             raise Exception('Not implemented')
     return ', '.join(formatted_properties)
@@ -329,30 +332,34 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
     properties = {}
     for (key, conf) in prop_conf.items():
         if key == 'id':
-            continue
-        if key in ['domain_id', 'range_id']:
-            db_key = key
+            db_key = 'id'
         else:
             db_key = db_props_lookup[key]
-        value = row[file_header_lookup[conf[0]]]
-        if conf[1] == 'int':
-            if value not in ['', 'N/A']:
-                properties[db_key] = {
-                    'type': 'int',
-                    'value': int(value),
-                }
-        elif conf[1] == 'string':
-            if value != '':
-                properties[db_key] = {
-                    'type': 'string',
-                    'value': value,
-                }
-        elif conf[1] == 'array':
-            if value not in ['', 'N/A']:
-                properties[db_key] = {
-                    'type': 'array',
-                    'value': value,
-                }
+        if conf[0] == 'int':
+            value = row[file_header_lookup[conf[1]]]
+            if value in ['', 'N/A']:
+                continue
+            properties[db_key] = {
+                'type': 'int',
+                'value': int(value),
+            }
+        elif conf[0] == 'string':
+            value = row[file_header_lookup[conf[1]]]
+            if value in ['', 'N/A']:
+                continue
+            properties[db_key] = {
+                'type': 'string',
+                'value': value,
+            }
+        # https://github.com/apache/incubator-age/issues/48
+        # elif conf[0] == 'point':
+        #     value = row[file_header_lookup[conf[1]]]
+        #     if value[0] in ['', 'N/A']:
+        #         continue
+        #     properties[db_key] = {
+        #         'type': 'point',
+        #         'value': value.split(', '),
+        #     }
         else:
             raise Exception('Not implemented')
     return properties
@@ -380,10 +387,6 @@ async def create_entity(
                 'entity_type_id': entity_type_id
             }
         )
-        properties['id'] = {
-            'type': 'int',
-            'value': int(row[file_header_lookup[prop_conf['id'][0]]]),
-        }
     else:
         await db.execute(
             '''
@@ -485,17 +488,18 @@ def age_create_relation(
     project_id: str,
     relation_type_id: str,
     domain_type_id: str,
-    domain_id: int,
+    domain_properties: Dict,
     range_type_id: str,
-    range_id: int,
+    range_properties: Dict,
     properties: Dict
 ):
+    domain_properties
     return (
         f'SELECT * FROM cypher('
         f'\'{project_id}\', '
         f'$$MATCH'
-        f'        (d:e_{dtu(domain_type_id)} {{id: {domain_id["value"]}}}),'
-        f'        (r:e_{dtu(range_type_id)} {{id: {range_id["value"]}}})'
+        f'        (d:e_{dtu(domain_type_id)} {{{age_format_properties(domain_properties)}}}),'
+        f'        (r:e_{dtu(range_type_id)} {{{age_format_properties(range_properties)}}})'
         f' '
         f'CREATE'
         f'(d)-[:r_{dtu(relation_type_id)} {{{age_format_properties(properties)}}}]->(r)$$'
@@ -509,8 +513,12 @@ async def create_relation(
     db: Database,
     row: List,
     params: Dict,
+    db_domain_props_lookup: Dict,
+    db_range_props_lookup: Dict,
     db_props_lookup: Dict,
     file_header_lookup: Dict,
+    domain_conf: Dict,
+    range_conf: Dict,
     prop_conf: Dict
 ) -> None:
     project_id = await get_project_id(db, params['project_name'])
@@ -518,9 +526,9 @@ async def create_relation(
     domain_type_id = await get_entity_type_id(db, params['project_name'], params['domain_type_name'])
     range_type_id = await get_entity_type_id(db, params['project_name'], params['range_type_name'])
 
+    domain_properties = create_properties(row, db_domain_props_lookup, file_header_lookup, domain_conf)
+    range_properties = create_properties(row, db_range_props_lookup, file_header_lookup, range_conf)
     properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
-    domain_id = properties.pop('domain_id')
-    range_id = properties.pop('range_id')
 
     if 'id' in prop_conf:
         await db.execute(
@@ -535,7 +543,7 @@ async def create_relation(
         )
         properties['id'] = {
             'type': 'int',
-            'value': int(row[file_header_lookup[prop_conf['id'][0]]]),
+            'value': int(row[file_header_lookup[prop_conf['id'][1]]]),
         }
     else:
         await db.execute(
@@ -575,9 +583,9 @@ async def create_relation(
                 project_id,
                 relation_type_id,
                 domain_type_id,
-                domain_id,
+                domain_properties,
                 range_type_id,
-                range_id,
+                range_properties,
                 properties
             )
         )

@@ -1,0 +1,51 @@
+{
+    "data": {
+        "0": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "1": {
+            "system_name": "street_name",
+            "display_name": "Street name",
+            "type": "String"
+        },
+        "2": {
+            "system_name": "location",
+            "display_name": "Location",
+            "type": "Geometry"
+        },
+        "3": {
+            "system_name": "district",
+            "display_name": "District",
+            "type": "String"
+        },
+        "4": {
+            "system_name": "architectural_info",
+            "display_name": "Architectural information",
+            "type": "String"
+        }
+    },
+    "display": {
+        "title": "$1",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "1"
+                    },
+                    {
+                        "field": "2",
+                        "type": "geometry"
+                    },
+                    {
+                        "field": "3"
+                    },
+                    {
+                        "field": "4"
+                    }
+                ]
+            }
+        ]
+    }
+}
