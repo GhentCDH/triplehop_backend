@@ -152,12 +152,14 @@ async def create_data():
             (data, params, file_header_lookup, db_props_lookup) = await get_relation_utils(
                 db,
                 'data/tblFilmTitleVariation.csv',
+                'mentioned_film_title',
+                'film',
                 'mentioned_film_title'
             )
 
             prop_conf = {
                 'domain_id': ['film_id', 'int'],
-                'range_id': ['film_title_variation_id', 'int'],
+                'range_id': ['film_variation_id', 'int'],
             }
             for row in tqdm.tqdm(data[:10]):
                 await utils.create_relation(

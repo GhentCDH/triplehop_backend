@@ -213,7 +213,7 @@ async def create_relation_config(
         '''
             INSERT INTO app.relation_count (id)
             VALUES (
-                (SELECT entity.id FROM app.entity WHERE system_name = :system_name)
+                (SELECT relation.id FROM app.relation WHERE system_name = :system_name)
             )
             ON CONFLICT DO NOTHING;
         ''',
@@ -330,22 +330,26 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
     for (key, conf) in prop_conf.items():
         if key == 'id':
             continue
+        if key in ['domain_id', 'range_id']:
+            db_key = key
+        else:
+            db_key = db_props_lookup[key]
         value = row[file_header_lookup[conf[0]]]
         if conf[1] == 'int':
             if value not in ['', 'N/A']:
-                properties[db_props_lookup[key]] = {
+                properties[db_key] = {
                     'type': 'int',
                     'value': int(value),
                 }
         elif conf[1] == 'string':
             if value != '':
-                properties[db_props_lookup[key]] = {
+                properties[db_key] = {
                     'type': 'string',
                     'value': value,
                 }
         elif conf[1] == 'array':
             if value not in ['', 'N/A']:
-                properties[db_props_lookup[key]] = {
+                properties[db_key] = {
                     'type': 'array',
                     'value': value,
                 }
@@ -401,7 +405,10 @@ async def create_entity(
                 'entity_type_id': entity_type_id
             }
         )
-        properties['id'] = id
+        properties['id'] = {
+            'type': 'int',
+            'value': id,
+        }
 
     # https://github.com/apache/incubator-age/issues/43
     # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
@@ -437,11 +444,11 @@ def age_format_properties_set(vertex: str, properties: Dict):
     return ' '.join({f'SET {vertex}.p_{k} = {v}' for (k, v) in properties.items()})
 
 
-def age_update_entity(graphname: str, label: str, id: int, properties: Dict):
+def age_update_entity(project_id: str, entity_type_id: str, id: int, properties: Dict):
     return (
         f'SELECT * FROM cypher('
-        f'\'{graphname}\', '
-        f'$$MATCH (n:e_{label} {{id: {id}}}) {age_format_properties_set("n", properties)}$$'
+        f'\'{project_id}\', '
+        f'$$MATCH (n:e_{dtu(entity_type_id)} {{id: {id}}}) {age_format_properties_set("n", properties)}$$'
         f') as (a agtype);'
     )
 
@@ -484,11 +491,15 @@ def age_create_relation(
     properties: Dict
 ):
     return (
-        f'MATCH'
-        f'        (d:e_{dtu(domain_type_id)} {{id: {domain_id}}}),'
-        f'        (r:e_{dtu(range_type_id)} {{id: {range_id}}})'
+        f'SELECT * FROM cypher('
+        f'\'{project_id}\', '
+        f'$$MATCH'
+        f'        (d:e_{dtu(domain_type_id)} {{id: {domain_id["value"]}}}),'
+        f'        (r:e_{dtu(range_type_id)} {{id: {range_id["value"]}}})'
+        f' '
         f'CREATE'
-        f'(d)-[:r_{dtu(relation_type_id)} {{{age_format_properties(properties)}}}]->(r);'
+        f'(d)-[:r_{dtu(relation_type_id)} {{{age_format_properties(properties)}}}]->(r)$$'
+        f') as (a agtype);'
     )
 
     # TODO: match on other props
@@ -540,14 +551,17 @@ async def create_relation(
         id = await db.fetch_val(
             '''
                 SELECT current_id
-                FROM app.entity_count
+                FROM app.relation_count
                 WHERE id = :relation_type_id;
             ''',
             {
                 'relation_type_id': relation_type_id
             }
         )
-        properties['id'] = id
+        properties['id'] = {
+            'type': 'int',
+            'value': id,
+        }
 
     # https://github.com/apache/incubator-age/issues/43
     # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
