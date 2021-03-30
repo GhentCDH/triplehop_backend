@@ -11,84 +11,54 @@
             "type": "String"
         },
         "2": {
-            "system_name": "date_opened_display",
-            "display_name": "Date opened",
-            "type": "String"
-        },
-        "3": {
             "system_name": "date_opened",
             "display_name": "Date opened",
             "type": "Int"
         },
-        "4": {
-            "system_name": "date_closed_display",
-            "display_name": "Date closed",
-            "type": "String"
-        },
-        "5": {
+        "3": {
             "system_name": "date_closed",
             "display_name": "Date opened",
             "type": "Int"
         },
-        "6": {
+        "4": {
             "system_name": "status",
             "display_name": "Status",
             "type": "String"
         },
-        "7": {
+        "5": {
             "system_name": "type",
             "display_name": "Type",
             "type": "String"
         },
-        "8": {
+        "6": {
             "system_name": "ideological_characteristic",
             "display_name": "Ideological characteristic",
             "type": "String"
         },
-        "9": {
+        "7": {
             "system_name": "ideological_remark",
             "display_name": "Ideological remark",
             "type": "String"
         },
-        "10": {
+        "8": {
             "system_name": "infrastructure_info",
             "display_name": "Infrastructure info",
             "type": "String"
         },
-        "11": {
+        "9": {
             "system_name": "name_remarks",
             "display_name": "Remarks about the name",
             "type": "String"
         },
-        "12": {
+        "10": {
             "system_name": "screens",
             "display_name": "Number of screens",
             "type": "[String]"
         },
-        "13": {
+        "11": {
             "system_name": "seats",
             "display_name": "Number of seats",
             "type": "[String]"
-        },
-        "14": {
-            "system_name": "postal_code",
-            "display_name": "Postal code",
-            "type": "Int"
-        },
-        "15": {
-            "system_name": "city_name",
-            "display_name": "City",
-            "type": "String"
-        },
-        "16": {
-            "system_name": "street_name",
-            "display_name": "Street",
-            "type": "String"
-        },
-        "17": {
-            "system_name": "location",
-            "display_name": "Location",
-            "type": "Geometry"
         }
     },
     "display": {
@@ -103,7 +73,13 @@
                         "field": "2"
                     },
                     {
+                        "field": "3"
+                    },
+                    {
                         "field": "4"
+                    },
+                    {
+                        "field": "5"
                     },
                     {
                         "field": "6"
@@ -118,31 +94,12 @@
                         "field": "9"
                     },
                     {
-                        "field": "10"
-                    },
-                    {
-                        "field": "11"
-                    },
-                    {
-                        "field": "12",
+                        "field": "10",
                         "type": "list"
                     },
                     {
-                        "field": "13",
+                        "field": "11",
                         "type": "list"
-                    },
-                    {
-                        "field": "14"
-                    },
-                    {
-                        "field": "15"
-                    },
-                    {
-                        "field": "16"
-                    },
-                    {
-                        "field": "17",
-                        "type": "geometry"
                     }
                 ]
             }

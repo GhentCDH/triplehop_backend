@@ -6,7 +6,9 @@ elasticsearch
 fastapi
 flake8
 gunicorn
+msgpack
 passlib
 python-multipart
 PyJWT
 tqdm
+ujson

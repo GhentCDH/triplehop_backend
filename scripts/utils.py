@@ -337,7 +337,7 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
             db_key = db_props_lookup[key]
         if conf[0] == 'int':
             value = row[file_header_lookup[conf[1]]]
-            if value in ['', 'N/A']:
+            if value in ['']:
                 continue
             properties[db_key] = {
                 'type': 'int',
@@ -345,7 +345,7 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
             }
         elif conf[0] == 'string':
             value = row[file_header_lookup[conf[1]]]
-            if value in ['', 'N/A']:
+            if value in ['']:
                 continue
             properties[db_key] = {
                 'type': 'string',
@@ -354,14 +354,14 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
         # https://github.com/apache/incubator-age/issues/48
         # elif conf[0] == 'point':
         #     value = row[file_header_lookup[conf[1]]]
-        #     if value[0] in ['', 'N/A']:
+        #     if value[0] in ['']:
         #         continue
         #     properties[db_key] = {
         #         'type': 'point',
         #         'value': value.split(', '),
         #     }
         else:
-            raise Exception('Not implemented')
+            raise Exception(f'Type {conf[0]} has not yet been implemented')
     return properties
 
 
