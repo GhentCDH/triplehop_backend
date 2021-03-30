@@ -5,7 +5,8 @@ ALLOWED_ORIGINS = []
 DATABASE = {
     'host': '',
     'database': '',
-    'user': ''
+    'user': '',
+    'password': '',
 }
 
 ELASTICSEARCH = {

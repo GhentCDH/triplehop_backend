@@ -1,9 +1,7 @@
-from typing import AsyncGenerator, Callable, Type
+from typing import Type
 
-from asyncpg.pool import Pool
 from databases import Database
-from fastapi import Depends, FastAPI
-from fastapi.dependencies.utils import solve_generator
+from fastapi import FastAPI
 from starlette.requests import Request
 
 from app.config import DATABASE
@@ -11,7 +9,9 @@ from app.db.base import BaseRepository
 
 
 async def db_connect(app: FastAPI) -> None:
-    app.state.db = Database('postgresql://vagrant@127.0.0.1/crdb')
+    app.state.db = Database(
+        f'postgresql://{DATABASE["user"]}:{DATABASE["password"]}@{DATABASE["host"]}/{DATABASE["database"]}'
+    )
     await app.state.db.connect()
 
 

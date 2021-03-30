@@ -1,6 +1,3 @@
-from typing import Dict
-
-from asyncpg.connection import Connection
 from buildpg.main import Renderer
 from databases import Database
 from re import compile as re_compile
@@ -31,3 +28,18 @@ class BaseRepository:
     # async def fetch_all(self, query_template: str, params: Dict = None):
     #     query, args = self.__class__._render(query_template, params)
     #     return await self._conn.fetch_all(query, *args)
+
+    # Make sure apache Age queries can be executed
+    # Can only be initiated from transaction
+    # otherwise another uninitialized connection might be used for the actual execution
+    async def _init_age(self):
+        await self._db.execute(
+            '''
+                SET search_path = ag_catalog, "$user", public;
+            '''
+        )
+        await self._db.execute(
+            '''
+                LOAD '$libdir/plugins/age';
+            '''
+        )

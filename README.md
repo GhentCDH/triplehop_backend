@@ -67,15 +67,6 @@
 
 ## Usage
 
-* Run database
-
-    ```
-    cd agensgraph
-    . ag-env.sh
-    export AGDATA=/home/vagrant/db_cluster
-    ag_ctl start
-    ```
-
 * Populate database
 
     ```

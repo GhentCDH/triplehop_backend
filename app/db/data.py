@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from asyncpg import introspection
 from asyncpg.connection import Connection
 from databases import Database
-from json import loads as json_load
+import json
 
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
@@ -16,89 +16,43 @@ class DataRepository(BaseRepository):
         super().__init__(db)
         self._conf_repo = ConfigRepository(db)
         self._project_name = project_name
-
-    async def _set_graph(self) -> None:
-        project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
-        await self._db.execute(
-            '''
-                SET graph_path = g_{project_id};
-            '''.format(
-                project_id=dtu(project_id),
-            )
-        )
-
-    # @classmethod
-    # async def __aenter__(self, conn: Connection, project_name: str) -> DataRepository:
-    #     await self._set_type_codec(
-    #         [
-    #             'graphid',
-    #             'vertex',
-    #             'edge',
-    #             'graphpath'
-    #         ]
-    #     )
-    #
-    #     print('set graph')
-    #     print(self._conn)
-    #
-    #     project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
-    #     await self._conn.execute(
-    #         '''
-    #             SET graph_path = g_{project_id};
-    #         '''.format(
-    #             project_id=dtu(project_id),
-    #         )
-    #     )
-    #
-    #     return self
-    #
-    # # https://github.com/MagicStack/asyncpg/issues/413
-    # async def _set_type_codec(self, typenames: List) -> None:
-    #     schema = 'pg_catalog'
-    #     format = 'text'
-    #     self._conn._check_open()
-    #     for typename in typenames:
-    #         typeinfo = await self._conn.fetchrow(
-    #             introspection.TYPE_BY_NAME, typename, schema)
-    #         if not typeinfo:
-    #             raise ValueError('unknown type: {}.{}'.format(schema, typename))
-    #
-    #         oid = typeinfo['oid']
-    #         self._conn._protocol.get_settings().add_python_codec(
-    #             oid, typename, schema, 'scalar',
-    #             lambda a: a, lambda a: a, format)
-    #
-    #     # Statement cache is no longer valid due to codec changes.
-    #     self._conn._drop_local_statement_cache()
+        self._project_id = None
 
     async def get_entity(
         self,
         entity_type_name: str,
         entity_id: int,
     ):
-        # async with self.connection.transaction():
-        await self._set_graph()
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        async with self._db.transaction():
+            await self._init_age()
+            if self._project_id is None:
+                self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+            entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
-        record = await self._db.fetch_one(
-            '''
-                MATCH (ve:v_{entity_type_id} {{id: :id}}) RETURN ve;
-            '''.format(
-                entity_type_id=dtu(entity_type_id),
-            ),
-            # TODO: figure out why id can't be an int
-            {
-                'id': str(entity_id),
-            }
-        )
+            query = (
+                f'SELECT * FROM cypher('
+                f'\'{self._project_id}\', '
+                f'$$MATCH (e:e_{dtu(entity_type_id)} {{id: $id}}) return e$$, $1'
+                f') as (e agtype);'
+            )
 
-        if record is None:
-            return None
+            # Use raw connection to prevent search for bound parameters
+            async with self._db.connection() as conn:
+                record = await conn.raw_connection.fetchrow(
+                    query,
+                    json.dumps({
+                        'id': entity_id
+                    })
+                )
 
-        raw_entity = json_load(RE_RECORD.match(record['ve']).group(2))
+            if record is None:
+                return None
 
-        etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
-        return {etpm[k]: v for k, v in raw_entity.items() if k in etpm}
+            # strip ::vertex from record data
+            raw_entity = json.loads(record['e'][:-8])['properties']
+
+            etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
+            return {etpm[k]: v for k, v in raw_entity.items() if k in etpm}
 
     async def get_relations_with_entity(
         self,
@@ -141,7 +95,7 @@ class DataRepository(BaseRepository):
             result = {}
 
             # relation properties
-            raw_relation = json_load(RE_RECORD.match(record['e']).group(2))
+            raw_relation = json.loads(RE_RECORD.match(record['e']).group(2))
             result['relation'] = {rtpm[k]: v for k, v in raw_relation.items() if k in rtpm}
 
             # entity properties
@@ -152,7 +106,7 @@ class DataRepository(BaseRepository):
                 self._project_name,
                 etn
             )
-            raw_entity = json_load(entity_match.group(2))
+            raw_entity = json.loads(entity_match.group(2))
             result['entity'] = {e_property_mapping[k]: v for k, v in raw_entity.items() if k in e_property_mapping}
             result['entity_type_name'] = etn
 
@@ -181,7 +135,7 @@ class DataRepository(BaseRepository):
     def convert_from_jsonb(jsonb: str) -> Any:
         if jsonb is None:
             return None
-        return json_load(jsonb)
+        return json.loads(jsonb)
 
     async def get_entity_data(
         self,

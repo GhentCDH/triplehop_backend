@@ -12,3 +12,4 @@ python-multipart
 PyJWT
 tqdm
 ujson
+uvicorn
