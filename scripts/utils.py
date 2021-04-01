@@ -242,7 +242,7 @@ async def get_entity_props_lookup(db: Database, project_name: str, entity_type_n
 
 
 async def get_relation_props_lookup(db: Database, project_name: str, relation_type_name: str) -> Dict:
-    config = json.loads(await db.fetch_val(
+    result = await db.fetch_val(
         '''
             SELECT relation.config->'data'
             FROM app.relation
@@ -255,8 +255,10 @@ async def get_relation_props_lookup(db: Database, project_name: str, relation_ty
             'project_name': project_name,
             'relation_type_name': relation_type_name,
         }
-    ))
-    return {config[k]['system_name']: k for k in config.keys()}
+    )
+    if result:
+        return {json.load(result)[k]['system_name']: k for k in config.keys()}
+    return {}
 
 
 async def init_age(db: Database):
@@ -300,32 +302,33 @@ async def create_project_graph(db: Database, project_name: str):
 
 
 def age_format_properties(properties: Dict):
-    formatted_properties = []
+    formatted_properties = {}
     for (key, value) in properties.items():
         value_type = value['type']
         value_value = value['value']
         if key == 'id':
-            formatted_properties.append(f'id: {value_value}')
-        elif value_type == 'int':
-            formatted_properties.append(f'p_{key}: {value_value}')
-        elif value_type == 'string':
-            value_value = value_value.replace("'", "\\'")
-            formatted_properties.append(f"p_{key}: '{value_value}'")
-        # https://github.com/apache/incubator-age/issues/48
-        # elif value_type == 'point':
-        #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
+            if value_type == 'int':
+                formatted_properties['id'] = int(value_value)
+                continue
+            else:
+                raise Exception('Non-int ids are not yet implemented')
         else:
-            raise Exception('Not implemented')
-    return ', '.join(formatted_properties)
-
-
-def age_create_entity(project_id: str, entity_type_id: str, properties: Dict):
-    return (
-        f'SELECT * FROM cypher('
-        f'\'{project_id}\', '
-        f'$$CREATE (:e_{dtu(entity_type_id)} {{{age_format_properties(properties)}}})$$'
-        f') as (a agtype);'
-    )
+            key = dtu(key)
+        if value_type == 'int':
+            formatted_properties[f'p_{key}'] = int(value_value)
+            continue
+        if value_type == 'string':
+            formatted_properties[f'p_{key}'] = value_value
+            continue
+        # https://github.com/apache/incubator-age/issues/48
+        # if value_type == 'point':
+        #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
+        #     continue
+        raise Exception(f'Value type {value_type} is not yet implemented')
+    return [
+        ', '.join([f'{k}: ${k}' for k in formatted_properties.keys()]),
+        formatted_properties,
+    ]
 
 
 def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict, prop_conf: Dict):
@@ -419,94 +422,76 @@ async def create_entity(
     # databases.Database().execute leads to a prepared statement
     # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
     # => use execute directly on asyncpg connection
+    props = age_format_properties(properties)
     async with db.connection() as conn:
         await conn.raw_connection.execute(
-            age_create_entity(project_id, entity_type_id, properties)
+            (
+                f'SELECT * FROM cypher('
+                f'\'{project_id}\', '
+                f'$$CREATE (:e_{dtu(entity_type_id)} {{{props[0]}}})$$, $1'
+                f') as (a agtype);'
+            ),
+            json.dumps(props[1])
         )
 
     # TODO: revision, property relations
 
 
-def age_format_properties_set(vertex: str, properties: Dict):
-    formatted_properties = []
-    for (key, value) in properties.items():
-        value_type = value['type']
-        value_value = value['value']
-        if value_type == 'int':
-            formatted_properties.append(f'SET {vertex}.p_{key} = {value_value}')
-        elif value_type == 'string':
-            value_value = value_value.replace("'", "\\'")
-            formatted_properties.append(f"SET {vertex}.p_{key} = '{value_value}'")
-        elif value_type == 'array':
-            # https://github.com/apache/incubator-age/issues/44
-            raise Exception('Not implemented')
-        else:
-            raise Exception('Not implemented')
-    return ' '.join(formatted_properties)
+# def age_format_properties_set(vertex: str, properties: Dict):
+#     formatted_properties = []
+#     for (key, value) in properties.items():
+#         value_type = value['type']
+#         value_value = value['value']
+#         if value_type == 'int':
+#             formatted_properties.append(f'SET {vertex}.p_{key} = {value_value}')
+#         elif value_type == 'string':
+#             value_value = value_value.replace("'", "\\'")
+#             formatted_properties.append(f"SET {vertex}.p_{key} = '{value_value}'")
+#         elif value_type == 'array':
+#             # https://github.com/apache/incubator-age/issues/44
+#             raise Exception('Not implemented')
+#         else:
+#             raise Exception('Not implemented')
+#     return ' '.join(formatted_properties)
 
-    return ' '.join({f'SET {vertex}.p_{k} = {v}' for (k, v) in properties.items()})
-
-
-def age_update_entity(project_id: str, entity_type_id: str, id: int, properties: Dict):
-    return (
-        f'SELECT * FROM cypher('
-        f'\'{project_id}\', '
-        f'$$MATCH (n:e_{dtu(entity_type_id)} {{id: {id}}}) {age_format_properties_set("n", properties)}$$'
-        f') as (a agtype);'
-    )
+#     return ' '.join({f'SET {vertex}.p_{k} = {v}' for (k, v) in properties.items()})
 
 
-async def update_entity(
-    db: Database,
-    row: List,
-    params: Dict,
-    db_props_lookup: Dict,
-    file_header_lookup: Dict,
-    prop_conf: Dict
-) -> None:
-    project_id = await get_project_id(db, params['project_name'])
-    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
-    properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
-
-    if properties:
-        entity_id = int(row[file_header_lookup[prop_conf['id'][0]]])
-        # https://github.com/apache/incubator-age/issues/43
-        # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
-        # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-        # databases.Database().execute leads to a prepared statement
-        # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
-        # => use execute directly on asyncpg connection
-        async with db.connection() as conn:
-            await conn.raw_connection.execute(
-                age_update_entity(project_id, dtu(entity_type_id), entity_id, properties)
-            )
-
-    # TODO: revision, property relations
+# def age_update_entity(project_id: str, entity_type_id: str, id: int, properties: Dict):
+#     return (
+#         f'SELECT * FROM cypher('
+#         f'\'{project_id}\', '
+#         f'$$MATCH (n:e_{dtu(entity_type_id)} {{id: {id}}}) {age_format_properties_set("n", properties)}$$'
+#         f') as (a agtype);'
+#     )
 
 
-def age_create_relation(
-    project_id: str,
-    relation_type_id: str,
-    domain_type_id: str,
-    domain_properties: Dict,
-    range_type_id: str,
-    range_properties: Dict,
-    properties: Dict
-):
-    domain_properties
-    return (
-        f'SELECT * FROM cypher('
-        f'\'{project_id}\', '
-        f'$$MATCH'
-        f'        (d:e_{dtu(domain_type_id)} {{{age_format_properties(domain_properties)}}}),'
-        f'        (r:e_{dtu(range_type_id)} {{{age_format_properties(range_properties)}}})'
-        f' '
-        f'CREATE'
-        f'(d)-[:r_{dtu(relation_type_id)} {{{age_format_properties(properties)}}}]->(r)$$'
-        f') as (a agtype);'
-    )
+# async def update_entity(
+#     db: Database,
+#     row: List,
+#     params: Dict,
+#     db_props_lookup: Dict,
+#     file_header_lookup: Dict,
+#     prop_conf: Dict
+# ) -> None:
+#     project_id = await get_project_id(db, params['project_name'])
+#     entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+#     properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
 
-    # TODO: match on other props
+#     if properties:
+#         entity_id = int(row[file_header_lookup[prop_conf['id'][0]]])
+#         # https://github.com/apache/incubator-age/issues/43
+#         # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
+#         # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
+#         # databases.Database().execute leads to a prepared statement
+#         # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
+#         # => use execute directly on asyncpg connection
+#         async with db.connection() as conn:
+#             await conn.raw_connection.execute(
+#                 age_update_entity(project_id, dtu(entity_type_id), entity_id, properties)
+#             )
+
+#     # TODO: revision, property relations
 
 
 async def create_relation(
@@ -571,23 +556,27 @@ async def create_relation(
             'value': id,
         }
 
-    # https://github.com/apache/incubator-age/issues/43
-    # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
     # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
     # databases.Database().execute leads to a prepared statement
     # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
     # => use execute directly on asyncpg connection
+    domain_props = age_format_properties(domain_properties)
+    range_props = age_format_properties(range_properties)
+    props = age_format_properties(properties)
     async with db.connection() as conn:
         await conn.raw_connection.execute(
-            age_create_relation(
-                project_id,
-                relation_type_id,
-                domain_type_id,
-                domain_properties,
-                range_type_id,
-                range_properties,
-                properties
-            )
+            (
+                f'SELECT * FROM cypher('
+                f'\'{project_id}\', '
+                f'$$MATCH'
+                f'        (d:e_{dtu(domain_type_id)} {{{domain_props[0]}}}),'
+                f'        (r:e_{dtu(range_type_id)} {{{range_props[0]}}})'
+                f' '
+                f'CREATE'
+                f'(d)-[:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, $1'
+                f') as (a agtype);'
+            ),
+            json.dumps({**domain_props[1], **range_props[1], **props[1]})
         )
 
     # TODO: relation entity, revision, property relations
