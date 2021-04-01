@@ -1,7 +1,6 @@
 {
     "display": {
         "domain_title": "City",
-        "range_title": "Address",
-        "layout": []
+        "range_title": "Address"
     }
 }

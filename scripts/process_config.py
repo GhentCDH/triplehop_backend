@@ -72,35 +72,33 @@ for project_folder in os.listdir('human_readable_config'):
                     project_config[er][name]['lookup'][field['system_name']] = id
 
     # second iteraton: display
-    for fn in os.listdir(f'human_readable_config/{project_folder}/entity'):
-        name = fn.split('.')[0]
-        with open(f'human_readable_config/{project_folder}/entity/{fn}') as f:
-            entity_config = json.load(f)
-        if 'display' in entity_config:
-            project_config['entity'][name]['display'] = copy.deepcopy(entity_config['display'])
-            display = project_config['entity'][name]['display']
-            if 'title' in display:
-                display['title'] = replace(project_config, name, display['title'])
-            if 'layout' in display:
-                for layout in display['layout']:
-                    if 'label' in layout:
-                        layout['label'] = replace(project_config, name, layout['label'])
-                    if 'fields' in layout:
-                        for field in layout['fields']:
-                            field['field'] = replace(project_config, name, field['field'])
+    for er in ['entity', 'relation']:
+        for fn in os.listdir(f'human_readable_config/{project_folder}/{er}'):
+            name = fn.split('.')[0]
+            with open(f'human_readable_config/{project_folder}/{er}/{fn}') as f:
+                config = json.load(f)
+            if 'display' in config:
+                project_config[er][name]['display'] = copy.deepcopy(config['display'])
+                display = project_config[er][name]['display']
+                if 'title' in display:
+                    display['title'] = replace(project_config, name, display['title'])
+                if 'layout' in display:
+                    for layout in display['layout']:
+                        if 'label' in layout:
+                            layout['label'] = replace(project_config, name, layout['label'])
+                        if 'fields' in layout:
+                            for field in layout['fields']:
+                                field['field'] = replace(project_config, name, field['field'])
 
     # write out config
-    for path in [
-        f'config/{project_folder}/entity',
-        f'config/{project_folder}/relation',
-    ]:
-        if not os.path.exists(path):
-            os.makedirs(path)
-    for name in project_config['entity']:
-        with open(f'config/{project_folder}/entity/{name}.json', 'w') as f:
-            config = {}
-            for conf in ['data', 'display']:
-                if conf in project_config['entity'][name]:
-                    config[conf] = project_config['entity'][name][conf]
-            json.dump(config, f, indent=4)
+    for er in ['entity', 'relation']:
+        if not os.path.exists(f'config/{project_folder}/{er}'):
+            os.makedirs(f'config/{project_folder}/{er}')
+        for name in project_config[er]:
+            with open(f'config/{project_folder}/{er}/{name}.json', 'w') as f:
+                config = {}
+                for conf in ['data', 'display']:
+                    if conf in project_config[er][name]:
+                        config[conf] = project_config[er][name][conf]
+                json.dump(config, f, indent=4)
 

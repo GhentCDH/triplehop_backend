@@ -1,7 +1,6 @@
 {
     "display": {
         "domain_title": "Mentioned title",
-        "range_title": "Film",
-        "layout": []
+        "range_title": "Film"
     }
 }
