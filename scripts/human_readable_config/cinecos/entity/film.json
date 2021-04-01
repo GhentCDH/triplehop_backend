@@ -1,55 +1,55 @@
 {
-    "data": {
-        "16ffdac7-b572-452e-ba9e-781684efd45f": {
+    "data": [
+        {
             "system_name": "original_id",
             "display_name": "Original id",
             "type": "Int"
         },
-        "7cb3c377-e3c5-4d60-8c9f-efc4626aa64c": {
+        {
             "system_name": "title",
             "display_name": "Title",
             "type": "String"
         },
-        "71d1f4c4-90da-402f-b2b7-84a83520bc7f": {
+        {
             "system_name": "year",
             "display_name": "Production year",
             "type": "Int"
         },
-        "a6efd857-da3b-424c-a0a2-099fb7fef740": {
+        {
             "system_name": "imdb_id",
             "display_name": "IMDb ID",
             "type": "String"
         },
-        "fa434d6d-0d0d-4411-af90-e1f15764f717": {
+        {
             "system_name": "wikidata_id",
             "display_name": "Wikidata ID",
             "type": "String"
         }
-    },
+    ],
     "display": {
-        "title": "$7cb3c377-e3c5-4d60-8c9f-efc4626aa64c ($71d1f4c4-90da-402f-b2b7-84a83520bc7f)",
+        "title": "$title ($year)",
         "layout": [
             {
                 "label": "General",
                 "fields": [
                     {
-                        "field": "$7cb3c377-e3c5-4d60-8c9f-efc4626aa64c"
+                        "field": "$title"
                     },
                     {
-                        "field": "$71d1f4c4-90da-402f-b2b7-84a83520bc7f"
+                        "field": "$year"
                     },
                     {
-                        "field": "$a6efd857-da3b-424c-a0a2-099fb7fef740",
+                        "field": "$imdb_id",
                         "type": "online_identifier",
                         "base_url": "https://www.imdb.com/title/"
                     },
                     {
-                        "field": "$fa434d6d-0d0d-4411-af90-e1f15764f717",
+                        "field": "$wikidata_id",
                         "type": "online_identifier",
                         "base_url": "https://www.wikidata.org/wiki/"
                     },
                     {
-                        "field": "$fa434d6d-0d0d-4411-af90-e1f15764f717",
+                        "field": "$wikidata_id",
                         "label": "Wikidata images",
                         "type": "wikidata_images"
                     }

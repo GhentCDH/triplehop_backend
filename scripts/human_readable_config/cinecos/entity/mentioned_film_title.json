@@ -1,14 +1,14 @@
 {
-    "data": {
-        "b229e3fd-bd67-4325-8836-a2b3e4031bfc": {
+    "data": [
+        {
             "system_name": "original_id",
             "display_name": "Original id",
             "type": "Int"
         },
-        "2d46c2be-124f-4cf7-b7b7-563d7989463a": {
+        {
             "system_name": "title",
             "display_name": "Title",
             "type": "String"
         }
-    }
+    ]
 }

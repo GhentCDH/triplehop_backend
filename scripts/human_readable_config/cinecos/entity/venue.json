@@ -1,104 +1,104 @@
 {
-    "data": {
-        "96ac17e4-acd4-4988-b612-984de1e25e6d": {
+    "data": [
+        {
             "system_name": "original_id",
             "display_name": "Original id",
             "type": "Int"
         },
-        "fd083354-0e22-4a5b-8b3a-c28fb90da272": {
+        {
             "system_name": "name",
             "display_name": "Name",
             "type": "String"
         },
-        "e6f026b7-542a-4665-9ee4-aff2ebb41c36": {
+        {
             "system_name": "date_opened",
             "display_name": "Date opened",
             "type": "Int"
         },
-        "12286c11-b3b5-43e0-9e15-5a4b5591aa2e": {
+        {
             "system_name": "date_closed",
             "display_name": "Date opened",
             "type": "Int"
         },
-        "e13ac74e-651f-4f47-a475-b40da0121d1b": {
+        {
             "system_name": "status",
             "display_name": "Status",
             "type": "String"
         },
-        "bc0f6e13-58ba-4ebd-ba26-3f9efac2ba97": {
+        {
             "system_name": "type",
             "display_name": "Type",
             "type": "String"
         },
-        "e19b23df-8690-40b6-8437-8e4aba65912b": {
+        {
             "system_name": "ideological_characteristic",
             "display_name": "Ideological characteristic",
             "type": "String"
         },
-        "097763ab-4573-4e0c-8104-31204ad45ca0": {
+        {
             "system_name": "ideological_remark",
             "display_name": "Ideological remark",
             "type": "String"
         },
-        "7a4c701f-5514-48aa-aaf4-4d090236bf8c": {
+        {
             "system_name": "infrastructure_info",
             "display_name": "Infrastructure info",
             "type": "String"
         },
-        "206f5026-6dfe-4ecd-a0fc-64786010ded2": {
+        {
             "system_name": "name_remarks",
             "display_name": "Remarks about the name",
             "type": "String"
         },
-        "e6d50df7-0a51-4a2e-8d35-6b7bdbc4eeb1": {
+        {
             "system_name": "screens",
             "display_name": "Number of screens",
             "type": "[String]"
         },
-        "2a1ac012-d8dc-4e90-8ca1-66777874639c": {
+        {
             "system_name": "seats",
             "display_name": "Number of seats",
             "type": "[String]"
         }
-    },
+    ],
     "display": {
-        "title": "$fd083354-0e22-4a5b-8b3a-c28fb90da272",
+        "title": "$name",
         "layout": [
             {
                 "fields": [
                     {
-                        "field": "$fd083354-0e22-4a5b-8b3a-c28fb90da272"
+                        "field": "$name"
                     },
                     {
-                        "field": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36"
+                        "field": "$date_opened"
                     },
                     {
-                        "field": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e"
+                        "field": "$date_closed"
                     },
                     {
-                        "field": "$e13ac74e-651f-4f47-a475-b40da0121d1b"
+                        "field": "$status"
                     },
                     {
-                        "field": "$bc0f6e13-58ba-4ebd-ba26-3f9efac2ba97"
+                        "field": "$type"
                     },
                     {
-                        "field": "$e19b23df-8690-40b6-8437-8e4aba65912b"
+                        "field": "$ideological_characteristic"
                     },
                     {
-                        "field": "$097763ab-4573-4e0c-8104-31204ad45ca0"
+                        "field": "$ideological_remark"
                     },
                     {
-                        "field": "$7a4c701f-5514-48aa-aaf4-4d090236bf8c"
+                        "field": "$infrastructure_info"
                     },
                     {
-                        "field": "$206f5026-6dfe-4ecd-a0fc-64786010ded2"
+                        "field": "$name_remarks"
                     },
                     {
-                        "field": "$e6d50df7-0a51-4a2e-8d35-6b7bdbc4eeb1",
+                        "field": "$screens",
                         "type": "list"
                     },
                     {
-                        "field": "$2a1ac012-d8dc-4e90-8ca1-66777874639c",
+                        "field": "$seats",
                         "type": "list"
                     }
                 ]
