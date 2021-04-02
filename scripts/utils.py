@@ -136,7 +136,8 @@ async def create_entity_config(
             VALUES (
                 (SELECT entity.id FROM app.entity WHERE system_name = :system_name)
             )
-            ON CONFLICT DO NOTHING;
+            ON CONFLICT (id) DO UPDATE
+            SET current_id = 0;
         ''',
         {
             'system_name': system_name,
@@ -215,7 +216,8 @@ async def create_relation_config(
             VALUES (
                 (SELECT relation.id FROM app.relation WHERE system_name = :system_name)
             )
-            ON CONFLICT DO NOTHING;
+            ON CONFLICT (id) DO UPDATE
+            SET current_id = 0;
         ''',
         {
             'system_name': system_name,
@@ -303,14 +305,14 @@ async def create_project_graph(db: Database, project_name: str):
     )
 
 
-def age_format_properties(properties: Dict):
+def age_format_properties(properties: Dict, prefix: str = ''):
     formatted_properties = {}
     for (key, value) in properties.items():
         value_type = value['type']
         value_value = value['value']
         if key == 'id':
             if value_type == 'int':
-                formatted_properties['id'] = int(value_value)
+                formatted_properties[f'{prefix}id'] = int(value_value)
                 continue
             else:
                 raise Exception('Non-int ids are not yet implemented')
@@ -427,7 +429,7 @@ async def create_entity(
         (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
-            f'$$CREATE (\\:e_{dtu(entity_type_id)} {{{props[0]}}})$$, :params'
+            f'$$CREATE (\\:n_{dtu(entity_type_id)} {{{props[0]}}})$$, :params'
             f') as (a agtype);'
         ),
         {
@@ -501,7 +503,7 @@ async def create_entities(
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
-                f'$$CREATE (\\:e_{dtu(entity_type_id)} {{{placeholder}}})$$, :params'
+                f'$$CREATE (\\:n_{dtu(entity_type_id)} {{{placeholder}}})$$, :params'
                 f') as (a agtype);'
             ),
             [{'params': json.dumps(params)} for params in props_collection[placeholder]]
@@ -630,8 +632,8 @@ async def create_relation(
             'value': id,
         }
 
-    domain_props = age_format_properties(domain_properties)
-    range_props = age_format_properties(range_properties)
+    domain_props = age_format_properties(domain_properties, 'domain_')
+    range_props = age_format_properties(range_properties, 'range_')
     props = age_format_properties(properties)
 
     await db.execute(
@@ -639,11 +641,11 @@ async def create_relation(
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
             f'$$MATCH'
-            f'        (d:e_{dtu(domain_type_id)} {{{domain_props[0]}}}),'
-            f'        (r:e_{dtu(range_type_id)} {{{range_props[0]}}})'
+            f'        (d:n_{dtu(domain_type_id)} {{{domain_props[0]}}}),'
+            f'        (r:n_{dtu(range_type_id)} {{{range_props[0]}}})'
             f' '
             f'CREATE'
-            f'(d)-[\\:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, :params'
+            f'(d)-[\\:e_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, :params'
             f') as (a agtype);'
         ),
         {
@@ -689,6 +691,7 @@ async def create_relations(
         domain_properties = create_properties(row, db_domain_props_lookup, file_header_lookup, domain_conf)
         range_properties = create_properties(row, db_range_props_lookup, file_header_lookup, range_conf)
         properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
+
         if 'id' in prop_conf:
             max_id = max(max_id, properties['id']['value'])
         else:
@@ -699,8 +702,8 @@ async def create_relations(
                 'value': id,
             }
 
-        domain_props = age_format_properties(domain_properties)
-        range_props = age_format_properties(range_properties)
+        domain_props = age_format_properties(domain_properties, 'domain_')
+        range_props = age_format_properties(range_properties, 'range_')
         props = age_format_properties(properties)
 
         key = f'{domain_props[0]}|{range_props[0]}|{props[0]}'
@@ -730,11 +733,11 @@ async def create_relations(
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
                 f'$$MATCH'
-                f'        (d:e_{dtu(domain_type_id)} {{{split[0]}}}),'
-                f'        (r:e_{dtu(range_type_id)} {{{split[1]}}})'
+                f'        (d:n_{dtu(domain_type_id)} {{{split[0]}}}),'
+                f'        (r:n_{dtu(range_type_id)} {{{split[1]}}})'
                 f' '
                 f'CREATE'
-                f'(d)-[\\:r_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
+                f'(d)-[\\:e_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
                 f') as (a agtype);'
             ),
             [{'params': json.dumps(params)} for params in props_collection[placeholder]]
