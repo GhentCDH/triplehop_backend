@@ -346,7 +346,8 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
                 'type': 'int',
                 'value': int(value),
             }
-        elif conf[0] == 'string':
+            continue
+        if conf[0] == 'string':
             value = row[file_header_lookup[conf[1]]]
             if value in ['']:
                 continue
@@ -354,8 +355,9 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
                 'type': 'string',
                 'value': value,
             }
+            continue
         # https://github.com/apache/incubator-age/issues/48
-        # elif conf[0] == 'point':
+        # if conf[0] == 'point':
         #     value = row[file_header_lookup[conf[1]]]
         #     if value[0] in ['']:
         #         continue
@@ -363,6 +365,7 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
         #         'type': 'point',
         #         'value': value.split(', '),
         #     }
+        #     continue
         else:
             raise Exception(f'Type {conf[0]} has not yet been implemented')
     return properties
@@ -387,7 +390,8 @@ async def create_entity(
                 WHERE id = :entity_type_id;
             ''',
             {
-                'entity_type_id': entity_type_id
+                'entity_id': properties['id']['value'],
+                'entity_type_id': entity_type_id,
             }
         )
     else:
@@ -398,9 +402,52 @@ async def create_entity(
                 WHERE id = :entity_type_id;
             ''',
             {
-                'entity_type_id': entity_type_id
+                'entity_type_id': entity_type_id,
             }
         )
+        id = await db.fetch_val(
+            '''
+                SELECT current_id
+                FROM app.entity_count
+                WHERE id = :entity_type_id;
+            ''',
+            {
+                'entity_type_id': entity_type_id,
+            }
+        )
+        properties['id'] = {
+            'type': 'int',
+            'value': id,
+        }
+
+    props = age_format_properties(properties)
+    await db.execute(
+        (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$CREATE (\:e_{dtu(entity_type_id)} {{{props[0]}}})$$, :params'
+            f') as (a agtype);'
+        ),
+        {
+            'params': json.dumps(props[1]),
+        }
+    )
+
+    # TODO: revision, property relations
+
+
+async def create_entities(
+    db: Database,
+    batch: List,
+    params: Dict,
+    db_props_lookup: Dict,
+    file_header_lookup: Dict,
+    prop_conf: Dict
+) -> None:
+    project_id = await get_project_id(db, params['project_name'])
+    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+
+    if 'id' not in prop_conf:
         id = await db.fetch_val(
             '''
                 SELECT current_id
@@ -411,27 +458,51 @@ async def create_entity(
                 'entity_type_id': entity_type_id
             }
         )
-        properties['id'] = {
-            'type': 'int',
-            'value': id,
-        }
+    max_id = 0
+    # key: placeholder string
+    # value: list with corresponding parameters
+    props_collection = {}
 
-    # https://github.com/apache/incubator-age/issues/43
-    # try SELECT * FROM cypher('testgraph', $$CREATE (:label $properties)$$, $1) as (a agtype);
-    # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-    # databases.Database().execute leads to a prepared statement
-    # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
-    # => use execute directly on asyncpg connection
-    props = age_format_properties(properties)
-    async with db.connection() as conn:
-        await conn.raw_connection.execute(
+    for row in batch:
+        properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
+        if 'id' in prop_conf:
+            max_id = max(max_id, properties['id']['value'])
+        else:
+            id += 1
+            max_id = id
+            properties['id'] = {
+                'type': 'int',
+                'value': id,
+            }
+
+        props = age_format_properties(properties)
+        if props[0] in props_collection:
+            props_collection[props[0]].append(props[1])
+        else:
+            props_collection[props[0]] = [props[1]]
+
+    # GREATEST is needed when id in prop_conf
+    await db.execute(
+            '''
+                UPDATE app.entity_count
+                SET current_id = GREATEST(current_id, :entity_id)
+                WHERE id = :entity_type_id;
+            ''',
+            {
+                'entity_id': max_id,
+                'entity_type_id': entity_type_id
+            }
+        )
+
+    for placeholder in props_collection:
+        await db.execute_many(
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
-                f'$$CREATE (:e_{dtu(entity_type_id)} {{{props[0]}}})$$, $1'
+                f'$$CREATE (\:e_{dtu(entity_type_id)} {{{placeholder}}})$$, :params'
                 f') as (a agtype);'
             ),
-            json.dumps(props[1])
+            [{'params': json.dumps(params)} for params in props_collection[placeholder]]
         )
 
     # TODO: revision, property relations
@@ -519,11 +590,12 @@ async def create_relation(
         await db.execute(
             '''
                 UPDATE app.relation_count
-                SET current_id = GREATEST(current_id, :entity_id)
+                SET current_id = GREATEST(current_id, :relation_id)
                 WHERE id = :relation_type_id;
             ''',
             {
-                'relation_type_id': relation_type_id
+                'entity_id': properties['id']['value'],
+                'relation_type_id': relation_type_id,
             }
         )
         properties['id'] = {
@@ -538,9 +610,64 @@ async def create_relation(
                 WHERE id = :relation_type_id;
             ''',
             {
-                'relation_type_id': relation_type_id
+                'relation_type_id': relation_type_id,
             }
         )
+        id = await db.fetch_val(
+            '''
+                SELECT current_id
+                FROM app.relation_count
+                WHERE id = :relation_type_id;
+            ''',
+            {
+                'relation_type_id': relation_type_id,
+            }
+        )
+        properties['id'] = {
+            'type': 'int',
+            'value': id,
+        }
+
+    domain_props = age_format_properties(domain_properties)
+    range_props = age_format_properties(range_properties)
+    props = age_format_properties(properties)
+
+    await db.execute(
+        (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH'
+            f'        (d:e_{dtu(domain_type_id)} {{{domain_props[0]}}}),'
+            f'        (r:e_{dtu(range_type_id)} {{{range_props[0]}}})'
+            f' '
+            f'CREATE'
+            f'(d)-[\:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, :params'
+            f') as (a agtype);'
+        ),
+        {
+            'params': json.dumps({**domain_props[1], **range_props[1], **props[1]})
+        }
+    )
+
+
+async def create_relations(
+    db: Database,
+    batch: List,
+    params: Dict,
+    db_domain_props_lookup: Dict,
+    db_range_props_lookup: Dict,
+    db_props_lookup: Dict,
+    file_header_lookup: Dict,
+    domain_conf: Dict,
+    range_conf: Dict,
+    prop_conf: Dict
+) -> None:
+    project_id = await get_project_id(db, params['project_name'])
+    relation_type_id = await get_relation_type_id(db, params['project_name'], params['relation_type_name'])
+    domain_type_id = await get_entity_type_id(db, params['project_name'], params['domain_type_name'])
+    range_type_id = await get_entity_type_id(db, params['project_name'], params['range_type_name'])
+
+    if 'id' not in prop_conf:
         id = await db.fetch_val(
             '''
                 SELECT current_id
@@ -551,32 +678,64 @@ async def create_relation(
                 'relation_type_id': relation_type_id
             }
         )
-        properties['id'] = {
-            'type': 'int',
-            'value': id,
-        }
+    max_id = 0
+    # key: placeholder strings separated by | (domain_placeholder|range_placeholder|placeholder)
+    # value: list with corresponding parameters
+    props_collection = {}
 
-    # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-    # databases.Database().execute leads to a prepared statement
-    # (see https://github.com/encode/databases/blob/master/databases/backends/postgres.py#L189)
-    # => use execute directly on asyncpg connection
-    domain_props = age_format_properties(domain_properties)
-    range_props = age_format_properties(range_properties)
-    props = age_format_properties(properties)
-    async with db.connection() as conn:
-        await conn.raw_connection.execute(
+    for row in batch:
+        domain_properties = create_properties(row, db_domain_props_lookup, file_header_lookup, domain_conf)
+        range_properties = create_properties(row, db_range_props_lookup, file_header_lookup, range_conf)
+        properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
+        if 'id' in prop_conf:
+            max_id = max(max_id, properties['id']['value'])
+        else:
+            id += 1
+            max_id = id
+            properties['id'] = {
+                'type': 'int',
+                'value': id,
+            }
+
+        domain_props = age_format_properties(domain_properties)
+        range_props = age_format_properties(range_properties)
+        props = age_format_properties(properties)
+
+        key = f'{domain_props[0]}|{range_props[0]}|{props[0]}'
+        value = {**domain_props[1], **range_props[1], **props[1]}
+        if key in props_collection:
+            props_collection[key].append(value)
+        else:
+            props_collection[key] = [value]
+
+    # GREATEST is needed when id in prop_conf
+    await db.execute(
+            '''
+                UPDATE app.relation_count
+                SET current_id = GREATEST(current_id, :relation_id)
+                WHERE id = :relation_type_id;
+            ''',
+            {
+                'relation_id': max_id,
+                'relation_type_id': relation_type_id
+            }
+        )
+
+    for placeholder in props_collection:
+        split = placeholder.split('|')
+        await db.execute_many(
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
                 f'$$MATCH'
-                f'        (d:e_{dtu(domain_type_id)} {{{domain_props[0]}}}),'
-                f'        (r:e_{dtu(range_type_id)} {{{range_props[0]}}})'
+                f'        (d:e_{dtu(domain_type_id)} {{{split[0]}}}),'
+                f'        (r:e_{dtu(range_type_id)} {{{split[1]}}})'
                 f' '
                 f'CREATE'
-                f'(d)-[:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, $1'
+                f'(d)-[\:r_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
                 f') as (a agtype);'
             ),
-            json.dumps({**domain_props[1], **range_props[1], **props[1]})
+            [{'params': json.dumps(params)} for params in props_collection[placeholder]]
         )
 
     # TODO: relation entity, revision, property relations

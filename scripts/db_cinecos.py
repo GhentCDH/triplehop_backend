@@ -71,15 +71,30 @@ async def create_entity(db: Database, conf: Dict):
 
         db_props_lookup = await utils.get_entity_props_lookup(db, 'cinecos', conf['entity_type_name'])
 
+        counter = 0
+        batch = []
         for row in tqdm.tqdm([r for r in data_reader]):
-            await utils.create_entity(
-                db,
-                row,
-                params,
-                db_props_lookup,
-                file_header_lookup,
-                conf['props']
-            )
+            counter += 1
+            batch.append(row)
+            if not counter % 1000:
+                await utils.create_entities(
+                    db,
+                    batch,
+                    params,
+                    db_props_lookup,
+                    file_header_lookup,
+                    conf['props']
+                )
+                batch = []
+        if len(batch):
+            await utils.create_entities(
+                    db,
+                    batch,
+                    params,
+                    db_props_lookup,
+                    file_header_lookup,
+                    conf['props']
+                )
 
 
 async def create_relation(db: Database, conf: Dict):
@@ -102,10 +117,29 @@ async def create_relation(db: Database, conf: Dict):
         db_range_props_lookup = await utils.get_entity_props_lookup(db, 'cinecos', conf['range_type_name'])
         db_props_lookup = await utils.get_relation_props_lookup(db, 'cinecos', conf['relation_type_name'])
 
+        counter = 0
+        batch = []
         for row in tqdm.tqdm([r for r in data_reader]):
-            await utils.create_relation(
+            counter += 1
+            batch.append(row)
+            if not counter % 100:
+                await utils.create_relations(
+                    db,
+                    batch,
+                    params,
+                    db_domain_props_lookup,
+                    db_range_props_lookup,
+                    db_props_lookup,
+                    file_header_lookup,
+                    conf['domain'],
+                    conf['range'],
+                    conf['props']
+                )
+                batch = []
+        if len(batch):
+            await utils.create_relations(
                 db,
-                row,
+                batch,
                 params,
                 db_domain_props_lookup,
                 db_range_props_lookup,
@@ -118,8 +152,7 @@ async def create_relation(db: Database, conf: Dict):
 
 
 async def create_data():
-    # Don't use prepared statements (see https://github.com/apache/incubator-age/issues/28)
-    async with databases.Database(config.DATABASE_CONNECTION_STRING, statement_cache_size=0) as db:
+    async with databases.Database(config.DATABASE_CONNECTION_STRING) as db:
         async with db.transaction():
             await utils.init_age(db)
 
