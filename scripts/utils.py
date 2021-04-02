@@ -224,7 +224,7 @@ async def create_relation_config(
 
 
 async def get_entity_props_lookup(db: Database, project_name: str, entity_type_name: str) -> Dict:
-    config = json.loads(await db.fetch_val(
+    result = await db.fetch_val(
         '''
             SELECT entity.config->'data'
             FROM app.entity
@@ -237,8 +237,10 @@ async def get_entity_props_lookup(db: Database, project_name: str, entity_type_n
             'project_name': project_name,
             'entity_type_name': entity_type_name,
         }
-    ))
-    return {config[k]['system_name']: k for k in config.keys()}
+    )
+    if result:
+        return {v['system_name']: k for (k, v) in json.loads(result).items()}
+    return {}
 
 
 async def get_relation_props_lookup(db: Database, project_name: str, relation_type_name: str) -> Dict:
@@ -257,7 +259,7 @@ async def get_relation_props_lookup(db: Database, project_name: str, relation_ty
         }
     )
     if result:
-        return {json.load(result)[k]['system_name']: k for k in config.keys()}
+        return {v['system_name']: k for (k, v) in json.loads(result).items()}
     return {}
 
 
@@ -425,7 +427,7 @@ async def create_entity(
         (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
-            f'$$CREATE (\:e_{dtu(entity_type_id)} {{{props[0]}}})$$, :params'
+            f'$$CREATE (\\:e_{dtu(entity_type_id)} {{{props[0]}}})$$, :params'
             f') as (a agtype);'
         ),
         {
@@ -499,7 +501,7 @@ async def create_entities(
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
-                f'$$CREATE (\:e_{dtu(entity_type_id)} {{{placeholder}}})$$, :params'
+                f'$$CREATE (\\:e_{dtu(entity_type_id)} {{{placeholder}}})$$, :params'
                 f') as (a agtype);'
             ),
             [{'params': json.dumps(params)} for params in props_collection[placeholder]]
@@ -641,7 +643,7 @@ async def create_relation(
             f'        (r:e_{dtu(range_type_id)} {{{range_props[0]}}})'
             f' '
             f'CREATE'
-            f'(d)-[\:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, :params'
+            f'(d)-[\\:r_{dtu(relation_type_id)} {{{props[0]}}}]->(r)$$, :params'
             f') as (a agtype);'
         ),
         {
@@ -732,7 +734,7 @@ async def create_relations(
                 f'        (r:e_{dtu(range_type_id)} {{{split[1]}}})'
                 f' '
                 f'CREATE'
-                f'(d)-[\:r_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
+                f'(d)-[\\:r_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
                 f') as (a agtype);'
             ),
             [{'params': json.dumps(params)} for params in props_collection[placeholder]]
