@@ -305,14 +305,18 @@ async def create_project_graph(db: Database, project_name: str):
     )
 
 
+# If prefix is set, the placeholders should be prefixed, not the property keys themselves
 def age_format_properties(properties: Dict, prefix: str = ''):
     formatted_properties = {}
+    prefix_id = 'id'
+    if prefix != '':
+        prefix_id = f'{prefix}_id'
     for (key, value) in properties.items():
         value_type = value['type']
         value_value = value['value']
         if key == 'id':
             if value_type == 'int':
-                formatted_properties[f'{prefix}id'] = int(value_value)
+                formatted_properties[prefix_id] = int(value_value)
                 continue
             else:
                 raise Exception('Non-int ids are not yet implemented')
@@ -330,7 +334,7 @@ def age_format_properties(properties: Dict, prefix: str = ''):
         #     continue
         raise Exception(f'Value type {value_type} is not yet implemented')
     return [
-        ', '.join([f'{k}: ${k}' for k in formatted_properties.keys()]),
+        ', '.join([f'{k if k != prefix_id else "id"}: ${k}' for k in formatted_properties.keys()]),
         formatted_properties,
     ]
 
@@ -632,8 +636,8 @@ async def create_relation(
             'value': id,
         }
 
-    domain_props = age_format_properties(domain_properties, 'domain_')
-    range_props = age_format_properties(range_properties, 'range_')
+    domain_props = age_format_properties(domain_properties, 'domain')
+    range_props = age_format_properties(range_properties, 'range')
     props = age_format_properties(properties)
 
     await db.execute(
@@ -702,8 +706,8 @@ async def create_relations(
                 'value': id,
             }
 
-        domain_props = age_format_properties(domain_properties, 'domain_')
-        range_props = age_format_properties(range_properties, 'range_')
+        domain_props = age_format_properties(domain_properties, 'domain')
+        range_props = age_format_properties(range_properties, 'range')
         props = age_format_properties(properties)
 
         key = f'{domain_props[0]}|{range_props[0]}|{props[0]}'
