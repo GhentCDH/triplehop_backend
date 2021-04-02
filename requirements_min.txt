@@ -1,4 +1,5 @@
 aiocache
+aiodataloader
 ariadne
 buildpg
 databases[postgresql]

@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, List
 
-from asyncpg import introspection
-from asyncpg.connection import Connection
 from databases import Database
 import json
 
@@ -32,27 +30,79 @@ class DataRepository(BaseRepository):
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{self._project_id}\', '
-                f'$$MATCH (e:e_{dtu(entity_type_id)} {{id: $id}}) return e$$, $1'
-                f') as (e agtype);'
+                f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) return n$$, :params'
+                f') as (n agtype);'
             )
 
-            # Use raw connection to prevent search for bound parameters
-            async with self._db.connection() as conn:
-                record = await conn.raw_connection.fetchrow(
-                    query,
-                    json.dumps({
-                        'id': entity_id
+            record = await self._db.fetch_one(
+                query,
+                {
+                    'params': json.dumps({
+                        'entity_id': entity_id
                     })
-                )
+                }
+            )
 
             if record is None:
                 return None
 
-            # strip ::vertex from record data
-            raw_entity = json.loads(record['e'][:-8])['properties']
-
             etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
-            return {etpm[k]: v for k, v in raw_entity.items() if k in etpm}
+
+            # strip ::vertex from record data
+            properties = json.loads(record['n'][:-8])['properties']
+
+            return {etpm[k]: v for k, v in properties.items() if k in etpm}
+
+    async def get_relations(
+        self,
+        entity_type_name: str,
+        entity_id: int,
+        relation_type_name: str,
+        inverse: bool = False,
+    ):
+        async with self._db.transaction():
+            await self._init_age()
+            if self._project_id is None:
+                self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+            entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+            relation_type_id = await self._conf_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
+
+            # TODO: figure out why the dummy is required
+            if inverse:
+                query = (
+                    f'SELECT * FROM cypher('
+                    f'\'{self._project_id}\', '
+                    f'$$MATCH () -[e:e_{dtu(relation_type_id)}] -> (\\:n_{dtu(entity_type_id)} {{id: $entity_id}})'
+                    f'return e$$, :params'
+                    f') as (e agtype);'
+                )
+            else:
+                query = (
+                    f'SELECT * FROM cypher('
+                    f'\'{self._project_id}\', '
+                    f'$$MATCH (\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) -[e:e_{dtu(relation_type_id)}] -> ()'
+                    f'return e$$, :params'
+                    f') as (e agtype);'
+                )
+
+            records = await self._db.fetch_all(
+                query,
+                {
+                    'params': json.dumps({
+                        'entity_id': entity_id
+                    })
+                }
+            )
+
+            rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
+            results = []
+
+            for record in records:
+                # strip ::edge from record data
+                properties = json.loads(record['e'][:-6])['properties']
+                results.append({rtpm[k]: v for k, v in properties.items() if k in rtpm})
+
+            return results
 
     async def get_relations_with_entity(
         self,
@@ -89,7 +139,7 @@ class DataRepository(BaseRepository):
             }
         )
 
-        rtpm = await self._conf_repo.get_relation_type_property_mapping(project_name, relation_type_name)
+        rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
         results = []
         for record in records:
             result = {}
@@ -228,7 +278,7 @@ class DataRepository(BaseRepository):
                         mappings[etn] = \
                             await self._conf_repo.get_entity_type_i_property_mapping(self._project_name, etn)
 
-                    query_return_parts = ['ve.id', f'label(ver) as __type__']
+                    query_return_parts = ['ve.id', 'label(ver) as __type__']
                     # TODO: props on relation itself
                     for prop in query['relations'][relation]['e_props']:
                         if prop in mappings[etn]:

@@ -104,12 +104,15 @@ class ConfigRepository(BaseRepository):
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
 
-        properties_config = entity_type_config['config']['data']
+        if 'data' in entity_type_config['config']:
+            properties_config = entity_type_config['config']['data']
+        else:
+            properties_config = {}
 
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{property_config_id}'] = property_config['system_name']
+            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
 
         return result
 
@@ -198,12 +201,15 @@ class ConfigRepository(BaseRepository):
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
 
-        properties_config = relation_type_config['config']['data']
+        if 'data' in relation_type_config['config']:
+            properties_config = relation_type_config['config']['data']
+        else:
+            properties_config = {}
 
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{property_config_id}'] = property_config['system_name']
+            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
 
         return result
 
