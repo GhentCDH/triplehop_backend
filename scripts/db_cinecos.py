@@ -1,5 +1,5 @@
 from databases import Database
-from typing import Dict
+from typing import Callable, Dict, Iterable
 
 import asyncio
 import csv
@@ -8,6 +8,19 @@ import tqdm
 
 import config
 import utils
+
+
+async def batch(method: Callable, data: Iterable, *args):
+    counter = 0
+    batch = []
+    for row in tqdm.tqdm([r for r in data]):
+        counter += 1
+        batch.append(row)
+        if not counter % 500:
+            await method(*args, batch)
+            batch = []
+    if len(batch):
+        await method(*args, batch)
 
 
 async def create_structure():
@@ -71,30 +84,15 @@ async def create_entity(db: Database, conf: Dict):
 
         db_props_lookup = await utils.get_entity_props_lookup(db, 'cinecos', conf['entity_type_name'])
 
-        counter = 0
-        batch = []
-        for row in tqdm.tqdm([r for r in data_reader]):
-            counter += 1
-            batch.append(row)
-            if not counter % 1000:
-                await utils.create_entities(
-                    db,
-                    batch,
-                    params,
-                    db_props_lookup,
-                    file_header_lookup,
-                    conf['props']
-                )
-                batch = []
-        if len(batch):
-            await utils.create_entities(
-                    db,
-                    batch,
-                    params,
-                    db_props_lookup,
-                    file_header_lookup,
-                    conf['props']
-                )
+        await batch(
+            utils.create_entities,
+            data_reader,
+            db,
+            params,
+            db_props_lookup,
+            file_header_lookup,
+            conf['props']
+        )
 
 
 async def create_relation(db: Database, conf: Dict):
@@ -117,38 +115,19 @@ async def create_relation(db: Database, conf: Dict):
         db_range_props_lookup = await utils.get_entity_props_lookup(db, 'cinecos', conf['range_type_name'])
         db_props_lookup = await utils.get_relation_props_lookup(db, 'cinecos', conf['relation_type_name'])
 
-        counter = 0
-        batch = []
-        for row in tqdm.tqdm([r for r in data_reader]):
-            counter += 1
-            batch.append(row)
-            if not counter % 100:
-                await utils.create_relations(
-                    db,
-                    batch,
-                    params,
-                    db_domain_props_lookup,
-                    db_range_props_lookup,
-                    db_props_lookup,
-                    file_header_lookup,
-                    conf['domain'],
-                    conf['range'],
-                    conf['props']
-                )
-                batch = []
-        if len(batch):
-            await utils.create_relations(
-                db,
-                batch,
-                params,
-                db_domain_props_lookup,
-                db_range_props_lookup,
-                db_props_lookup,
-                file_header_lookup,
-                conf['domain'],
-                conf['range'],
-                conf['props']
-            )
+        await batch(
+            utils.create_relations,
+            data_reader,
+            db,
+            params,
+            db_domain_props_lookup,
+            db_range_props_lookup,
+            db_props_lookup,
+            file_header_lookup,
+            conf['domain'],
+            conf['range'],
+            conf['props']
+        )
 
 
 async def create_data():
@@ -178,7 +157,7 @@ async def create_data():
                     'filename': 'tblFilmTitleVariation.csv',
                     'entity_type_name': 'mentioned_film_title',
                     'props': {
-                        'id': ['int', 'film_id'],
+                        'id': ['int', 'film_variation_id'],
                         'title': ['string', 'title'],
                     },
                 }

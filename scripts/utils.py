@@ -438,11 +438,11 @@ async def create_entity(
 
 async def create_entities(
     db: Database,
-    batch: List,
     params: Dict,
     db_props_lookup: Dict,
     file_header_lookup: Dict,
-    prop_conf: Dict
+    prop_conf: Dict,
+    batch: List,
 ) -> None:
     project_id = await get_project_id(db, params['project_name'])
     entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
@@ -652,7 +652,6 @@ async def create_relation(
 
 async def create_relations(
     db: Database,
-    batch: List,
     params: Dict,
     db_domain_props_lookup: Dict,
     db_range_props_lookup: Dict,
@@ -660,7 +659,8 @@ async def create_relations(
     file_header_lookup: Dict,
     domain_conf: Dict,
     range_conf: Dict,
-    prop_conf: Dict
+    prop_conf: Dict,
+    batch: List,
 ) -> None:
     project_id = await get_project_id(db, params['project_name'])
     relation_type_id = await get_relation_type_id(db, params['project_name'], params['relation_type_name'])
