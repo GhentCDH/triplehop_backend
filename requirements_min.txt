@@ -1,8 +1,8 @@
 aiocache
 aiodataloader
 ariadne
+asyncpg
 buildpg
-databases[postgresql]
 elasticsearch
 fastapi
 flake8

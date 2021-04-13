@@ -1,45 +1,61 @@
-from buildpg.main import Renderer
-from databases import Database
-from re import compile as re_compile
+import asyncpg
+import buildpg
+import typing
 
-EDGE_LABEL_DOES_NOT_EXIST_REGEX = re_compile(r'^edge label "e_[a-f0-9_]{36}" does not exist$')
-RENDERER = Renderer(regex=r'(?<![a-z:]):([a-z][a-z\d_]*)', sep='__')
+RENDERER = buildpg.main.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)', sep='__')
 
 
 class BaseRepository:
-    def __init__(self, db: Database) -> None:
-        self._db = db
+    def __init__(self, pool: asyncpg.pool.Pool) -> None:
+        self._pool = pool
 
-    # @staticmethod
-    # def _render(query_template: str, params: Dict = None):
-    #     if params is None:
-    #         return RENDERER(query_template)
-    #     else:
-    #         return RENDERER(query_template, **params)
-    #
-    # async def execute(self, query_template: str, params: Dict = None):
-    #     query, args = self.__class__._render(query_template, params)
-    #     return await self._db.execute(query, *args)
-    #
-    # async def fetch_one(self, query_template: str, params: Dict = None):
-    #     query, args = self.__class__._render(query_template, params)
-    #     return await self._conn.fetch_one(query, *args)
-    #
-    # async def fetch_all(self, query_template: str, params: Dict = None):
-    #     query, args = self.__class__._render(query_template, params)
-    #     return await self._conn.fetch_all(query, *args)
+    @staticmethod
+    def _render(query_template: str, params: typing.Dict[str, typing.Any] = None):
+        if params is None:
+            query, args = RENDERER(query_template)
+        else:
+            query, args = RENDERER(query_template, **params)
+        query = query.replace('\\:', ':')
+        return [query, args]
 
     # Make sure apache Age queries can be executed
-    # Can only be initiated from transaction
-    # otherwise another uninitialized connection might be used for the actual execution
-    async def _init_age(self):
-        await self._db.execute(
+    @staticmethod
+    async def _init_age(conn: asyncpg.connection.Connection):
+        await conn.execute(
             '''
                 SET search_path = ag_catalog, "$user", public;
             '''
         )
-        await self._db.execute(
+        await conn.execute(
             '''
                 LOAD '$libdir/plugins/age';
             '''
         )
+
+    async def fetch(
+        self,
+        query_template: str,
+        params: typing.Dict[str, typing.Any] = None,
+        age: bool = False,
+    ):
+        async with self._pool.acquire() as conn:
+            query, args = self.__class__._render(query_template, params)
+            if age:
+                async with conn.transaction():
+                    await self.__class__._init_age(conn)
+                    return await conn.fetch(query, *args)
+            return await conn.fetch(query, *args)
+
+    async def fetchrow(
+        self,
+        query_template: str,
+        params: typing.Dict[str, typing.Any] = None,
+        age: bool = False,
+    ):
+        async with self._pool.acquire() as conn:
+            query, args = self.__class__._render(query_template, params)
+            if age:
+                async with conn.transaction():
+                    await self.__class__._init_age(conn)
+                    return await conn.fetchrow(query, *args)
+            return await conn.fetchrow(query, *args)

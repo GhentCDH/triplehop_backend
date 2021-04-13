@@ -1,8 +1,7 @@
-from typing import Dict
-
-from aiocache import cached
-from fastapi import HTTPException
-from json import loads as json_load
+import aiocache
+import fastapi
+import json
+import typing
 
 from app.cache.core import key_builder
 from app.db.base import BaseRepository
@@ -11,9 +10,9 @@ from app.utils import dtu
 
 class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
-    @cached(key_builder=key_builder)
-    async def _get_projects_config(self) -> Dict:
-        records = await self._db.fetch_all(
+    @aiocache.cached(key_builder=key_builder)
+    async def _get_projects_config(self) -> typing.Dict:
+        records = await self.fetch(
             '''
                 SELECT
                     project.id::text,
@@ -34,7 +33,7 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on project config update
-    @cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
         project_config = await self._get_projects_config()
 
@@ -42,13 +41,13 @@ class ConfigRepository(BaseRepository):
             return project_config[project_name]['id']
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Project "{project_name}" not found',
             )
 
     # TODO: delete cache on project config update
-    @cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=key_builder)
     async def get_project_config(self, project_name: str) -> int:
         project_config = await self._get_projects_config()
 
@@ -56,15 +55,15 @@ class ConfigRepository(BaseRepository):
             return project_config[project_name]
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Project "{project_name}" not found',
             )
 
     # TODO: delete cache on entity config update
-    @cached(key_builder=key_builder)
-    async def get_entity_types_config(self, project_name: str) -> Dict:
-        records = await self._db.fetch_all(
+    @aiocache.cached(key_builder=key_builder)
+    async def get_entity_types_config(self, project_name: str) -> typing.Dict:
+        records = await self.fetch(
             '''
                 SELECT
                     entity.id::text,
@@ -85,21 +84,21 @@ class ConfigRepository(BaseRepository):
             result[record['system_name']] = {
                 'id': record['id'],
                 'display_name': record['display_name'],
-                'config': json_load(record['config']),
+                'config': json.loads(record['config']),
             }
 
         return result
 
     # TODO: delete cache on entity config update
-    @cached(key_builder=key_builder)
-    async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> Dict:
+    @aiocache.cached(key_builder=key_builder)
+    async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
         entity_types_config = await self.get_entity_types_config(project_name)
 
         try:
             entity_type_config = entity_types_config[entity_type_name]
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
@@ -116,11 +115,11 @@ class ConfigRepository(BaseRepository):
 
         return result
 
-    async def get_entity_type_i_property_mapping(self, project_name: str, entity_type_name: str) -> Dict:
+    async def get_entity_type_i_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
         return {v: k for k, v in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()}
 
     # TODO: delete cache on entity config update
-    @cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=key_builder)
     async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
         entity_types_config = await self.get_entity_types_config(project_name)
 
@@ -128,14 +127,14 @@ class ConfigRepository(BaseRepository):
             return entity_types_config[entity_type_name]['id']
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
 
     # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
-    @cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=key_builder)
     async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: id) -> int:
         entity_types_config = await self.get_entity_types_config(project_name)
 
@@ -144,15 +143,15 @@ class ConfigRepository(BaseRepository):
                 return entity_type_name
 
         # TODO log message
-        raise HTTPException(
+        raise fastapi.exceptions.HTTPException(
             status_code=404,
             detail=f'Entity type with id "{entity_type_id}" of project "{project_name}" not found',
         )
 
     # TODO: delete cache on relation config update
-    @cached(key_builder=key_builder)
-    async def get_relation_types_config(self, project_name: str) -> Dict:
-        records = await self._db.fetch_all(
+    @aiocache.cached(key_builder=key_builder)
+    async def get_relation_types_config(self, project_name: str) -> typing.Dict:
+        records = await self.fetch(
             '''
                 SELECT
                     relation.id::text,
@@ -180,7 +179,7 @@ class ConfigRepository(BaseRepository):
             result[record['system_name']] = {
                 'id': record['id'],
                 'display_name': record['display_name'],
-                'config': json_load(record['config']),
+                'config': json.loads(record['config']),
                 'domain_names': record['domain_names'],
                 'range_names': record['range_names'],
             }
@@ -188,15 +187,15 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on relation config update
-    @cached(key_builder=key_builder)
-    async def get_relation_type_property_mapping(self, project_name: str, relation_type_name: str) -> Dict:
+    @aiocache.cached(key_builder=key_builder)
+    async def get_relation_type_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
         relation_types_config = await self.get_relation_types_config(project_name)
 
         try:
             relation_type_config = relation_types_config[relation_type_name]
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
@@ -209,12 +208,12 @@ class ConfigRepository(BaseRepository):
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
+            result[f'p_{crdb.utils.dtu(property_config_id)}'] = property_config['system_name']
 
         return result
 
     # TODO: delete cache on relation config update
-    @cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=key_builder)
     async def get_relation_type_id_by_name(self, project_name: str, relation_type_name: str) -> int:
         relation_types_config = await self.get_relation_types_config(project_name)
 
@@ -222,7 +221,7 @@ class ConfigRepository(BaseRepository):
             return relation_types_config[relation_type_name]['id']
         except KeyError:
             # TODO log message
-            raise HTTPException(
+            raise fastapi.exceptions.HTTPException(
                 status_code=404,
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )

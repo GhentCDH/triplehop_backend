@@ -228,43 +228,43 @@ async def create_data():
                 }
             )
 
-            # await create_entity(
-            #     db,
-            #     {
-            #         'filename': 'tblVenue.csv',
-            #         'entity_type_name': 'venue',
-            #         'props': {
-            #             'id': ['int', 'sequential_id'],
-            #             'original_id': ['string', 'venue_id'],
-            #             'name': ['string', 'name'],
-            #             'date_opened':  ['string', 'date_opened'],
-            #             'date_closed':  ['string', 'date_closed'],
-            #             'status':  ['string', 'status'],
-            #             'type':  ['string', 'type'],
-            #             'ideological_characteristic':  ['string', 'ideological_characteristic'],
-            #             'ideological_remark':  ['string', 'ideological_remark'],
-            #             'infrastructure_info':  ['string', 'infrastructure_info'],
-            #             'name_remarks':  ['string', 'name_remarks'],
-            #         },
-            #     }
-            # )
+            await create_entity(
+                db,
+                {
+                    'filename': 'tblVenue.csv',
+                    'entity_type_name': 'venue',
+                    'props': {
+                        'id': ['int', 'sequential_id'],
+                        'original_id': ['string', 'venue_id'],
+                        'name': ['string', 'name'],
+                        'date_opened':  ['string', 'date_opened'],
+                        'date_closed':  ['string', 'date_closed'],
+                        'status':  ['string', 'status'],
+                        'type':  ['string', 'type'],
+                        'ideological_characteristic':  ['string', 'ideological_characteristic'],
+                        'ideological_remark':  ['string', 'ideological_remark'],
+                        'infrastructure_info':  ['string', 'infrastructure_info'],
+                        'name_remarks':  ['string', 'name_remarks'],
+                    },
+                }
+            )
 
-            # await create_relation(
-            #     db,
-            #     {
-            #         'filename': 'tblVenue.csv',
-            #         'relation_type_name': 'venue_address',
-            #         'domain_type_name': 'venue',
-            #         'range_type_name': 'address',
-            #         'domain': {
-            #             'original_id': ['string', 'venue_id'],
-            #         },
-            #         'range': {
-            #             'original_id': ['string', 'address_id'],
-            #         },
-            #         'props': {}
-            #     }
-            # )
+            await create_relation(
+                db,
+                {
+                    'filename': 'tblVenue.csv',
+                    'relation_type_name': 'venue_address',
+                    'domain_type_name': 'venue',
+                    'range_type_name': 'address',
+                    'domain': {
+                        'original_id': ['string', 'venue_id'],
+                    },
+                    'range': {
+                        'original_id': ['string', 'address_id'],
+                    },
+                    'props': {}
+                }
+            )
 
 
 def main():

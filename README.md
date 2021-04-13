@@ -152,3 +152,6 @@ All system names must follow the form `/[_A-Za-z][_0-9A-Za-z]*/` (see https://sp
   }
 }
 ```
+
+## Remarks
+https://www.encode.io/databases cannot be used, see https://github.com/encode/databases/issues/134

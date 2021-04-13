@@ -14,8 +14,6 @@ from app.graphql.base import construct_type_def
 # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
 def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
     async def resolver(parent, info, **_):
-        print(parent)
-        print(_)
         data_repo = await get_repository_from_request(request, DataRepository, project_name)
         result = await data_repo.get_entity(entity_type_name, _['id'])
 
@@ -35,12 +33,20 @@ def relation_resolver_wrapper(
         entity_type_name = info.parent_type.name.lower()
 
         data_repo = await get_repository_from_request(request, DataRepository, project_name)
-        results = await data_repo.get_relations(
+        db_results = await data_repo.get_relations_with_entity(
             entity_type_name,
             entity_id,
             relation_type_name,
             inverse,
         )
+
+        results = []
+        for db_result in db_results:
+            result = db_result['relation']
+            result['entity'] = db_result['entity']
+            result['entity']['__typename'] = db_result['entity_type_name'].capitalize()
+
+            results.append(result)
 
         return results
 
@@ -74,7 +80,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
     for rtn in relation_types_config:
         domain_names = relation_types_config[rtn]['domain_names']
         range_names = relation_types_config[rtn]['range_names']
-        unions_array.append(f'union R_{rtn}_domain = {" | ".join([dn.capitalize() for dn in domain_names])}')
+        unions_array.append(f'union Ri_{rtn}_domain = {" | ".join([dn.capitalize() for dn in domain_names])}')
         unions_array.append(f'union R_{rtn}_range = {" | ".join([rn.capitalize() for rn in range_names])}')
 
         props = [['id', 'Int']]
@@ -83,7 +89,7 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
                 props.append([prop["system_name"], prop["type"]])
 
         type_defs_dict[f'r_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
-        type_defs_dict[f'ri_{rtn}'] = props + [['entity', f'R_{rtn}_domain']]
+        type_defs_dict[f'ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
         for domain_name in domain_names:
             type_defs_dict[domain_name].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
@@ -118,15 +124,6 @@ async def create_object_types(
                 f'r_{relation_type_name}_s',
                 relation_resolver_wrapper(request, project_name, relation_type_name)
             )
-            object_types[domain_name][f'r_{relation_type_name}_s'].set_field(
-                'entity',
-                entity_resolver_wrapper(request, project_name, None),
-            )
-            # TODO
-            # object_types[domain_name][f'r_{relation_type_name}_s'].set_field(
-            #     'entity_type_name',
-            #     entity_type_name_resolver_wrapper(request, project_name, None),
-            # )
         for range_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['range_names']]:
             if range_name not in object_types:
                 object_types[range_name] = ObjectType(range_name)
