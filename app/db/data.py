@@ -132,23 +132,6 @@ class DataRepository(BaseRepository):
 
         return results
 
-    async def get_entity_ids_by_type_name(
-        self,
-        entity_type_name: str,
-    ) -> typing.List[int]:
-        # async with self.connection.transaction():
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-
-        records = await self.fetch(
-            '''
-                MATCH (ve:v_{entity_type_id}) RETURN ve.id;
-            '''.format(
-                entity_type_id=dtu(entity_type_id),
-            )
-        )
-
-        return [int(r['id']) for r in records]
-
     @staticmethod
     def convert_from_jsonb(jsonb: str) -> typing.Any:
         if jsonb is None:
@@ -170,7 +153,7 @@ class DataRepository(BaseRepository):
         entity_type_ids = {}
         mappings = {}
         results = {}
-        # async with self.connection.transaction():
+
         entity_type_ids[entity_type_name] = \
             await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
