@@ -208,7 +208,7 @@ class ConfigRepository(BaseRepository):
         # leave the id property intact
         result = {'id': 'id'}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{crdb.utils.dtu(property_config_id)}'] = property_config['system_name']
+            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
 
         return result
 

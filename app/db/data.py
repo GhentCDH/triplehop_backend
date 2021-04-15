@@ -15,120 +15,52 @@ class DataRepository(BaseRepository):
         self._conf_repo = ConfigRepository(pool)
         self._project_name = project_name
 
-    async def get_entity(
+    async def get_entities(
         self,
         entity_type_name: str,
-        entity_id: int,
-    ):
+        entity_ids: typing.List[int],
+    ) -> typing.Dict:
         project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
         entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
-            f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) return n$$, :params'
+            f'$$MATCH (n:n_{dtu(entity_type_id)}) '
+            f'WHERE n.id IN $entity_ids '
+            f'return n$$, :params'
             f') as (n agtype);'
         )
-
-        record = await self.fetchrow(
+        records = await self.fetch(
             query,
             {
                 'params': json.dumps({
-                    'entity_id': entity_id
+                    'entity_ids': entity_ids
                 })
             },
             age=True
         )
 
-        if record is None:
-            return None
+        if not records:
+            return records
 
         etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
-        # strip ::vertex from record data
-        properties = json.loads(record['n'][:-8])['properties']
+        results = {}
+        for record in records:
+            # strip ::vertex from record data
+            properties = json.loads(record['n'][:-8])['properties']
 
-        return {etpm[k]: v for k, v in properties.items() if k in etpm}
+            results[properties['id']] = {etpm[k]: v for k, v in properties.items() if k in etpm}
+        return results
 
-    # async def get_relations_from_entity(
-    #     self,
-    #     entity_type_name: str,
-    #     entity_id: int,
-    #     relation_type_name: str,
-    #     inverse: bool = False,
-    # ):
-    #     async with self._db.transaction():
-    #         await self._init_age()
-    #         project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
-    #         entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-    #         relation_type_id = await self._conf_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
-
-    #         if inverse:
-    #             query = (
-    #                 f'SELECT * FROM cypher('
-    #                 f'\'{project_id}\', '
-    #                 f'$$MATCH () -[e:e_{dtu(relation_type_id)}] -> (\\:n_{dtu(entity_type_id)} {{id: $entity_id}})'
-    #                 f'return e$$, :params'
-    #                 f') as (e agtype);'
-    #             )
-    #         else:
-    #             query = (
-    #                 f'SELECT * FROM cypher('
-    #                 f'\'{project_id}\', '
-    #                 f'$$MATCH (\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) -[e:e_{dtu(relation_type_id)}] -> ()'
-    #                 f'return e$$, :params'
-    #                 f') as (e agtype);'
-    #             )
-
-    #         records = await self._db.fetch_all(
-    #             query,
-    #             {
-    #                 'params': json.dumps({
-    #                     'entity_id': entity_id
-    #                 })
-    #             }
-    #         )
-
-    #         grouped_records = {}
-    #         for record in records:
-    #             label = json.loads(record['n'][:-8])['label']
-    #             # strip n_ from label, convert underscores to dashes
-    #             etid = utd(label[2:])
-    #             if etid not in grouped_records:
-    #                 grouped_records[etid] = []
-    #             grouped_records[etid].append(record)
-
-    #         rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
-    #         results = []
-
-    #         for etid, records in grouped_records.items():
-    #             etn = await self._conf_repo.get_entity_type_name_by_id(self._project_name, etid)
-    #             etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
-    #             for record in records:
-    #                 result = {}
-
-    #                 # relation properties
-    #                 # strip ::edge from record data
-    #                 relation_properties = json.loads(record['e'][:-6])['properties']
-    #                 result['relation'] = {rtpm[k]: v for k, v in relation_properties.items() if k in rtpm}
-
-    #                 # entity properties
-    #                 # strip ::vertex from record data
-    #                 entity_properties = json.loads(record['n'][:-8])['properties']
-    #                 result['entity'] = {etpm[k]: v for k, v in entity_properties.items() if k in etpm}
-    #                 result['entity_type_name'] = etn
-
-    #                 results.append(result)
-
-    #         return results
-
-    async def get_relations_with_entity(
+    async def get_relations(
         self,
         entity_type_name: str,
-        entity_id: int,
+        entity_ids: typing.List[int],
         relation_type_name: str,
         inverse: bool = False,
-    ):
+    ) -> typing.Dict:
         project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
         entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
         relation_type_id = await self._conf_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
@@ -137,29 +69,32 @@ class DataRepository(BaseRepository):
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
-                f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (\\:n_{dtu(entity_type_id)} {{id: $entity_id}})'
-                f'return e, n$$, :params'
-                f') as (e agtype, n agtype);'
+                f'$$MATCH (d) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
+                f'WHERE r.id IN $entity_ids '
+                f'return r.id, e, d$$, :params'
+                f') as (id agtype, e agtype, n agtype);'
             )
         else:
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
-                f'$$MATCH (\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) -[e:e_{dtu(relation_type_id)}] -> (n)'
-                f'return e, n$$, :params'
-                f') as (e agtype, n agtype);'
+                f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (r)'
+                f'WHERE d.id IN $entity_ids '
+                f'return d.id, e, r$$, :params'
+                f') as (id agtype, e agtype, n agtype);'
             )
 
         records = await self.fetch(
             query,
             {
                 'params': json.dumps({
-                    'entity_id': entity_id
+                    'entity_ids': entity_ids
                 })
             },
             age=True
         )
 
+        # group records on entity type of domain (inverse) or range
         grouped_records = {}
         for record in records:
             label = json.loads(record['n'][:-8])['label']
@@ -170,12 +105,16 @@ class DataRepository(BaseRepository):
             grouped_records[etid].append(record)
 
         rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
-        results = []
+        results = {}
 
         for etid, records in grouped_records.items():
             etn = await self._conf_repo.get_entity_type_name_by_id(self._project_name, etid)
             etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
             for record in records:
+                entity_id = int(record['id'])
+                if entity_id not in results:
+                    results[entity_id] = []
+
                 result = {}
 
                 # relation properties
@@ -189,7 +128,7 @@ class DataRepository(BaseRepository):
                 result['entity'] = {etpm[k]: v for k, v in entity_properties.items() if k in etpm}
                 result['entity_type_name'] = etn
 
-                results.append(result)
+                results[entity_id].append(result)
 
         return results
 

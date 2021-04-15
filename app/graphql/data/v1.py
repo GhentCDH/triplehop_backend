@@ -1,7 +1,7 @@
-from typing import Dict
+import aiodataloader
+import ariadne
+import typing
 
-from aiodataloader import DataLoader
-from ariadne import gql, make_executable_schema, ObjectType, QueryType
 from starlette.requests import Request
 
 from app.db.core import get_repository_from_request
@@ -12,12 +12,25 @@ from app.graphql.base import construct_type_def
 
 # TODO: only get the requested properties
 # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
-def entity_resolver_wrapper(request: Request, project_name: str, entity_type_name: str):
-    async def resolver(parent, info, **_):
+# dataloader to prevent N+1: https://github.com/mirumee/ariadne/discussions/508)#discussioncomment-525811
+def entity_resolver_wrapper(
+    request: Request,
+    project_name: str,
+    entity_type_name: str,
+):
+    async def get_entities(entity_ids: typing.List[int]):
         data_repo = await get_repository_from_request(request, DataRepository, project_name)
-        result = await data_repo.get_entity(entity_type_name, _['id'])
+        data = await data_repo.get_entities(entity_type_name, entity_ids)
+        # dataloader expects sequence of objects or None following order of ids in ids
+        return [data.get(id) for id in entity_ids]
 
-        return result
+    async def load_entity(info, id: int) -> typing.Optional[typing.Dict]:
+        if '__entity_loader' not in info.context:
+            info.context['__entity_loader'] = aiodataloader.DataLoader(get_entities)
+        return await info.context['__entity_loader'].load(id)
+
+    async def resolver(parent, info, **_):
+        return await load_entity(info, _['id'])
 
     return resolver
 
@@ -28,17 +41,46 @@ def relation_resolver_wrapper(
     relation_type_name: str,
     inverse: bool = False,
 ):
-    async def resolver(parent, info):
+    async def get_relations(keys: typing.List[str]):
+        print('get_relations')
+        print(relation_type_name)
+        data_repo = await get_repository_from_request(request, DataRepository, project_name)
+        grouped_ids = {}
+        for key in keys:
+            (entity_type_name, entity_id__str) = key.split('|')
+            if entity_type_name not in grouped_ids:
+                grouped_ids[entity_type_name] = []
+            grouped_ids[entity_type_name].append(int(entity_id__str))
+        grouped_data = {}
+        for entity_type_name, entity_ids in grouped_ids.items():
+            grouped_data[entity_type_name] = await data_repo.get_relations(
+                entity_type_name,
+                entity_ids,
+                relation_type_name,
+                inverse,
+            )
+        # dataloader expects sequence of objects or None following order of ids in ids
+        results = []
+        for key in keys:
+            (entity_type_name, entity_id__str) = key.split('|')
+            results.append(grouped_data.get(entity_type_name).get(int(entity_id__str)))
+
+        return results
+
+    async def load_relation(info, entity_type_name: str, id: int) -> typing.Optional[typing.Dict]:
+        loader_key = f'__relation_loader_{project_name}_{relation_type_name}_{inverse}'
+        if loader_key not in info.context:
+            info.context[loader_key] = aiodataloader.DataLoader(get_relations)
+        return await info.context[loader_key].load(f'{entity_type_name}|{id}')
+
+    async def resolver(parent, info, **_):
         entity_id = parent['id']
         entity_type_name = info.parent_type.name.lower()
 
-        data_repo = await get_repository_from_request(request, DataRepository, project_name)
-        db_results = await data_repo.get_relations_with_entity(
-            entity_type_name,
-            entity_id,
-            relation_type_name,
-            inverse,
-        )
+        db_results = await load_relation(info, entity_type_name, entity_id)
+
+        if not db_results:
+            return []
 
         results = []
         for db_result in db_results:
@@ -53,7 +95,10 @@ def relation_resolver_wrapper(
     return resolver
 
 
-async def create_type_defs(entity_types_config: Dict, relation_types_config: Dict):
+async def create_type_defs(
+    entity_types_config: typing.Dict,
+    relation_types_config: typing.Dict,
+):
     # Main query
     # TODO provide possibility to hide some fields from config, based on permissions
     type_defs_dict = {
@@ -98,16 +143,16 @@ async def create_type_defs(entity_types_config: Dict, relation_types_config: Dic
 
     type_defs_array = [construct_type_def(type.capitalize(), props) for type, props in type_defs_dict.items()]
 
-    return gql('\n'.join(unions_array) + '\n\n' + '\n\n'.join(type_defs_array))
+    return ariadne.gql('\n'.join(unions_array) + '\n\n' + '\n\n'.join(type_defs_array))
 
 
 async def create_object_types(
     request: Request,
     project_name: str,
-    entity_types_config: Dict,
-    relation_types_config: Dict
+    entity_types_config: typing.Dict,
+    relation_types_config: typing.Dict,
 ):
-    object_types = {'Query': QueryType()}
+    object_types = {'Query': ariadne.QueryType()}
 
     for entity_type_name in entity_types_config:
         object_types['Query'].set_field(
@@ -118,7 +163,7 @@ async def create_object_types(
     for relation_type_name in relation_types_config:
         for domain_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['domain_names']]:
             if domain_name not in object_types:
-                object_types[domain_name] = ObjectType(domain_name)
+                object_types[domain_name] = ariadne.ObjectType(domain_name)
 
             object_types[domain_name].set_field(
                 f'r_{relation_type_name}_s',
@@ -126,7 +171,7 @@ async def create_object_types(
             )
         for range_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['range_names']]:
             if range_name not in object_types:
-                object_types[range_name] = ObjectType(range_name)
+                object_types[range_name] = ariadne.ObjectType(range_name)
 
             object_types[range_name].set_field(
                 f'ri_{relation_type_name}_s',
@@ -137,7 +182,9 @@ async def create_object_types(
 
 
 # TODO: cache per project_name (app always hangs after 6 requests when using cache)
-async def create_schema(request: Request):
+async def create_schema(
+    request: Request,
+):
     config_repo = await get_repository_from_request(request, ConfigRepository)
     entity_types_config = await config_repo.get_entity_types_config(request.path_params['project_name'])
     relation_types_config = await config_repo.get_relation_types_config(request.path_params['project_name'])
@@ -150,4 +197,4 @@ async def create_schema(request: Request):
         relation_types_config,
     )
 
-    return make_executable_schema(type_defs, *object_types)
+    return ariadne.make_executable_schema(type_defs, *object_types)
