@@ -13,12 +13,12 @@
         "e6f026b7-542a-4665-9ee4-aff2ebb41c36": {
             "system_name": "date_opened",
             "display_name": "Date opened",
-            "type": "Edtf"
+            "type": "String"
         },
         "12286c11-b3b5-43e0-9e15-5a4b5591aa2e": {
             "system_name": "date_closed",
             "display_name": "Date closed",
-            "type": "Edtf"
+            "type": "String"
         },
         "e13ac74e-651f-4f47-a475-b40da0121d1b": {
             "system_name": "status",
@@ -70,10 +70,12 @@
                         "field": "$fd083354-0e22-4a5b-8b3a-c28fb90da272"
                     },
                     {
-                        "field": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36"
+                        "field": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36",
+                        "type": "edtf"
                     },
                     {
-                        "field": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e"
+                        "field": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e",
+                        "type": "edtf"
                     },
                     {
                         "field": "$e13ac74e-651f-4f47-a475-b40da0121d1b"

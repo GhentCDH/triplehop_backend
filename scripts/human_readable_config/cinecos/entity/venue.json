@@ -13,12 +13,12 @@
         {
             "system_name": "date_opened",
             "display_name": "Date opened",
-            "type": "Edtf"
+            "type": "String"
         },
         {
             "system_name": "date_closed",
             "display_name": "Date closed",
-            "type": "Edtf"
+            "type": "String"
         },
         {
             "system_name": "status",
@@ -70,10 +70,12 @@
                         "field": "$name"
                     },
                     {
-                        "field": "$date_opened"
+                        "field": "$date_opened",
+                        "type": "edtf"
                     },
                     {
-                        "field": "$date_closed"
+                        "field": "$date_closed",
+                        "type": "edtf"
                     },
                     {
                         "field": "$status"

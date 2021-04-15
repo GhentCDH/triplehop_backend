@@ -105,9 +105,6 @@ async def create_type_defs(
             ['type', 'String!'],
             ['coordinates', '[Float!]!'],
         ],
-        'edtf': [
-            ['type', 'String!'],
-        ],
     }
 
     # TODO: add props which can contain multiple, values (sorted or unsorted)
