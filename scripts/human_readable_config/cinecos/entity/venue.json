@@ -13,12 +13,12 @@
         {
             "system_name": "date_opened",
             "display_name": "Date opened",
-            "type": "Int"
+            "type": "Edtf"
         },
         {
             "system_name": "date_closed",
-            "display_name": "Date opened",
-            "type": "Int"
+            "display_name": "Date closed",
+            "type": "Edtf"
         },
         {
             "system_name": "status",
@@ -102,6 +102,89 @@
                         "type": "list"
                     }
                 ]
+            }
+        ]
+    },
+    "es_data": [
+        {
+            "system_name": "name",
+            "display_name": "Name",
+            "selector_value": "$name",
+            "type": "text"
+        },
+        {
+            "system_name": "city",
+            "display_name": "City",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_venue_address->$r_address_city->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_venue_address->$r_address_city->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "street_name",
+            "display_name": "Street name",
+            "selector_value": "$r_venue_address->$street_name",
+            "type": "text"
+        },
+        {
+            "system_name": "date_opened",
+            "display_name": "Date opened",
+            "selector_value": "$date_opened",
+            "type": "edtf"
+        },
+        {
+            "system_name": "date_closed",
+            "display_name": "Date closed",
+            "selector_value": "$date_closed",
+            "type": "edtf"
+        }
+    ],
+    "es_display": {
+        "title": "Search venues",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$name",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$city"
+                    },
+                    {
+                        "filter": "$street_name",
+                        "type": "autocomplete"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$name",
+                "sortable": true
+            },
+            {
+                "column": "$city",
+                "sortable": true
+            },
+            {
+                "column": "$street_name",
+                "sortable": true
+            },
+            {
+                "column": "$date_opened",
+                "sortable": true
+            },
+            {
+                "column": "$date_closed",
+                "sortable": true
             }
         ]
     }

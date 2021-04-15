@@ -1,11 +1,12 @@
-from typing import Dict, List
-from databases import Database
-
 import aiocache
+import asyncpg
+import buildpg
 import json
 import re
+import typing
 
 RE_PROPERTY_VALUE = re.compile(r'(?<![$])[$]([0-9a-z_]+)')
+RENDERER = buildpg.main.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)', sep='__')
 
 
 def dtu(string: str) -> str:
@@ -18,9 +19,47 @@ def read_config_from_file(project_name: str, type: str, name: str):
         return config_file.read()
 
 
+def render(query_template: str, params: typing.Dict[str, typing.Any] = None):
+    if params is None:
+        query, args = RENDERER(query_template)
+    else:
+        query, args = RENDERER(query_template, **params)
+    query = query.replace('\\:', ':')
+    return [query, args]
+
+
+async def execute(
+    conn: asyncpg.connection.Connection,
+    query_template,
+    params: typing.Dict[str, typing.Any] = None,
+):
+    query, args = render(query_template, params)
+    await conn.execute(query, *args)
+
+
+async def executemany(
+    conn: asyncpg.connection.Connection,
+    query_template,
+    params: typing.Dict[str, typing.Any] = None,
+):
+    query, _ = render(query_template, params[0])
+    args = [render(query_template, p)[1] for p in params]
+    await conn.executemany(query, args)
+
+
+async def fetchval(
+    conn: asyncpg.connection.Connection,
+    query_template,
+    params: typing.Dict[str, typing.Any] = None,
+):
+    query, args = render(query_template, params)
+    return await conn.fetchval(query, *args)
+
+
 @aiocache.cached()
-async def get_project_id(db: Database, project_name: str) -> str:
-    return await db.fetch_val(
+async def get_project_id(conn: asyncpg.connection.Connection, project_name: str) -> str:
+    return await fetchval(
+        conn,
         '''
             SELECT project.id::text
             FROM app.project
@@ -33,8 +72,9 @@ async def get_project_id(db: Database, project_name: str) -> str:
 
 
 @aiocache.cached()
-async def get_entity_type_id(db: Database, project_name: str, entity_type_name: str) -> str:
-    return await db.fetch_val(
+async def get_entity_type_id(conn: asyncpg.connection.Connection, project_name: str, entity_type_name: str) -> str:
+    return await fetchval(
+        conn,
         '''
             SELECT entity.id::text
             FROM app.entity
@@ -51,8 +91,9 @@ async def get_entity_type_id(db: Database, project_name: str, entity_type_name: 
 
 
 @aiocache.cached()
-async def get_relation_type_id(db: Database, project_name: str, relation_type_name: str) -> str:
-    return await db.fetch_val(
+async def get_relation_type_id(conn: asyncpg.connection.Connection, project_name: str, relation_type_name: str) -> str:
+    return await fetchval(
+        conn,
         '''
             SELECT relation.id::text
             FROM app.relation
@@ -69,8 +110,9 @@ async def get_relation_type_id(db: Database, project_name: str, relation_type_na
 
 
 @aiocache.cached()
-async def get_user_id(db: Database, username: str) -> str:
-    return await db.fetch_val(
+async def get_user_id(conn: asyncpg.connection.Connection, username: str) -> str:
+    return await fetchval(
+        conn,
         '''
             SELECT "user".id
             FROM app.user
@@ -82,8 +124,14 @@ async def get_user_id(db: Database, username: str) -> str:
     )
 
 
-async def create_project_config(db: Database, system_name: str, display_name: str, username: str):
-    await db.execute(
+async def create_project_config(
+    conn: asyncpg.connection.Connection,
+    system_name: str,
+    display_name: str,
+    username: str,
+):
+    await execute(
+        conn,
         '''
             INSERT INTO app.project (system_name, display_name, user_id)
             VALUES (
@@ -102,14 +150,15 @@ async def create_project_config(db: Database, system_name: str, display_name: st
 
 
 async def create_entity_config(
-    db: Database,
+    conn: asyncpg.connection.Connection,
     project_name: str,
     username: str,
     system_name: str,
     display_name: str,
-    config: Dict
+    config: typing.Dict
 ):
-    await db.execute(
+    await execute(
+        conn,
         '''
             INSERT INTO app.entity (project_id, system_name, display_name, config, user_id)
             VALUES (
@@ -130,7 +179,8 @@ async def create_entity_config(
             'username': username,
         }
     )
-    await db.execute(
+    await execute(
+        conn,
         '''
             INSERT INTO app.entity_count (id)
             VALUES (
@@ -146,16 +196,17 @@ async def create_entity_config(
 
 
 async def create_relation_config(
-    db: Database,
+    conn: asyncpg.connection.Connection,
     project_name: str,
     username: str,
     system_name: str,
     display_name: str,
-    config: Dict,
-    domains: List,
-    ranges: List
+    config: typing.Dict,
+    domains: typing.List,
+    ranges: typing.List
 ):
-    await db.execute(
+    await execute(
+        conn,
         '''
             INSERT INTO app.relation (project_id, system_name, display_name, config, user_id)
             VALUES (
@@ -177,7 +228,8 @@ async def create_relation_config(
         }
     )
     for entity_type_name in domains:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 INSERT INTO app.relation_domain (relation_id, entity_id, user_id)
                 VALUES (
@@ -194,7 +246,8 @@ async def create_relation_config(
             }
         )
     for entity_type_name in ranges:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 INSERT INTO app.relation_range (relation_id, entity_id, user_id)
                 VALUES (
@@ -210,7 +263,8 @@ async def create_relation_config(
                 'username': username,
             }
         )
-    await db.execute(
+    await execute(
+        conn,
         '''
             INSERT INTO app.relation_count (id)
             VALUES (
@@ -225,8 +279,13 @@ async def create_relation_config(
     )
 
 
-async def get_entity_props_lookup(db: Database, project_name: str, entity_type_name: str) -> Dict:
-    result = await db.fetch_val(
+async def get_entity_props_lookup(
+    conn: asyncpg.connection.Connection,
+    project_name: str,
+    entity_type_name: str,
+) -> typing.Dict:
+    result = await fetchval(
+        conn,
         '''
             SELECT entity.config->'data'
             FROM app.entity
@@ -245,8 +304,13 @@ async def get_entity_props_lookup(db: Database, project_name: str, entity_type_n
     return {}
 
 
-async def get_relation_props_lookup(db: Database, project_name: str, relation_type_name: str) -> Dict:
-    result = await db.fetch_val(
+async def get_relation_props_lookup(
+    conn: asyncpg.connection.Connection,
+    project_name: str,
+    relation_type_name: str,
+) -> typing.Dict:
+    result = await fetchval(
+        conn,
         '''
             SELECT relation.config->'data'
             FROM app.relation
@@ -265,21 +329,24 @@ async def get_relation_props_lookup(db: Database, project_name: str, relation_ty
     return {}
 
 
-async def init_age(db: Database):
-    await db.execute(
+async def init_age(conn: asyncpg.connection.Connection):
+    await execute(
+        conn,
         '''
             SET search_path = ag_catalog, "$user", public;
         '''
     )
-    await db.execute(
+    await execute(
+        conn,
         '''
             LOAD '$libdir/plugins/age';
         '''
     )
 
 
-async def drop_project_graph(db: Database, project_name: str):
-    await db.execute(
+async def drop_project_graph(conn: asyncpg.connection.Connection, project_name: str):
+    await execute(
+        conn,
         '''
             SELECT drop_graph(
                 (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text,
@@ -292,8 +359,9 @@ async def drop_project_graph(db: Database, project_name: str):
     )
 
 
-async def create_project_graph(db: Database, project_name: str):
-    await db.execute(
+async def create_project_graph(conn: asyncpg.connection.Connection, project_name: str):
+    await execute(
+        conn,
         '''
             SELECT create_graph(
                 (SELECT project.id FROM app.project WHERE project.system_name = :project_name)::text
@@ -306,7 +374,7 @@ async def create_project_graph(db: Database, project_name: str):
 
 
 # If prefix is set, the placeholders should be prefixed, not the property keys themselves
-def age_format_properties(properties: Dict, prefix: str = ''):
+def age_format_properties(properties: typing.Dict, prefix: str = ''):
     formatted_properties = {}
     prefix_id = 'id'
     if prefix != '':
@@ -328,6 +396,9 @@ def age_format_properties(properties: Dict, prefix: str = ''):
         if value_type == 'string':
             formatted_properties[f'p_{key}'] = value_value
             continue
+        if value_type == 'edtf':
+            formatted_properties[f'p_{key}'] = value_value
+            continue
         # https://github.com/apache/incubator-age/issues/48
         # if value_type == 'point':
         #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
@@ -339,7 +410,12 @@ def age_format_properties(properties: Dict, prefix: str = ''):
     ]
 
 
-def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict, prop_conf: Dict):
+def create_properties(
+    row: typing.List,
+    db_props_lookup: typing.Dict,
+    file_header_lookup: typing.Dict,
+    prop_conf: typing.Dict,
+):
     properties = {}
     for (key, conf) in prop_conf.items():
         if key == 'id':
@@ -364,6 +440,15 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
                 'value': value,
             }
             continue
+        if conf[0] == 'edtf':
+            value = row[file_header_lookup[conf[1]]]
+            if value in ['']:
+                continue
+            properties[db_key] = {
+                'type': 'edtf',
+                'value': value,
+            }
+            continue
         # https://github.com/apache/incubator-age/issues/48
         # if conf[0] == 'point':
         #     value = row[file_header_lookup[conf[1]]]
@@ -380,18 +465,19 @@ def create_properties(row: List, db_props_lookup: Dict, file_header_lookup: Dict
 
 
 async def create_entity(
-    db: Database,
-    row: List,
-    params: Dict,
-    db_props_lookup: Dict,
-    file_header_lookup: Dict,
-    prop_conf: Dict
+    conn: asyncpg.connection.Connection,
+    row: typing.List,
+    params: typing.Dict,
+    db_props_lookup: typing.Dict,
+    file_header_lookup: typing.Dict,
+    prop_conf: typing.Dict
 ) -> None:
-    project_id = await get_project_id(db, params['project_name'])
-    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+    project_id = await get_project_id(conn, params['project_name'])
+    entity_type_id = await get_entity_type_id(conn, params['project_name'], params['entity_type_name'])
     properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
     if 'id' in prop_conf:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 UPDATE app.entity_count
                 SET current_id = GREATEST(current_id, :entity_id)
@@ -403,7 +489,8 @@ async def create_entity(
             }
         )
     else:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 UPDATE app.entity_count
                 SET current_id = current_id + 1
@@ -413,7 +500,8 @@ async def create_entity(
                 'entity_type_id': entity_type_id,
             }
         )
-        id = await db.fetch_val(
+        id = await fetchval(
+            conn,
             '''
                 SELECT current_id
                 FROM app.entity_count
@@ -429,7 +517,8 @@ async def create_entity(
         }
 
     props = age_format_properties(properties)
-    await db.execute(
+    await execute(
+        conn,
         (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
@@ -445,18 +534,19 @@ async def create_entity(
 
 
 async def create_entities(
-    db: Database,
-    params: Dict,
-    db_props_lookup: Dict,
-    file_header_lookup: Dict,
-    prop_conf: Dict,
-    batch: List,
+    conn: asyncpg.connection.Connection,
+    params: typing.Dict,
+    db_props_lookup: typing.Dict,
+    file_header_lookup: typing.Dict,
+    prop_conf: typing.Dict,
+    batch: typing.List,
 ) -> None:
-    project_id = await get_project_id(db, params['project_name'])
-    entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+    project_id = await get_project_id(conn, params['project_name'])
+    entity_type_id = await get_entity_type_id(conn, params['project_name'], params['entity_type_name'])
 
     if 'id' not in prop_conf:
-        id = await db.fetch_val(
+        id = await fetchval(
+            conn,
             '''
                 SELECT current_id
                 FROM app.entity_count
@@ -468,7 +558,7 @@ async def create_entities(
         )
     max_id = 0
     # key: placeholder string
-    # value: list with corresponding parameters
+    # value: typing.List with corresponding parameters
     props_collection = {}
 
     for row in batch:
@@ -490,20 +580,22 @@ async def create_entities(
             props_collection[props[0]] = [props[1]]
 
     # GREATEST is needed when id in prop_conf
-    await db.execute(
-            '''
-                UPDATE app.entity_count
-                SET current_id = GREATEST(current_id, :entity_id)
-                WHERE id = :entity_type_id;
-            ''',
-            {
-                'entity_id': max_id,
-                'entity_type_id': entity_type_id
-            }
-        )
+    await execute(
+        conn,
+        '''
+            UPDATE app.entity_count
+            SET current_id = GREATEST(current_id, :entity_id)
+            WHERE id = :entity_type_id;
+        ''',
+        {
+            'entity_id': max_id,
+            'entity_type_id': entity_type_id
+        }
+    )
 
     for placeholder in props_collection:
-        await db.execute_many(
+        await executemany(
+            conn,
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '
@@ -516,7 +608,7 @@ async def create_entities(
     # TODO: revision, property relations
 
 
-# def age_format_properties_set(vertex: str, properties: Dict):
+# def age_format_properties_set(vertex: str, properties: typing.Dict):
 #     formatted_properties = []
 #     for (key, value) in properties.items():
 #         value_type = value['type']
@@ -536,7 +628,7 @@ async def create_entities(
 #     return ' '.join({f'SET {vertex}.p_{k} = {v}' for (k, v) in properties.items()})
 
 
-# def age_update_entity(project_id: str, entity_type_id: str, id: int, properties: Dict):
+# def age_update_entity(project_id: str, entity_type_id: str, id: int, properties: typing.Dict):
 #     return (
 #         f'SELECT * FROM cypher('
 #         f'\'{project_id}\', '
@@ -546,15 +638,15 @@ async def create_entities(
 
 
 # async def update_entity(
-#     db: Database,
-#     row: List,
-#     params: Dict,
-#     db_props_lookup: Dict,
-#     file_header_lookup: Dict,
-#     prop_conf: Dict
+#     conn: asyncpg.connection.Connection,
+#     row: typing.List,
+#     params: typing.Dict,
+#     db_props_lookup: typing.Dict,
+#     file_header_lookup: typing.Dict,
+#     prop_conf: typing.Dict
 # ) -> None:
-#     project_id = await get_project_id(db, params['project_name'])
-#     entity_type_id = await get_entity_type_id(db, params['project_name'], params['entity_type_name'])
+#     project_id = await get_project_id(conn, params['project_name'])
+#     entity_type_id = await get_entity_type_id(conn, params['project_name'], params['entity_type_name'])
 #     properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
 
 #     if properties:
@@ -574,28 +666,29 @@ async def create_entities(
 
 
 async def create_relation(
-    db: Database,
-    row: List,
-    params: Dict,
-    db_domain_props_lookup: Dict,
-    db_range_props_lookup: Dict,
-    db_props_lookup: Dict,
-    file_header_lookup: Dict,
-    domain_conf: Dict,
-    range_conf: Dict,
-    prop_conf: Dict
+    conn: asyncpg.connection.Connection,
+    row: typing.List,
+    params: typing.Dict,
+    db_domain_props_lookup: typing.Dict,
+    db_range_props_lookup: typing.Dict,
+    db_props_lookup: typing.Dict,
+    file_header_lookup: typing.Dict,
+    domain_conf: typing.Dict,
+    range_conf: typing.Dict,
+    prop_conf: typing.Dict
 ) -> None:
-    project_id = await get_project_id(db, params['project_name'])
-    relation_type_id = await get_relation_type_id(db, params['project_name'], params['relation_type_name'])
-    domain_type_id = await get_entity_type_id(db, params['project_name'], params['domain_type_name'])
-    range_type_id = await get_entity_type_id(db, params['project_name'], params['range_type_name'])
+    project_id = await get_project_id(conn, params['project_name'])
+    relation_type_id = await get_relation_type_id(conn, params['project_name'], params['relation_type_name'])
+    domain_type_id = await get_entity_type_id(conn, params['project_name'], params['domain_type_name'])
+    range_type_id = await get_entity_type_id(conn, params['project_name'], params['range_type_name'])
 
     domain_properties = create_properties(row, db_domain_props_lookup, file_header_lookup, domain_conf)
     range_properties = create_properties(row, db_range_props_lookup, file_header_lookup, range_conf)
     properties = create_properties(row, db_props_lookup, file_header_lookup, prop_conf)
 
     if 'id' in prop_conf:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 UPDATE app.relation_count
                 SET current_id = GREATEST(current_id, :relation_id)
@@ -611,7 +704,8 @@ async def create_relation(
             'value': int(row[file_header_lookup[prop_conf['id'][1]]]),
         }
     else:
-        await db.execute(
+        await execute(
+            conn,
             '''
                 UPDATE app.relation_count
                 SET current_id = current_id + 1
@@ -621,7 +715,8 @@ async def create_relation(
                 'relation_type_id': relation_type_id,
             }
         )
-        id = await db.fetch_val(
+        id = await fetchval(
+            conn,
             '''
                 SELECT current_id
                 FROM app.relation_count
@@ -640,7 +735,8 @@ async def create_relation(
     range_props = age_format_properties(range_properties, 'range')
     props = age_format_properties(properties)
 
-    await db.execute(
+    await execute(
+        conn,
         (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
@@ -659,24 +755,25 @@ async def create_relation(
 
 
 async def create_relations(
-    db: Database,
-    params: Dict,
-    db_domain_props_lookup: Dict,
-    db_range_props_lookup: Dict,
-    db_props_lookup: Dict,
-    file_header_lookup: Dict,
-    domain_conf: Dict,
-    range_conf: Dict,
-    prop_conf: Dict,
-    batch: List,
+    conn: asyncpg.connection.Connection,
+    params: typing.Dict,
+    db_domain_props_lookup: typing.Dict,
+    db_range_props_lookup: typing.Dict,
+    db_props_lookup: typing.Dict,
+    file_header_lookup: typing.Dict,
+    domain_conf: typing.Dict,
+    range_conf: typing.Dict,
+    prop_conf: typing.Dict,
+    batch: typing.List,
 ) -> None:
-    project_id = await get_project_id(db, params['project_name'])
-    relation_type_id = await get_relation_type_id(db, params['project_name'], params['relation_type_name'])
-    domain_type_id = await get_entity_type_id(db, params['project_name'], params['domain_type_name'])
-    range_type_id = await get_entity_type_id(db, params['project_name'], params['range_type_name'])
+    project_id = await get_project_id(conn, params['project_name'])
+    relation_type_id = await get_relation_type_id(conn, params['project_name'], params['relation_type_name'])
+    domain_type_id = await get_entity_type_id(conn, params['project_name'], params['domain_type_name'])
+    range_type_id = await get_entity_type_id(conn, params['project_name'], params['range_type_name'])
 
     if 'id' not in prop_conf:
-        id = await db.fetch_val(
+        id = await fetchval(
+            conn,
             '''
                 SELECT current_id
                 FROM app.relation_count
@@ -688,7 +785,7 @@ async def create_relations(
         )
     max_id = 0
     # key: placeholder strings separated by | (domain_placeholder|range_placeholder|placeholder)
-    # value: list with corresponding parameters
+    # value: typing.List with corresponding parameters
     props_collection = {}
 
     for row in batch:
@@ -718,21 +815,23 @@ async def create_relations(
             props_collection[key] = [value]
 
     # GREATEST is needed when id in prop_conf
-    await db.execute(
-            '''
-                UPDATE app.relation_count
-                SET current_id = GREATEST(current_id, :relation_id)
-                WHERE id = :relation_type_id;
-            ''',
-            {
-                'relation_id': max_id,
-                'relation_type_id': relation_type_id
-            }
-        )
+    await execute(
+        conn,
+        '''
+            UPDATE app.relation_count
+            SET current_id = GREATEST(current_id, :relation_id)
+            WHERE id = :relation_type_id;
+        ''',
+        {
+            'relation_id': max_id,
+            'relation_type_id': relation_type_id
+        }
+    )
 
     for placeholder in props_collection:
         split = placeholder.split('|')
-        await db.execute_many(
+        await executemany(
+            conn,
             (
                 f'SELECT * FROM cypher('
                 f'\'{project_id}\', '

@@ -22,13 +22,13 @@ def replace(project_config: dict, entity_name: str, input: str):
                 if 'relations_base' not in project_config:
                     raise Exception('Relations ids, domains, ranges not available')
                 relation_name = part[2:]
-                result.append(f'${project_config["relations_base"][relation_name]["id"]}')
+                result.append(f'$r_{project_config["relations_base"][relation_name]["id"]}')
                 current_entity = project_config["relations_base"][relation_name]['range']
             elif part[:3] == 'ri_':
                 if 'relations_base' not in project_config:
                     raise Exception('Relations ids, domains, ranges not available')
                 relation_name = part[3:]
-                result.append(f'${project_config["relations_base"][relation_name]["id"]}')
+                result.append(f'$ri_{project_config["relations_base"][relation_name]["id"]}')
                 current_entity = project_config["relations_base"][relation_name]['domain']
             else:
                 result.append(f'${project_config["entity"][current_entity]["lookup"][part]}')
@@ -62,7 +62,9 @@ for project_folder in os.listdir('human_readable_config'):
                             prev_field_lookup[prev_config['data'][field]['system_name']] = field
             if 'data' in config:
                 project_config[er][name]['data'] = {}
-                project_config[er][name]['lookup'] = {}
+                project_config[er][name]['lookup'] = {
+                    'id': 'id',
+                }
                 for field in config['data']:
                     if field['system_name'] in prev_field_lookup:
                         id = prev_field_lookup[field['system_name']]
@@ -89,6 +91,24 @@ for project_folder in os.listdir('human_readable_config'):
                         if 'fields' in layout:
                             for field in layout['fields']:
                                 field['field'] = replace(project_config, name, field['field'])
+    # third iteration: es_data, es_display
+    for er in ['entity', 'relation']:
+        for fn in os.listdir(f'human_readable_config/{project_folder}/{er}'):
+            name = fn.split('.')[0]
+            with open(f'human_readable_config/{project_folder}/{er}/{fn}') as f:
+                config = json.load(f)
+            if 'es_data' in config:
+                project_config[er][name]['es_data'] = copy.deepcopy(config['es_data'])
+                es_data = project_config[er][name]['es_data']
+                for field in es_data:
+                    if field['type'] == 'nested':
+                        for part in field['parts'].values():
+                            part['selector_value'] = replace(project_config, name, part['selector_value'])
+                    else:
+                        field['selector_value'] = replace(project_config, name, field['selector_value'])
+            if 'es_display' in config:
+                project_config[er][name]['es_display'] = copy.deepcopy(config['es_display'])
+
 
     # write out config
     for er in ['entity', 'relation']:
@@ -97,7 +117,7 @@ for project_folder in os.listdir('human_readable_config'):
         for name in project_config[er]:
             with open(f'config/{project_folder}/{er}/{name}.json', 'w') as f:
                 config = {}
-                for conf in ['data', 'display']:
+                for conf in ['data', 'display', 'es_data', 'es_display']:
                     if conf in project_config[er][name]:
                         config[conf] = project_config[er][name][conf]
                 json.dump(config, f, indent=4)

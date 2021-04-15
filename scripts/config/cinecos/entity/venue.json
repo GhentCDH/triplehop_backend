@@ -13,12 +13,12 @@
         "e6f026b7-542a-4665-9ee4-aff2ebb41c36": {
             "system_name": "date_opened",
             "display_name": "Date opened",
-            "type": "Int"
+            "type": "Edtf"
         },
         "12286c11-b3b5-43e0-9e15-5a4b5591aa2e": {
             "system_name": "date_closed",
-            "display_name": "Date opened",
-            "type": "Int"
+            "display_name": "Date closed",
+            "type": "Edtf"
         },
         "e13ac74e-651f-4f47-a475-b40da0121d1b": {
             "system_name": "status",
@@ -102,6 +102,89 @@
                         "type": "list"
                     }
                 ]
+            }
+        ]
+    },
+    "es_data": [
+        {
+            "system_name": "name",
+            "display_name": "Name",
+            "selector_value": "$fd083354-0e22-4a5b-8b3a-c28fb90da272",
+            "type": "text"
+        },
+        {
+            "system_name": "city",
+            "display_name": "City",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_d833a091-047b-4f5f-b1a5-79b914c5e3bf->$r_7b5005be-f207-4a36-a454-d721f098bfa9->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_d833a091-047b-4f5f-b1a5-79b914c5e3bf->$r_7b5005be-f207-4a36-a454-d721f098bfa9->$af45105d-a81e-474b-9e24-0969b8a1c9d6",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "street_name",
+            "display_name": "Street name",
+            "selector_value": "$r_d833a091-047b-4f5f-b1a5-79b914c5e3bf->$a423a1a6-7cc7-4479-9958-f9b74b6dd846",
+            "type": "text"
+        },
+        {
+            "system_name": "date_opened",
+            "display_name": "Date opened",
+            "selector_value": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36",
+            "type": "edtf"
+        },
+        {
+            "system_name": "date_closed",
+            "display_name": "Date closed",
+            "selector_value": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e",
+            "type": "edtf"
+        }
+    ],
+    "es_display": {
+        "title": "Search venues",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$name",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$city"
+                    },
+                    {
+                        "filter": "$street_name",
+                        "type": "autocomplete"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$name",
+                "sortable": true
+            },
+            {
+                "column": "$city",
+                "sortable": true
+            },
+            {
+                "column": "$street_name",
+                "sortable": true
+            },
+            {
+                "column": "$date_opened",
+                "sortable": true
+            },
+            {
+                "column": "$date_closed",
+                "sortable": true
             }
         ]
     }
