@@ -14,7 +14,7 @@ def _layout_field_converter(layout: List, data_conf: Dict) -> List:
     result = deepcopy(layout)
     for panel in result:
         for field in panel['fields']:
-            field['field'] = data_conf[field['field']]['system_name']
+            field['field'] = data_conf[field['field'][1:]]['system_name']
             if 'base_layer' in field:
                 field['base_layer'] = data_conf[field['base_layer']]['system_name']
     return result
@@ -24,9 +24,9 @@ def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
     result = []
     for column in columns:
         result.append({
-            'system_name': es_data_conf[column['column']]['system_name'],
-            'display_name': es_data_conf[column['column']]['display_name'],
-            'type': es_data_conf[column['column']]['type'],
+            'system_name': es_data_conf[column['column'][1:]]['system_name'],
+            'display_name': es_data_conf[column['column'][1:]]['display_name'],
+            'type': es_data_conf[column['column'][1:]]['type'],
             'sortable': column['sortable'],
         })
     return result
@@ -40,9 +40,9 @@ def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
         }
         for filter in section['filters']:
             filter_conf = {
-                'system_name': es_data_conf[filter['filter']]['system_name'],
-                'display_name': es_data_conf[filter['filter']]['display_name'],
-                'type': filter['type'] if 'type' in filter else es_data_conf[filter['filter']]['type']
+                'system_name': es_data_conf[filter['filter'][1:]]['system_name'],
+                'display_name': es_data_conf[filter['filter'][1:]]['display_name'],
+                'type': filter['type'] if 'type' in filter else es_data_conf[filter['filter'][1:]]['type']
             }
             if 'interval' in filter:
                 filter_conf['interval'] = filter['interval']
@@ -72,23 +72,26 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
 
         results = []
         for entity_system_name, entity_config in db_result.items():
-            data_conf = entity_config['config']['data']
+            data_conf = {}
             config_item = {
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
-                'data': list(data_conf.values()),
-                # TODO: add display_names from data to display, so data doesn't need to be exported
-                'display': {
-                    # TODO: check if this conversion shouldn't happen in db code
+            }
+            if 'data' in entity_config['config']:
+                data_conf = entity_config['config']['data']
+                config_item['data'] = list(data_conf.values())
+            # TODO: add display_names from data to display, so data doesn't need to be exported
+            if 'display' in entity_config['config']:
+                config_item['display'] = {
+                    # TODO: support relations
                     'title': RE_FIELD_CONVERSION.sub(
                         lambda m: '$' + data_conf[m.group()[1:]]['system_name'] if m.group()[1:] in data_conf else m[0],
                         entity_config['config']['display']['title']
                     ),
                     'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
-                },
-            }
+                }
             if 'es_data' in entity_config['config']:
-                es_data_conf = entity_config['config']['es_data']
+                es_data_conf = {esd['system_name']: esd for esd in entity_config['config']['es_data']}
                 config_item['elasticsearch'] = {
                     'title': entity_config['config']['es_display']['title'],
                     'columns': _es_columns_converter(
@@ -116,19 +119,21 @@ def relation_configs_resolver_wrapper(request: Request, project_name: str):
 
         results = []
         for relation_system_name, relation_config in db_result.items():
-            data_conf = relation_config['config']['data']
             config_item = {
                 'system_name': relation_system_name,
                 'display_name': relation_config['display_name'],
-                'data': list(data_conf.values()),
                 'display': {
                     'domain_title': relation_config['config']['display']['domain_title'],
                     'range_title': relation_config['config']['display']['range_title'],
-                    'layout': _layout_field_converter(relation_config['config']['display']['layout'], data_conf),
                 },
                 'domain_names': relation_config['domain_names'],
                 'range_names': relation_config['range_names'],
             }
+            if 'data' in relation_config['config']:
+                data_conf = relation_config['config']['data']
+                config_item['data'] = list(data_conf.values())
+                config_item['display']['layout'] = \
+                    _layout_field_converter(relation_config['config']['display']['layout'], data_conf),
             results.append(config_item)
 
         return results
@@ -153,7 +158,7 @@ async def create_type_defs():
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['data', '[Data_config!]'],
-            ['display', 'Entity_display_config!'],
+            ['display', 'Entity_display_config'],
             ['elasticsearch', 'Es_config'],
         ],
         'data_config': [

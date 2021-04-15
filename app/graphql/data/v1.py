@@ -42,8 +42,6 @@ def relation_resolver_wrapper(
     inverse: bool = False,
 ):
     async def get_relations(keys: typing.List[str]):
-        print('get_relations')
-        print(relation_type_name)
         data_repo = await get_repository_from_request(request, DataRepository, project_name)
         grouped_ids = {}
         for key in keys:
@@ -106,6 +104,9 @@ async def create_type_defs(
         'geometry': [
             ['type', 'String!'],
             ['coordinates', '[Float!]!'],
+        ],
+        'edtf': [
+            ['type', 'String!'],
         ],
     }
 
