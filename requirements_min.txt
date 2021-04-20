@@ -4,7 +4,7 @@ ariadne
 asyncpg
 bcrypt
 buildpg
-elasticsearch
+elasticsearch[async]
 fastapi
 flake8
 gunicorn
