@@ -132,6 +132,28 @@ class DataRepository(BaseRepository):
 
         return results
 
+    async def get_entity_ids_by_type_name(
+        self,
+        entity_type_name,
+    ) -> typing.List:
+        project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH (n:n_{dtu(entity_type_id)}) '
+            f'WITH n.id as id '
+            f'ORDER BY n.id '
+            f'return id$$'
+            f') as (id agtype);'
+        )
+        records = await self.fetch(
+            query,
+            age=True
+        )
+        return [r['id'] for r in records]
+
     @staticmethod
     def convert_from_jsonb(jsonb: str) -> typing.Any:
         if jsonb is None:

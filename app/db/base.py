@@ -59,3 +59,17 @@ class BaseRepository:
                     await self.__class__._init_age(conn)
                     return await conn.fetchrow(query, *args)
             return await conn.fetchrow(query, *args)
+
+    async def fetchval(
+        self,
+        query_template: str,
+        params: typing.Dict[str, typing.Any] = None,
+        age: bool = False,
+    ):
+        async with self._pool.acquire() as conn:
+            query, args = self.__class__._render(query_template, params)
+            if age:
+                async with conn.transaction():
+                    await self.__class__._init_age(conn)
+                    return await conn.fetchval(query, *args)
+            return await conn.fetchval(query, *args)

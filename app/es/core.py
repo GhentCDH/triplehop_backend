@@ -1,17 +1,10 @@
-from typing import Any, Dict, List
-
-from elasticsearch import Elasticsearch as ES
-from elasticsearch.exceptions import NotFoundError
-from elasticsearch.helpers import bulk
-from json import dumps, loads
+import elasticsearch
+# import json
+import typing
 from uuid import uuid4
 
 from app.config import ELASTICSEARCH
-from app.utils import dtu, RE_FIELD_DEF_CONVERSION, RE_FIELD_DEF_REL_ENT_CONVERSION
-
-# TODO: use async elasticsearch lib
-# problem with elasticsearch-py-async: no support for bulk operations
-# https://github.com/elastic/elasticsearch-py-async/issues/5
+from app.utils import dtu, RE_FIELD_CONVERSION
 
 MAX_RESULT_WINDOW = 10000
 DEFAULT_FROM = 0
@@ -21,71 +14,86 @@ SCROLL_SIZE = 1000
 
 class Elasticsearch():
     def __init__(self) -> None:
-        self.es = ES(ELASTICSEARCH['hosts'])
+        self.es = elasticsearch.AsyncElasticsearch(**ELASTICSEARCH)
 
     @staticmethod
-    def extract_query_from_es_data_config(es_data_config: Dict) -> Dict:
-        combined_fields = set()
-        for es_field_conf in es_data_config.values():
+    def extract_query_from_es_data_config(es_data_config: typing.List) -> typing.Dict:
+        # get all requested fields
+        requested_fields = set()
+        for es_field_conf in es_data_config:
             if es_field_conf['type'] == 'nested':
                 for part in es_field_conf['parts'].values():
-                    combined_fields.add(part['selector_value'])
+                    requested_fields.add(part['selector_value'])
             else:
-                combined_fields.add(es_field_conf['selector_value'])
+                requested_fields.add(es_field_conf['selector_value'])
 
-        es_query = {
-            'props': set(),
+        # construct the query to retrieve the data to construct all requested fields
+        query = {
+            'e_props': set(),
             'relations': {},
         }
 
-        # TODO: correctly extract fields, a.o. multiple original data fields in a single es field
-        # (e.g., "$first_name $last_name")
-        # TODO: more relation levels
-        # TODO: props on relation itself
-        for combined_field in combined_fields:
-            p_split = combined_field.split('.')
-            pe_split = combined_field.split('->')
-            if len(p_split) == 1 and len(pe_split) == 1:
-                es_query['props'].add(combined_field[1:])
-            elif len(pe_split) == 2:
-                relation = pe_split[0][1:]
-                if relation not in es_query['relations']:
-                    es_query['relations'][relation] = {
-                        'r_props': set(),
-                        'e_props': set(),
-                    }
-                es_query['relations'][relation]['e_props'].add(pe_split[1][1:])
+        for requested_field in requested_fields:
+            for match in RE_FIELD_CONVERSION.finditer(requested_field):
+                current_level = query
+                # remove all dollar signs
+                path = [p.replace('$', '') for p in match.group(0).split('->')]
+                for i, p in enumerate(path):
+                    # last element => p = relation.r_prop or e_prop
+                    if i == len(path) - 1:
+                        # relation property
+                        if '.' in p:
+                            (relation, r_prop) = p.split('.')
+                            if relation not in current_level['relations']:
+                                current_level['relations'][relation] = {
+                                    'e_props': set(),
+                                    'r_props': set(),
+                                    'relations': {},
+                                }
+                            current_level['relations'][relation]['r_props'].add(r_prop)
+                        # entity property
+                        else:
+                            current_level['e_props'].add(p)
+                    # not last element => p = relation => travel
+                    else:
+                        if p not in current_level['relations']:
+                            current_level['relations'][p] = {
+                                'e_props': set(),
+                                'r_props': set(),
+                                'relations': {},
+                            }
+                        current_level = current_level['relations'][p]
 
-        return es_query
+        return query
+
+    # @staticmethod
+    # def construct_value(field_def: str, type: str, data: Dict[str, Any]) -> Any:
+    #     """Construct the elasticsearch field data from the field definition and entity data."""
+    #     str_repr = RE_FIELD_DEF_CONVERSION.sub(
+    #         lambda m: json.dumps(data[m.group(1)]),
+    #         field_def,
+    #     )
+    #     return json.loads(str_repr)
+
+    # @staticmethod
+    # def construct_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> List[Dict[str, Any]]:
+    #     results = []
+    #     if relation in data:
+    #         for relation_item in data[relation]:
+    #             result = {
+    #                 'entity_type_name': relation_item['entity_type_name'],
+    #             }
+    #             for key, part_def in parts.items():
+    #                 str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
+    #                     lambda m: json.dumps(relation_item['e_props'][m.group(2)]),
+    #                     part_def['selector_value']
+    #                 )
+    #                 result[key] = loads(str_repr)
+    #             results.append(result)
+    #     return results
 
     @staticmethod
-    def construct_value(field_def: str, type: str, data: Dict[str, Any]) -> Any:
-        """Construct the elasticsearch field data from the field definition and entity data."""
-        str_repr = RE_FIELD_DEF_CONVERSION.sub(
-            lambda m: dumps(data[m.group(1)]),
-            field_def,
-        )
-        return loads(str_repr)
-
-    @staticmethod
-    def construct_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> List[Dict[str, Any]]:
-        results = []
-        if relation in data:
-            for relation_item in data[relation]:
-                result = {
-                    'entity_type_name': relation_item['entity_type_name'],
-                }
-                for key, part_def in parts.items():
-                    str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
-                        lambda m: dumps(relation_item['e_props'][m.group(2)]),
-                        part_def['selector_value']
-                    )
-                    result[key] = loads(str_repr)
-                results.append(result)
-        return results
-
-    @staticmethod
-    def convert_entities_to_docs(es_data_config: Dict, entities: Dict) -> Dict:
+    def convert_entities_to_docs(es_data_config: typing.Dict, entities: typing.Dict) -> typing.Dict:
         docs = {}
         for entity_id, entity in entities.items():
             doc = {}
@@ -110,7 +118,7 @@ class Elasticsearch():
             docs[entity_id] = doc
         return docs
 
-    def create_new_index(self, entity_type_name: str, es_data_config: Dict) -> str:
+    def create_new_index(self, entity_type_name: str, es_data_config: typing.Dict) -> str:
         new_index_name = f'{ELASTICSEARCH["prefix"]}_{dtu(str(uuid4()))}'
         body = {
             'mappings': {
@@ -224,7 +232,7 @@ class Elasticsearch():
                         },
                     }
                 )
-        except NotFoundError:
+        except elasticsearch.exceptions.NotFoundError:
             pass
 
         response = self.es.indices.update_aliases(
@@ -236,7 +244,7 @@ class Elasticsearch():
 
         raise Exception(response['error']['root_cause'])
 
-    def add_bulk(self, index_name: str, entity_type_name: str, data: Dict) -> None:
+    async def add_bulk(self, index_name: str, entity_type_name: str, data: typing.Dict) -> None:
         actions = [
             {
                 '_index': index_name,
@@ -246,9 +254,9 @@ class Elasticsearch():
             }
             for i, v in data.items()
         ]
-        bulk(self.es, actions)
+        await elasticsearch.helpers.async_bulk(self.es, actions)
 
-    def search(self, entity_type_id: str, body: Dict) -> Dict:
+    def search(self, entity_type_id: str, body: typing.Dict) -> typing.Dict:
         alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
         body = {k: v for (k, v) in body.items() if v is not None}
 
