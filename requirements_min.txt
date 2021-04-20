@@ -2,6 +2,7 @@ aiocache
 aiodataloader
 ariadne
 asyncpg
+bcrypt
 buildpg
 elasticsearch
 fastapi
