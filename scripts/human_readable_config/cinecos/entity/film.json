@@ -12,7 +12,7 @@
         },
         {
             "system_name": "year",
-            "display_name": "Production year",
+            "display_name": "Release year",
             "type": "Int"
         },
         {

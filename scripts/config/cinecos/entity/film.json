@@ -12,7 +12,7 @@
         },
         "71d1f4c4-90da-402f-b2b7-84a83520bc7f": {
             "system_name": "year",
-            "display_name": "Production year",
+            "display_name": "Release year",
             "type": "Int"
         },
         "a6efd857-da3b-424c-a0a2-099fb7fef740": {
