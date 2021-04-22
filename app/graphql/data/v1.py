@@ -20,7 +20,7 @@ def entity_resolver_wrapper(
 ):
     async def get_entities(entity_ids: typing.List[int]):
         data_repo = await get_repository_from_request(request, DataRepository, project_name)
-        data = await data_repo.get_entities(entity_type_name, entity_ids)
+        data = await data_repo.get_entities_graphql(entity_type_name, entity_ids)
         # dataloader expects sequence of objects or None following order of ids in ids
         return [data.get(id) for id in entity_ids]
 
@@ -51,7 +51,7 @@ def relation_resolver_wrapper(
             grouped_ids[entity_type_name].append(int(entity_id__str))
         grouped_data = {}
         for entity_type_name, entity_ids in grouped_ids.items():
-            grouped_data[entity_type_name] = await data_repo.get_relations(
+            grouped_data[entity_type_name] = await data_repo.get_relations_graphql(
                 entity_type_name,
                 entity_ids,
                 relation_type_name,

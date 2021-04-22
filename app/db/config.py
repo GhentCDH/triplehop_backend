@@ -120,7 +120,7 @@ class ConfigRepository(BaseRepository):
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=key_builder)
-    async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> int:
+    async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> str:
         entity_types_config = await self.get_entity_types_config(project_name)
 
         try:
@@ -135,7 +135,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
     @aiocache.cached(key_builder=key_builder)
-    async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: id) -> int:
+    async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: id) -> str:
         entity_types_config = await self.get_entity_types_config(project_name)
 
         for entity_type_name in entity_types_config:

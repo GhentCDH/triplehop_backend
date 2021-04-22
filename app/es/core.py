@@ -18,6 +18,7 @@ class Elasticsearch():
 
     @staticmethod
     def extract_query_from_es_data_config(es_data_config: typing.List) -> typing.Dict:
+        # TODO: document crdb_query format
         # get all requested fields
         requested_fields = set()
         for es_field_conf in es_data_config:
@@ -66,45 +67,50 @@ class Elasticsearch():
 
         return query
 
-    # @staticmethod
-    # def construct_value(field_def: str, type: str, data: Dict[str, Any]) -> Any:
-    #     """Construct the elasticsearch field data from the field definition and entity data."""
-    #     str_repr = RE_FIELD_DEF_CONVERSION.sub(
-    #         lambda m: json.dumps(data[m.group(1)]),
-    #         field_def,
-    #     )
-    #     return json.loads(str_repr)
-
-    # @staticmethod
-    # def construct_nested_value(relation: str, parts: Dict[str, Dict[str, str]], data: Dict) -> List[Dict[str, Any]]:
-    #     results = []
-    #     if relation in data:
-    #         for relation_item in data[relation]:
-    #             result = {
-    #                 'entity_type_name': relation_item['entity_type_name'],
-    #             }
-    #             for key, part_def in parts.items():
-    #                 str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
-    #                     lambda m: json.dumps(relation_item['e_props'][m.group(2)]),
-    #                     part_def['selector_value']
-    #                 )
-    #                 result[key] = loads(str_repr)
-    #             results.append(result)
-    #     return results
+    @staticmethod
+    def construct_value(field_def: str, type: str, data: typing.Dict[str, typing.Any]) -> typing.Any:
+        """Construct the elasticsearch field data from the field definition and entity data."""
+        # print(data)
+        str_repr = RE_FIELD_DEF_CONVERSION.sub(
+            lambda m: json.dumps(data[m.group(1)]),
+            field_def,
+        )
+        return json.loads(str_repr)
+        return 'test'
 
     @staticmethod
-    def convert_entities_to_docs(es_data_config: typing.Dict, entities: typing.Dict) -> typing.Dict:
+    def construct_nested_value(
+        parts: typing.Dict[str, typing.Dict[str, str]],
+        data: typing.Dict
+    ) -> typing.List[typing.Dict[str, typing.Any]]:
+        # # print(parts)
+        # results = []
+        # if relation in data:
+        #     for relation_item in data[relation]:
+        #         result = {
+        #             'entity_type_name': relation_item['entity_type_name'],
+        #         }
+        #         for key, part_def in parts.items():
+        #             str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
+        #                 lambda m: json.dumps(relation_item['e_props'][m.group(2)]),
+        #                 part_def['selector_value']
+        #             )
+        #             result[key] = json.loads(str_repr)
+        #         results.append(result)
+        # return results
+        return []
+
+    @staticmethod
+    def convert_entities_to_docs(es_data_config: typing.List, entities: typing.Dict) -> typing.Dict:
         docs = {}
+        print(entities)
         for entity_id, entity in entities.items():
+            print(entity)
             doc = {}
-            for es_field_conf in es_data_config.values():
-                # TODO: correctly extract fields, a.o. multiple original data fields in a single es field
-                # (e.g., "$first_name $last_name")
-                # TODO: more relation levels
-                # TODO: props on relation itself
+            for es_field_conf in es_data_config:
+                # print(es_field_conf)
                 if es_field_conf['type'] == 'nested':
                     doc[es_field_conf['system_name']] = Elasticsearch.construct_nested_value(
-                        es_field_conf['relation'],
                         es_field_conf['parts'],
                         entity,
                     )

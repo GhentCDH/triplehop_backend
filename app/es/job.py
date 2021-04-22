@@ -22,7 +22,7 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
         entity_types_config = await config_repo.get_entity_types_config(project_name)
         entity_type_config = entity_types_config[entity_type_name]
         es_data_config = entity_type_config['config']['es_data']
-        es_query = Elasticsearch.extract_query_from_es_data_config(es_data_config)
+        crdb_query = Elasticsearch.extract_query_from_es_data_config(es_data_config)
         es = Elasticsearch()
         new_index_name = es.create_new_index(entity_type_name, es_data_config)
 
@@ -33,12 +33,12 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
                 project_name,
                 entity_type_name,
                 batch_ids,
-                es_query,
+                crdb_query,
             )
 
             batch_docs = Elasticsearch.convert_entities_to_docs(es_data_config, batch_entities)
 
-            es.add_bulk(new_index_name, entity_type_name, batch_docs)
+            await es.add_bulk(new_index_name, entity_type_name, batch_docs)
 
             if (batch_counter + 1) * BATCH_SIZE + 1 > len(entity_ids):
                 break
