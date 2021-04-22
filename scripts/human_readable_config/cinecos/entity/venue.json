@@ -71,11 +71,11 @@
                     },
                     {
                         "field": "$date_opened",
-                        "type": "edtf"
+                        "type": "edtf_year"
                     },
                     {
                         "field": "$date_closed",
-                        "type": "edtf"
+                        "type": "edtf_year"
                     },
                     {
                         "field": "$status"
@@ -117,6 +117,7 @@
         {
             "system_name": "city",
             "display_name": "City",
+            "base": "$r_venue_address->$r_address_city",
             "parts": {
                 "id": {
                     "selector_value": "$r_venue_address->$r_address_city->$id",

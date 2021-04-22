@@ -102,6 +102,7 @@ for project_folder in os.listdir('human_readable_config'):
                 es_data = project_config[er][name]['es_data']
                 for field in es_data:
                     if field['type'] == 'nested':
+                        field['base'] = replace(project_config, name, field['base'])
                         for part in field['parts'].values():
                             part['selector_value'] = replace(project_config, name, part['selector_value'])
                     else:

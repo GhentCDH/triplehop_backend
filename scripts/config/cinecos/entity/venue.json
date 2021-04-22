@@ -71,11 +71,11 @@
                     },
                     {
                         "field": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36",
-                        "type": "edtf"
+                        "type": "edtf_year"
                     },
                     {
                         "field": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e",
-                        "type": "edtf"
+                        "type": "edtf_year"
                     },
                     {
                         "field": "$e13ac74e-651f-4f47-a475-b40da0121d1b"
@@ -117,6 +117,7 @@
         {
             "system_name": "city",
             "display_name": "City",
+            "base": "$r_d833a091-047b-4f5f-b1a5-79b914c5e3bf->$r_7b5005be-f207-4a36-a454-d721f098bfa9",
             "parts": {
                 "id": {
                     "selector_value": "$r_d833a091-047b-4f5f-b1a5-79b914c5e3bf->$r_7b5005be-f207-4a36-a454-d721f098bfa9->$id",

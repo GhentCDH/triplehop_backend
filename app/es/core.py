@@ -1,7 +1,8 @@
+import edtf
 import elasticsearch
-# import json
+import time
 import typing
-from uuid import uuid4
+import uuid
 
 from app.config import ELASTICSEARCH
 from app.utils import dtu, RE_FIELD_CONVERSION
@@ -68,64 +69,120 @@ class Elasticsearch():
         return query
 
     @staticmethod
-    def construct_value(field_def: str, type: str, data: typing.Dict[str, typing.Any]) -> typing.Any:
-        """Construct the elasticsearch field data from the field definition and entity data."""
-        # print(data)
-        str_repr = RE_FIELD_DEF_CONVERSION.sub(
-            lambda m: json.dumps(data[m.group(1)]),
-            field_def,
-        )
-        return json.loads(str_repr)
-        return 'test'
+    def replace(input: str, data: typing.Dict):
+        def replacer(match):
+            current_level = data
+            path = [p.replace('$', '') for p in match.group(0).split('->')]
+            for i, p in enumerate(path):
+                # last element => p = relation.r_prop or e_prop
+                if i == len(path) - 1:
+                    # relation property
+                    if '.' in p:
+                        (relation, r_prop) = p.split('.')
+                        # TODO: multiple resulting relations
+                        if r_prop == 'id':
+                            return str(current_level['relations'][relation]['r_props']['id'])
+                        else:
+                            return current_level['relations'][relation]['r_props'][f'p_{dtu(r_prop)}']
+                    # entity property
+                    else:
+                        if p == 'id':
+                            return str(current_level['e_props']['id'])
+                        else:
+                            return current_level['e_props'][f'p_{dtu(p)}']
+                # not last element => p = relation => travel
+                else:
+                    # TODO: multiple resulting relations
+                    current_level = list(current_level['relations'][p].values())[0]
+
+        return RE_FIELD_CONVERSION.sub(replacer, input)
 
     @staticmethod
-    def construct_nested_value(
-        parts: typing.Dict[str, typing.Dict[str, str]],
-        data: typing.Dict
-    ) -> typing.List[typing.Dict[str, typing.Any]]:
-        # # print(parts)
-        # results = []
-        # if relation in data:
-        #     for relation_item in data[relation]:
-        #         result = {
-        #             'entity_type_name': relation_item['entity_type_name'],
-        #         }
-        #         for key, part_def in parts.items():
-        #             str_repr = RE_FIELD_DEF_REL_ENT_CONVERSION.sub(
-        #                 lambda m: json.dumps(relation_item['e_props'][m.group(2)]),
-        #                 part_def['selector_value']
-        #             )
-        #             result[key] = json.loads(str_repr)
-        #         results.append(result)
-        # return results
-        return []
+    def get_entity_type_id(base: str, data: typing.Dict):
+        current_level = data
+        path = [p.replace('$', '') for p in base.split('->')]
+        for i, p in enumerate(path):
+            if i == len(path) - 1:
+                return current_level['entity_type_id']
+            else:
+                current_level = list(current_level['relations'][p].values())[0]
 
     @staticmethod
-    def convert_entities_to_docs(es_data_config: typing.List, entities: typing.Dict) -> typing.Dict:
+    def convert_field(
+        entity_type_names: typing.Dict,
+        es_field_conf: str,
+        data: typing.Dict,
+    ) -> typing.Any:
+        if es_field_conf['type'] == 'integer':
+            return int(
+                Elasticsearch.replace(
+                    es_field_conf['selector_value'],
+                    data,
+                )
+            )
+        if es_field_conf['type'] == 'text':
+            return Elasticsearch.replace(
+                es_field_conf['selector_value'],
+                data,
+            )
+        if es_field_conf['type'] == 'edtf':
+            edtf_text = Elasticsearch.replace(
+                    es_field_conf['selector_value'],
+                    data,
+                )
+            edtf_date = edtf.parse_edtf(edtf_text)
+            return {
+                'text': edtf_text,
+                'lower': time.strftime(
+                    '%Y-%m-%d',
+                    edtf_date.lower_strict()
+                ),
+                'upper': time.strftime(
+                    '%Y-%m-%d',
+                    edtf_date.upper_strict()
+                )
+            }
+        if es_field_conf['type'] == 'nested':
+            # TODO: multiple resulting relations
+            # idea: method to retrieve list with all current level (based on base),
+            # iterate over this to create multiple results?
+            entity_type_id = Elasticsearch.get_entity_type_id(
+                es_field_conf['base'],
+                data,
+            )
+            result = {
+                'entity_type_name': entity_type_names[entity_type_id]
+            }
+            for key, part_def in es_field_conf['parts'].items():
+                result[key] = Elasticsearch.convert_field(
+                    entity_type_names,
+                    part_def,
+                    data,
+                )
+            return result
+        raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
+
+    @staticmethod
+    def convert_entities_to_docs(
+        entity_type_names: typing.Dict,
+        es_data_config: typing.List,
+        entities: typing.Dict,
+    ) -> typing.Dict:
         docs = {}
-        print(entities)
         for entity_id, entity in entities.items():
-            print(entity)
             doc = {}
             for es_field_conf in es_data_config:
-                # print(es_field_conf)
-                if es_field_conf['type'] == 'nested':
-                    doc[es_field_conf['system_name']] = Elasticsearch.construct_nested_value(
-                        es_field_conf['parts'],
-                        entity,
-                    )
-                else:
-                    doc[es_field_conf['system_name']] = Elasticsearch.construct_value(
-                        es_field_conf['selector_value'],
-                        es_field_conf['type'],
-                        entity,
-                    )
+                doc[es_field_conf['system_name']] = Elasticsearch.convert_field(
+                    entity_type_names,
+                    es_field_conf,
+                    entity,
+                )
 
             docs[entity_id] = doc
         return docs
 
     def create_new_index(self, entity_type_name: str, es_data_config: typing.Dict) -> str:
-        new_index_name = f'{ELASTICSEARCH["prefix"]}_{dtu(str(uuid4()))}'
+        new_index_name = f'{ELASTICSEARCH["prefix"]}_{dtu(str(uuid.uuid4()))}'
         body = {
             'mappings': {
                 entity_type_name: {
@@ -164,11 +221,10 @@ class Elasticsearch():
         }
 
         for es_field_conf in es_data_config.values():
-            mapping = {
-                'type': es_field_conf['type'],
-            }
+            mapping = {}
             # TODO: does this need to be added for all text fields?
             if es_field_conf['type'] == 'text':
+                mapping['type'] = 'text'
                 mapping['fields'] = {
                     'keyword': {
                         'type': 'keyword',
@@ -181,7 +237,26 @@ class Elasticsearch():
                         'type': 'completion'
                     },
                 }
+            elif es_field_conf['type'] == 'edtf':
+                mapping['type'] = 'object'
+                mapping['properties'] = {
+                    'text': {
+                        'type': 'text',
+                        'fields': {
+                            'keyword': {
+                                'type': 'keyword',
+                            },
+                        },
+                    },
+                    'lower': {
+                        'type': 'date',
+                    },
+                    'upper': {
+                        'type': 'date',
+                    },
+                }
             elif es_field_conf['type'] == 'nested':
+                mapping['type'] = 'nested'
                 mapping['properties'] = {
                     'entity_type_name': {
                         'type': 'text',
@@ -203,6 +278,8 @@ class Elasticsearch():
                         }
                     # TODO: check if the normalized keyword can be retrieved
                     # to aid sorting multiple values in a single nested field in clients
+            else:
+                raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
             body['mappings'][entity_type_name]['properties'][es_field_conf['system_name']] = mapping
 
         response = self.es.indices.create(

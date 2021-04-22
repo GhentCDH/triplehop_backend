@@ -219,12 +219,6 @@ class DataRepository(BaseRepository):
         )
         return [r['id'] for r in records]
 
-    @staticmethod
-    def convert_from_jsonb(jsonb: str) -> typing.Any:
-        if jsonb is None:
-            return None
-        return json.loads(jsonb)
-
     async def get_entity_data(
         self,
         entity_type_name: str,
