@@ -14,8 +14,9 @@ DEFAULT_SIZE = 10
 SCROLL_SIZE = 1000
 
 # https://stackoverflow.com/questions/3838242/minimum-date-in-java
-DATE_MIN = '-999999999-01-01'
-DATE_MAX = '+999999999-12-31'
+# https://github.com/elastic/elasticsearch/issues/43966
+DATE_MIN = '-999999999'
+DATE_MAX = '999999999'
 
 
 class Elasticsearch():
@@ -376,7 +377,6 @@ class Elasticsearch():
         actions = [
             {
                 '_index': index_name,
-                '_type': entity_type_name,
                 '_id': i,
                 '_source': v,
             }
