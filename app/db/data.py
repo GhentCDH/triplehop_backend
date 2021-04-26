@@ -71,7 +71,7 @@ class DataRepository(BaseRepository):
             # strip ::vertex from record data
             properties = json.loads(record['n'][:-8])['properties']
 
-            results[properties['id']] = {'e_props': properties}
+            results[int(properties['id'])] = {'e_props': properties}
         return results
 
     async def get_relations_graphql(
@@ -217,7 +217,7 @@ class DataRepository(BaseRepository):
             query,
             age=True
         )
-        return [r['id'] for r in records]
+        return [int(r['id']) for r in records]
 
     async def get_entity_data(
         self,
@@ -254,48 +254,59 @@ class DataRepository(BaseRepository):
             if crdb_query['e_props']:
                 results = await self.get_entities_raw(entity_type_id, entity_ids)
 
-        for relation in crdb_query['relations']:
+        for relation_type_id in crdb_query['relations']:
             # get relation data
             raw_results = await self.get_relations_raw(
                 entity_type_id,
                 entity_ids,
-                relation.split('_')[1],
-                relation.split('_')[0] == 'ri'
+                relation_type_id.split('_')[1],
+                relation_type_id.split('_')[0] == 'ri'
             )
             for entity_id, raw_result in raw_results.items():
                 if entity_id not in results:
                     results[entity_id] = {}
                 if 'relations' not in results[entity_id]:
                     results[entity_id]['relations'] = {}
-                results[entity_id]['relations'][relation] = raw_result
+                results[entity_id]['relations'][relation_type_id] = raw_result
+
+            # gather what further information is required
+            rel_entities = {}
+            raw_rel_results_per_entity_type_id = {}
+            # mapping so results (identified by entity_type_name, entity_id)
+            # can be added in the right place (identified by relation_type_id, relation_id)
+            mapping = {}
+            if crdb_query['relations'][relation_type_id]['relations']:
+                for entity_id, raw_relation_results in raw_results.items():
+                    for relation_id, raw_result in raw_relation_results.items():
+                        rel_entity_type_id = raw_result['entity_type_id']
+                        rel_entity_id = raw_result['e_props']['id']
+
+                        if rel_entity_type_id not in rel_entities:
+                            rel_entities[rel_entity_type_id] = set()
+                        rel_entities[rel_entity_type_id].add(rel_entity_id)
+
+                        if relation_type_id not in mapping:
+                            mapping[relation_type_id] = {}
+                        mapping[relation_type_id][relation_id] = [
+                            rel_entity_type_id,
+                            rel_entity_id,
+                        ]
 
             # recursively obtain further relation data
-            if crdb_query['relations'][relation]['relations']:
-                related_entities = {}
-                # mapping so results (identified by entity_type_name, entity_id)
-                # can be added in the right place (identified by relation_id)
-                mapping = {}
-                for raw_relation_results in raw_results.values():
-                    for relation_id, raw_result in raw_relation_results.items():
-                        if raw_result['entity_type_id'] not in related_entities:
-                            related_entities[raw_result['entity_type_id']] = set()
-                        related_entities[raw_result['entity_type_id']].add(raw_result['e_props']['id'])
+            for rel_entity_type_id, rel_entity_ids in rel_entities.items():
+                raw_rel_results_per_entity_type_id[rel_entity_type_id] = await self.get_entity_data_raw(
+                    rel_entity_type_id,
+                    list(rel_entity_ids),
+                    crdb_query['relations'][relation_type_id],
+                    False,
+                )
 
-                        mapping_key = f'{raw_result["entity_type_id"]}|{raw_result["e_props"]["id"]}'
-                        if mapping_key not in mapping:
-                            mapping[mapping_key] = []
-                        mapping[mapping_key].append(relation_id)
-
-                    for related_entity_type_id, related_entity_ids in related_entities.items():
-                        raw_related_results = await self.get_entity_data_raw(
-                            related_entity_type_id,
-                            list(related_entity_ids),
-                            crdb_query['relations'][relation],
-                            False,
-                        )
-                        for related_entity_id, raw_related_result in raw_related_results.items():
-                            mapping_key = f'{related_entity_type_id}|{related_entity_id}'
-                            for relation_id in mapping[mapping_key]:
-                                results[entity_id]['relations'][relation][relation_id].update(raw_related_result)
+            # add the additional relation data to the result
+            for entity_id in results:
+                if crdb_query['relations'][relation_type_id]['relations']:
+                    for relation_id in results[entity_id]['relations'][relation_type_id]:
+                        (rel_entity_type_id, rel_entity_id) = mapping[relation_type_id][relation_id]
+                        results[entity_id]['relations'][relation_type_id][relation_id]['relations'] = \
+                            raw_rel_results_per_entity_type_id[rel_entity_type_id][rel_entity_id]['relations']
 
         return results

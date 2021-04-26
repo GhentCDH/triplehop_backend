@@ -18,6 +18,8 @@ def fix_cell(value: str, short_config: Dict):
         m = re.match(r'^([0-9]{3})(?:[?]|X[?])$', value)
         if m:
             return f'{m.group(1)}X'
+        if value == '*':
+            return '..'
         if value == '1967-1968?':
             return '[1967,1968]'
         if value == '1935/36':
@@ -60,7 +62,11 @@ configs = {
         'date_opened': {
             'nullable': ['NA?'],
             'venue_date': None,
-        }
+        },
+        'date_closed': {
+            'nullable': ['NA?'],
+            'venue_date': None,
+        },
     }
 }
 

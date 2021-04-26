@@ -25,7 +25,7 @@ async def search(
     config_repo = await get_repository_from_request(request, ConfigRepository)
     entity_type_id = await config_repo.get_entity_type_id_by_name(project_name, entity_type_name)
     es = Elasticsearch()
-    return es.search(entity_type_id, es_body.dict())
+    return await es.search(entity_type_id, es_body.dict())
 
 
 @router.get('/{project_name}/{entity_type_name}/reindex', response_model=JobId)

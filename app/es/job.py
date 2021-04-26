@@ -28,13 +28,12 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
         es_data_config = entity_type_config['config']['es_data']
         crdb_query = Elasticsearch.extract_query_from_es_data_config(es_data_config)
         es = Elasticsearch()
-        new_index_name = es.create_new_index(entity_type_name, es_data_config)
+        new_index_name = await es.create_new_index(entity_type_name, es_data_config)
 
         batch_counter = 0
         while True:
             batch_ids = entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
             batch_entities = await data_repo.get_entity_data(
-                project_name,
                 entity_type_name,
                 batch_ids,
                 crdb_query,
@@ -54,7 +53,7 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
             await job_repo.update_counter(job_id, (batch_counter + 1) * BATCH_SIZE)
             batch_counter += 1
 
-        es.switch_to_new_index(new_index_name, entity_type_config['id'])
+        await es.switch_to_new_index(new_index_name, entity_type_config['id'])
         await job_repo.end_with_success(job_id)
     except Exception as e:
         await job_repo.end_with_error(job_id)

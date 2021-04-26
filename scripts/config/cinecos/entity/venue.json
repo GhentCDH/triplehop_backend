@@ -140,13 +140,15 @@
             "system_name": "date_opened",
             "display_name": "Date opened",
             "selector_value": "$e6f026b7-542a-4665-9ee4-aff2ebb41c36",
-            "type": "edtf"
+            "type": "edtf",
+            "subtype": "start"
         },
         {
             "system_name": "date_closed",
             "display_name": "Date closed",
             "selector_value": "$12286c11-b3b5-43e0-9e15-5a4b5591aa2e",
-            "type": "edtf"
+            "type": "edtf",
+            "subtype": "end"
         }
     ],
     "es_display": {

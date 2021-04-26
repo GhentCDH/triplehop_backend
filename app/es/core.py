@@ -1,5 +1,6 @@
 import edtf
 import elasticsearch
+from elasticsearch.helpers import async_bulk
 import time
 import typing
 import uuid
@@ -12,10 +13,14 @@ DEFAULT_FROM = 0
 DEFAULT_SIZE = 10
 SCROLL_SIZE = 1000
 
+# https://stackoverflow.com/questions/3838242/minimum-date-in-java
+DATE_MIN = '-999999999-01-01'
+DATE_MAX = '+999999999-12-31'
+
 
 class Elasticsearch():
     def __init__(self) -> None:
-        self.es = elasticsearch.AsyncElasticsearch(**ELASTICSEARCH)
+        self._es = elasticsearch.AsyncElasticsearch(**ELASTICSEARCH)
 
     @staticmethod
     def extract_query_from_es_data_config(es_data_config: typing.List) -> typing.Dict:
@@ -69,8 +74,15 @@ class Elasticsearch():
         return query
 
     @staticmethod
-    def replace(input: str, data: typing.Dict):
-        def replacer(match):
+    def replace(input: str, data: typing.Dict) -> str:
+        '''
+        Always returns a string because of the usage of str.replace().
+        '''
+        result = input
+        for match in RE_FIELD_CONVERSION.finditer(input):
+            if not match:
+                continue
+
             current_level = data
             path = [p.replace('$', '') for p in match.group(0).split('->')]
             for i, p in enumerate(path):
@@ -78,34 +90,44 @@ class Elasticsearch():
                 if i == len(path) - 1:
                     # relation property
                     if '.' in p:
-                        (relation, r_prop) = p.split('.')
-                        # TODO: multiple resulting relations
-                        if r_prop == 'id':
-                            return str(current_level['relations'][relation]['r_props']['id'])
-                        else:
-                            return current_level['relations'][relation]['r_props'][f'p_{dtu(r_prop)}']
+                        (rel_type_id, r_prop) = p.split('.')
+                        if len(current_level['relations'][rel_type_id].values()) > 1:
+                            raise Exception('Not implemented')
+                        key = 'id' if r_prop == 'id' else f'p_{dtu(r_prop)}'
+                        result = result.replace(
+                            match.group(0),
+                            str(list(current_level['relations'][rel_type_id].values())[0]['r_props'].get(key, ''))
+                        )
+                        break
                     # entity property
-                    else:
-                        if p == 'id':
-                            return str(current_level['e_props']['id'])
-                        else:
-                            return current_level['e_props'][f'p_{dtu(p)}']
+                    key = 'id' if p == 'id' else f'p_{dtu(p)}'
+                    result = result.replace(
+                        match.group(0),
+                        str(current_level['e_props'].get(key, ''))
+                    )
+                    break
                 # not last element => p = relation => travel
-                else:
-                    # TODO: multiple resulting relations
-                    current_level = list(current_level['relations'][p].values())[0]
+                if len(current_level['relations'][p].values()) > 1:
+                    raise Exception('Not implemented')
+                current_level = list(current_level['relations'][p].values())[0]
 
-        return RE_FIELD_CONVERSION.sub(replacer, input)
+        return result
 
     @staticmethod
-    def get_entity_type_id(base: str, data: typing.Dict):
-        current_level = data
+    def get_datas_for_base(base: str, data: typing.Dict) -> typing.List[typing.Dict]:
+        '''
+        Given a base path, return the data at this base level.
+        As there might be multiple relations reaching to this level, there might be multiple results.
+        '''
+        current_levels = [data]
         path = [p.replace('$', '') for p in base.split('->')]
-        for i, p in enumerate(path):
-            if i == len(path) - 1:
-                return current_level['entity_type_id']
-            else:
-                current_level = list(current_level['relations'][p].values())[0]
+        for p in path:
+            current_levels = [
+                v
+                for current_level in current_levels
+                for v in current_level['relations'][p].values()
+            ]
+        return current_levels
 
     @staticmethod
     def convert_field(
@@ -130,7 +152,31 @@ class Elasticsearch():
                     es_field_conf['selector_value'],
                     data,
                 )
-            edtf_date = edtf.parse_edtf(edtf_text)
+            if edtf_text == '..':
+                if es_field_conf['subtype'] == 'start':
+                    return {
+                        'text': edtf_text,
+                        'lower': DATE_MIN,
+                        'upper': DATE_MIN,
+                    }
+                else:
+                    return {
+                        'text': edtf_text,
+                        'lower': DATE_MAX,
+                        'upper': DATE_MAX,
+                    }
+            if edtf_text == '':
+                return {
+                    'text': edtf_text,
+                    'lower': None,
+                    'upper': None,
+                }
+            try:
+                # edtf needs to be updated to the newest revision
+                old_edtf_text = edtf_text.replace('X', 'u')
+                edtf_date = edtf.parse_edtf(old_edtf_text)
+            except edtf.parser.edtf_exceptions.EDTFParseException:
+                raise Exception(f'EDTF parser cannot parse {old_edtf_text}')
             return {
                 'text': edtf_text,
                 'lower': time.strftime(
@@ -143,23 +189,24 @@ class Elasticsearch():
                 )
             }
         if es_field_conf['type'] == 'nested':
-            # TODO: multiple resulting relations
-            # idea: method to retrieve list with all current level (based on base),
-            # iterate over this to create multiple results?
-            entity_type_id = Elasticsearch.get_entity_type_id(
+            # TODO: relation properties of base?
+            datas = Elasticsearch.get_datas_for_base(
                 es_field_conf['base'],
                 data,
             )
-            result = {
-                'entity_type_name': entity_type_names[entity_type_id]
-            }
-            for key, part_def in es_field_conf['parts'].items():
-                result[key] = Elasticsearch.convert_field(
-                    entity_type_names,
-                    part_def,
-                    data,
-                )
-            return result
+            results = []
+            for data in datas:
+                result = {
+                    'entity_type_name': entity_type_names[data['entity_type_id']]
+                }
+                for key, part_def in es_field_conf['parts'].items():
+                    part_def['selector_value'] = part_def['selector_value'].replace(f'{es_field_conf["base"]}->', '')
+                    result[key] = Elasticsearch.convert_field(
+                        entity_type_names,
+                        part_def,
+                        data,
+                    )
+                return results
         raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
 
     @staticmethod
@@ -181,14 +228,12 @@ class Elasticsearch():
             docs[entity_id] = doc
         return docs
 
-    def create_new_index(self, entity_type_name: str, es_data_config: typing.Dict) -> str:
+    async def create_new_index(self, entity_type_name: str, es_data_config: typing.List) -> str:
         new_index_name = f'{ELASTICSEARCH["prefix"]}_{dtu(str(uuid.uuid4()))}'
         body = {
             'mappings': {
-                entity_type_name: {
-                    'dynamic': 'strict',
-                    'properties': {},
-                },
+                'dynamic': 'strict',
+                'properties': {},
             },
             'settings': {
                 'analysis': {
@@ -220,7 +265,7 @@ class Elasticsearch():
             },
         }
 
-        for es_field_conf in es_data_config.values():
+        for es_field_conf in es_data_config:
             mapping = {}
             # TODO: does this need to be added for all text fields?
             if es_field_conf['type'] == 'text':
@@ -280,9 +325,9 @@ class Elasticsearch():
                     # to aid sorting multiple values in a single nested field in clients
             else:
                 raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
-            body['mappings'][entity_type_name]['properties'][es_field_conf['system_name']] = mapping
+            body['mappings']['properties'][es_field_conf['system_name']] = mapping
 
-        response = self.es.indices.create(
+        response = await self._es.indices.create(
             index=new_index_name,
             body=body,
         )
@@ -292,7 +337,7 @@ class Elasticsearch():
 
         raise Exception(response['error']['root_cause'])
 
-    def switch_to_new_index(self, new_index_name: str, entity_type_id: str) -> None:
+    async def switch_to_new_index(self, new_index_name: str, entity_type_id: str) -> None:
         alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
         body = {
             'actions': [
@@ -306,7 +351,7 @@ class Elasticsearch():
         }
 
         try:
-            response = self.es.indices.get(alias_name)
+            response = await self._es.indices.get(alias_name)
             for old_index_name in response.keys():
                 body['actions'].append(
                     {
@@ -318,7 +363,7 @@ class Elasticsearch():
         except elasticsearch.exceptions.NotFoundError:
             pass
 
-        response = self.es.indices.update_aliases(
+        response = await self._es.indices.update_aliases(
             body=body,
         )
 
@@ -337,19 +382,20 @@ class Elasticsearch():
             }
             for i, v in data.items()
         ]
-        await elasticsearch.helpers.async_bulk(self.es, actions)
+        await async_bulk(self._es, actions)
 
-    def search(self, entity_type_id: str, body: typing.Dict) -> typing.Dict:
+    async def search(self, entity_type_id: str, body: typing.Dict) -> typing.Dict:
         alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
         body = {k: v for (k, v) in body.items() if v is not None}
 
         es_from = body['from'] if 'from' in body else DEFAULT_FROM
         es_size = body['size'] if 'size' in body else DEFAULT_SIZE
         if es_from + es_size <= MAX_RESULT_WINDOW:
-            return self.es.search(
+            results = await self._es.search(
                 index=alias_name,
                 body=body,
             )
+            return results
         else:
             # Use scroll API
             results = {
@@ -362,7 +408,7 @@ class Elasticsearch():
                 del body['from']
             body['size'] = SCROLL_SIZE
 
-            data = self.es.search(
+            data = await self._es.search(
                 index=alias_name,
                 body=body,
                 scroll='1m',
@@ -382,7 +428,7 @@ class Elasticsearch():
                     else:
                         results['hits']['hits'] += data['hits']['hits'][start:]
 
-                data = self.es.scroll(scroll_id=sid, scroll='1m')
+                data = await self._es.scroll(scroll_id=sid, scroll='1m')
                 sid = data['_scroll_id']
                 scroll_size = len(data['hits']['hits'])
                 current_from += SCROLL_SIZE
