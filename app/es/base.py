@@ -139,49 +139,55 @@ class BaseElasticsearch:
         data: typing.Dict,
     ) -> typing.Any:
         if es_field_conf['type'] == 'integer':
-            return int(
-                BaseElasticsearch.replace(
+            str_value = BaseElasticsearch.replace(
                     es_field_conf['selector_value'],
                     data,
                 )
-            )
+            if str_value != '':
+                return int(str_value)
+            return None
         if es_field_conf['type'] == 'text':
-            return BaseElasticsearch.replace(
+            str_value = BaseElasticsearch.replace(
                 es_field_conf['selector_value'],
                 data,
             )
+            if str_value != '':
+                return str_value
+            return None
         if es_field_conf['type'] == 'edtf':
-            edtf_text = BaseElasticsearch.replace(
+            str_value = BaseElasticsearch.replace(
                     es_field_conf['selector_value'],
                     data,
                 )
-            if edtf_text == '..':
+            # Open ending
+            if str_value == '..':
                 if es_field_conf['subtype'] == 'start':
                     return {
-                        'text': edtf_text,
+                        'text': str_value,
                         'lower': DATE_MIN,
                         'upper': DATE_MIN,
                     }
                 else:
                     return {
-                        'text': edtf_text,
+                        'text': str_value,
                         'lower': DATE_MAX,
                         'upper': DATE_MAX,
                     }
-            if edtf_text == '':
+            # Unknown
+            if str_value == '':
                 return {
-                    'text': edtf_text,
+                    'text': None,
                     'lower': None,
                     'upper': None,
                 }
             try:
-                # edtf needs to be updated to the newest revision
-                old_edtf_text = edtf_text.replace('X', 'u')
+                # edtf module needs to be updated to the newest revision
+                old_edtf_text = str_value.replace('X', 'u')
                 edtf_date = edtf.parse_edtf(old_edtf_text)
             except edtf.parser.edtf_exceptions.EDTFParseException:
                 raise Exception(f'EDTF parser cannot parse {old_edtf_text}')
             return {
-                'text': edtf_text,
+                'text': str_value,
                 'lower': time.strftime(
                     '%Y-%m-%d',
                     edtf_date.lower_strict()
