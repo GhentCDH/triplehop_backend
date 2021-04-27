@@ -292,21 +292,22 @@ class DataRepository(BaseRepository):
                             rel_entity_id,
                         ]
 
-            # recursively obtain further relation data
-            for rel_entity_type_id, rel_entity_ids in rel_entities.items():
-                raw_rel_results_per_entity_type_id[rel_entity_type_id] = await self.get_entity_data_raw(
-                    rel_entity_type_id,
-                    list(rel_entity_ids),
-                    crdb_query['relations'][relation_type_id],
-                    False,
-                )
+                # recursively obtain further relation data
+                for rel_entity_type_id, rel_entity_ids in rel_entities.items():
+                    raw_rel_results_per_entity_type_id[rel_entity_type_id] = await self.get_entity_data_raw(
+                        rel_entity_type_id,
+                        list(rel_entity_ids),
+                        crdb_query['relations'][relation_type_id],
+                        False,
+                    )
 
-            # add the additional relation data to the result
-            for entity_id in results:
-                if crdb_query['relations'][relation_type_id]['relations']:
-                    for relation_id in results[entity_id]['relations'][relation_type_id]:
-                        (rel_entity_type_id, rel_entity_id) = mapping[relation_type_id][relation_id]
-                        results[entity_id]['relations'][relation_type_id][relation_id]['relations'] = \
-                            raw_rel_results_per_entity_type_id[rel_entity_type_id][rel_entity_id]['relations']
+                # add the additional relation data to the result
+                for entity_id in results:
+                    if relation_type_id in results[entity_id]['relations']:
+                        for relation_id in results[entity_id]['relations'][relation_type_id]:
+                            (rel_entity_type_id, rel_entity_id) = mapping[relation_type_id][relation_id]
+                            if rel_entity_id in raw_rel_results_per_entity_type_id[rel_entity_type_id]:
+                                results[entity_id]['relations'][relation_type_id][relation_id]['relations'] = \
+                                    raw_rel_results_per_entity_type_id[rel_entity_type_id][rel_entity_id]['relations']
 
         return results

@@ -123,11 +123,13 @@ class Elasticsearch():
         current_levels = [data]
         path = [p.replace('$', '') for p in base.split('->')]
         for p in path:
-            current_levels = [
-                v
-                for current_level in current_levels
-                for v in current_level['relations'][p].values()
-            ]
+            new_current_levels = []
+            for current_level in current_levels:
+                if 'relations' not in current_level:
+                    continue
+                for related in current_level['relations'][p].values():
+                    new_current_levels.append(related)
+            current_levels = new_current_levels
         return current_levels
 
     @staticmethod
@@ -207,7 +209,8 @@ class Elasticsearch():
                         part_def,
                         data,
                     )
-                return results
+                results.append(result)
+            return results
         raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
 
     @staticmethod
