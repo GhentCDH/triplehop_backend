@@ -19,7 +19,7 @@ def entity_resolver_wrapper(
     entity_type_name: str,
 ):
     async def get_entities(entity_ids: typing.List[int]):
-        data_repo = await get_repository_from_request(request, DataRepository, project_name)
+        data_repo = get_repository_from_request(request, DataRepository, project_name)
         data = await data_repo.get_entities_graphql(entity_type_name, entity_ids)
         # dataloader expects sequence of objects or None following order of ids in ids
         return [data.get(id) for id in entity_ids]
@@ -42,7 +42,7 @@ def relation_resolver_wrapper(
     inverse: bool = False,
 ):
     async def get_relations(keys: typing.List[str]):
-        data_repo = await get_repository_from_request(request, DataRepository, project_name)
+        data_repo = get_repository_from_request(request, DataRepository, project_name)
         grouped_ids = {}
         for key in keys:
             (entity_type_name, entity_id__str) = key.split('|')
@@ -183,7 +183,7 @@ async def create_object_types(
 async def create_schema(
     request: Request,
 ):
-    config_repo = await get_repository_from_request(request, ConfigRepository)
+    config_repo = get_repository_from_request(request, ConfigRepository)
     entity_types_config = await config_repo.get_entity_types_config(request.path_params['project_name'])
     relation_types_config = await config_repo.get_relation_types_config(request.path_params['project_name'])
 

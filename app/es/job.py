@@ -5,20 +5,21 @@ from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.db.job import JobRepository
-from app.es.core import Elasticsearch
+from app.es.base import BaseElasticsearch
+from app.es.core import get_es_from_request
 
 BATCH_SIZE = 500
 
 
 async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, request: starlette.requests.Request):
-    data_repo = await get_repository_from_request(request, DataRepository, project_name)
+    data_repo = get_repository_from_request(request, DataRepository, project_name)
     entity_ids = await data_repo.get_entity_ids_by_type_name(entity_type_name)
 
-    job_repo = await get_repository_from_request(request, JobRepository)
+    job_repo = get_repository_from_request(request, JobRepository)
     await job_repo.start(job_id, len(entity_ids))
 
     try:
-        config_repo = await get_repository_from_request(request, ConfigRepository)
+        config_repo = get_repository_from_request(request, ConfigRepository)
         entity_types_config = await config_repo.get_entity_types_config(project_name)
         entity_type_config = entity_types_config[entity_type_name]
         entity_type_names = {
@@ -26,8 +27,8 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
             for et_name, et_config in entity_types_config.items()
         }
         es_data_config = entity_type_config['config']['es_data']
-        crdb_query = Elasticsearch.extract_query_from_es_data_config(es_data_config)
-        es = Elasticsearch()
+        crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
+        es = get_es_from_request(request, BaseElasticsearch)
         new_index_name = await es.create_new_index(entity_type_name, es_data_config)
 
         batch_counter = 0
@@ -39,7 +40,7 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
                 crdb_query,
             )
 
-            batch_docs = Elasticsearch.convert_entities_to_docs(
+            batch_docs = BaseElasticsearch.convert_entities_to_docs(
                 entity_type_names,
                 es_data_config,
                 batch_entities

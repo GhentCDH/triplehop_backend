@@ -54,7 +54,7 @@ def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
 # TODO: cache
 def project_config_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
-        config_repo = await get_repository_from_request(request, ConfigRepository)
+        config_repo = get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_project_config(project_name)
 
@@ -66,7 +66,7 @@ def project_config_resolver_wrapper(request: Request, project_name: str):
 # TODO: cache
 def entity_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
-        config_repo = await get_repository_from_request(request, ConfigRepository)
+        config_repo = get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_entity_types_config(project_name)
 
@@ -113,7 +113,7 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
 # TODO: cache
 def relation_configs_resolver_wrapper(request: Request, project_name: str):
     async def resolver(*_):
-        config_repo = await get_repository_from_request(request, ConfigRepository)
+        config_repo = get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
         db_result = await config_repo.get_relation_types_config(project_name)
 

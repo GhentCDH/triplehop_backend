@@ -21,7 +21,7 @@ def verify_password(plain_password, hashed_password):
 
 
 async def authenticate_user(request: Request, username: str, password: str):
-    user_repo = await get_repository_from_request(request, UserRepository)
+    user_repo = get_repository_from_request(request, UserRepository)
     user = await user_repo.get_user(username=username.lower())
     if not user:
         return False
@@ -54,7 +54,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         token_data = TokenData(username=username)
     except PyJWTError:
         raise credentials_exception
-    user_repo = await get_repository_from_request(request, UserRepository)
+    user_repo = get_repository_from_request(request, UserRepository)
     user = await user_repo.get_user(username=token_data.username.lower())
     if user is None:
         raise credentials_exception
@@ -71,6 +71,6 @@ async def get_current_active_user_with_permissions(
     request: Request,
     current_user: User = Depends(get_current_active_user)
 ):
-    permission_repo = await get_repository_from_request(request, PermissionRepository)
+    permission_repo = get_repository_from_request(request, PermissionRepository)
     permissions = await permission_repo.get_permissions(current_user)
     return UserWithPermissions(**current_user.dict(), permissions=permissions)

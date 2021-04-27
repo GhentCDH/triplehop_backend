@@ -19,7 +19,7 @@ async def get_by_project(
     request: Request,
     user: UserWithPermissions = Depends(get_user),
 ):
-    job_repository = await get_repository_from_request(request, JobRepository)
+    job_repository = get_repository_from_request(request, JobRepository)
     job_to_display = await job_repository.get_by_project(id, project_name)
 
     if job_to_display is None:

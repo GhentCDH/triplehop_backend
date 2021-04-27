@@ -15,7 +15,7 @@ async def db_disconnect(app: fastapi.FastAPI) -> None:
     await app.state.pool.close()
 
 
-async def get_repository_from_request(
+def get_repository_from_request(
     request: starlette.requests.Request,
     repo_type: typing.Type[BaseRepository],
     *_

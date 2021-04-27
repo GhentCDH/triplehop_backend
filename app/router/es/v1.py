@@ -6,7 +6,8 @@ from app.auth.permission import require_entity_permission
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
 from app.db.job import JobRepository
-from app.es.core import Elasticsearch
+from app.es.base import BaseElasticsearch
+from app.es.core import get_es_from_request
 from app.es.job import reindex as reindex_job
 from app.models.auth import UserWithPermissions
 from app.models.es import ElasticSearchBody
@@ -22,9 +23,9 @@ async def search(
     es_body: ElasticSearchBody,
     request: Request,
 ):
-    config_repo = await get_repository_from_request(request, ConfigRepository)
+    config_repo = get_repository_from_request(request, ConfigRepository)
     entity_type_id = await config_repo.get_entity_type_id_by_name(project_name, entity_type_name)
-    es = Elasticsearch()
+    es = get_es_from_request(request, BaseElasticsearch)
     return await es.search(entity_type_id, es_body.dict())
 
 
@@ -42,7 +43,7 @@ async def reindex(
         entity_type_name,
         'es_index',
     )
-    job_repository = await get_repository_from_request(request, JobRepository)
+    job_repository = get_repository_from_request(request, JobRepository)
     job_id = await job_repository.create(user, 'es_index', project_name, entity_type_name)
     background_tasks.add_task(reindex_job, job_id, project_name, entity_type_name, request)
     return JobId(id=job_id)
