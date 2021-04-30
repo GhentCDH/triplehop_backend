@@ -15,5 +15,20 @@
             "display_name": "Postal code",
             "type": "Int"
         }
-    ]
+    ],
+    "display": {
+        "title": "$name",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "$name"
+                    },
+                    {
+                        "field": "$postal_code"
+                    }
+                ]
+            }
+        ]
+    }
 }
