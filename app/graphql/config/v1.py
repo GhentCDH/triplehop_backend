@@ -21,15 +21,19 @@ def _layout_field_converter(layout: List, data_conf: Dict) -> List:
 
 
 def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
-    result = []
+    results = []
     for column in columns:
-        result.append({
+        result = {
             'system_name': es_data_conf[column['column'][1:]]['system_name'],
             'display_name': es_data_conf[column['column'][1:]]['display_name'],
             'type': es_data_conf[column['column'][1:]]['type'],
             'sortable': column['sortable'],
-        })
-    return result
+        }
+        for key in ['main_link', 'link']:
+            if key in column:
+                result[key] = column[key]
+        results.append(result)
+    return results
 
 
 def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
@@ -193,6 +197,8 @@ async def create_type_defs():
             ['display_name', 'String!'],
             ['type', 'String!'],
             ['sortable', 'Boolean!'],
+            ['main_link', 'Boolean'],
+            ['link', 'Boolean'],
         ],
         'es_filter_group_config': [
             ['filters', '[Es_filter_config!]'],

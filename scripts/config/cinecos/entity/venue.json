@@ -173,7 +173,8 @@
         "columns": [
             {
                 "column": "$name",
-                "sortable": true
+                "sortable": true,
+                "main_link": true
             },
             {
                 "column": "$city",
