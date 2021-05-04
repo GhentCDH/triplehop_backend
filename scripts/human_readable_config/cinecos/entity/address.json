@@ -27,7 +27,7 @@
         }
     ],
     "display": {
-        "title": "$street_name",
+        "title": "$street_name $r_address_city->$name",
         "layout": [
             {
                 "fields": [

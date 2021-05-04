@@ -62,7 +62,7 @@
         }
     ],
     "display": {
-        "title": "$name",
+        "title": "$name ($r_venue_address->$r_address_city->$name)",
         "layout": [
             {
                 "fields": [

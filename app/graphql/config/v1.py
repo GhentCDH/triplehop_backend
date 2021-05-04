@@ -1,8 +1,7 @@
-from typing import Dict, List
-
-from ariadne import gql, make_executable_schema, QueryType
-from copy import deepcopy
-from starlette.requests import Request
+import ariadne
+import copy
+import typing
+import starlette
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
@@ -10,17 +9,74 @@ from app.graphql.base import construct_type_def
 from app.utils import RE_FIELD_CONVERSION
 
 
-def _layout_field_converter(layout: List, data_conf: Dict) -> List:
-    result = deepcopy(layout)
-    for panel in result:
-        for field in panel['fields']:
-            field['field'] = data_conf[field['field'][1:]]['system_name']
-            if 'base_layer' in field:
-                field['base_layer'] = data_conf[field['base_layer']]['system_name']
+def _replace_field_ids_by_system_names(
+    input: str,
+    entity_field_lookup: typing.Dict,
+    relation_lookup: typing.Dict,
+    relation_field_lookup: typing.Dict,
+) -> str:
+    result = input
+    for match in RE_FIELD_CONVERSION.finditer(input):
+        if not match:
+            continue
+
+        path = [p.replace('$', '') for p in match.group(0).split('->')]
+        for i, p in enumerate(path):
+            # last element => p = relation.r_prop or e_prop
+            if i == len(path) - 1:
+                # relation property
+                if '.' in p:
+                    (rel_type_id, r_prop_id) = p.split('.')
+                    result = result.replace(
+                        rel_type_id.split('_')[1],
+                        relation_lookup[rel_type_id.split('_')[1]]
+                    )
+                    result = result.replace(
+                        r_prop_id,
+                        relation_field_lookup[r_prop_id]
+                    )
+                    break
+                # entity property
+                result = result.replace(
+                    p,
+                    entity_field_lookup[p]
+                )
+                break
+            # not last element => p = relation
+            result = result.replace(
+                p.split('_')[1],
+                relation_lookup[p.split('_')[1]]
+            )
+
     return result
 
 
-def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
+def _layout_field_converter(
+    layout: typing.List,
+    entity_field_lookup: typing.Dict,
+    relation_lookup: typing.Dict,
+    relation_field_lookup: typing.Dict,
+) -> typing.List:
+    result = copy.deepcopy(layout)
+    for panel in result:
+        for field in panel['fields']:
+            field['field'] = _replace_field_ids_by_system_names(
+                field['field'],
+                entity_field_lookup,
+                relation_lookup,
+                relation_field_lookup,
+            )
+            if 'base_layer' in field:
+                field['base_layer'] = _replace_field_ids_by_system_names(
+                    field['base_layer'],
+                    entity_field_lookup,
+                    relation_lookup,
+                    relation_field_lookup,
+                )
+    return result
+
+
+def _es_columns_converter(columns: typing.List, es_data_conf: typing.Dict) -> typing.List:
     results = []
     for column in columns:
         result = {
@@ -36,7 +92,7 @@ def _es_columns_converter(columns: List, es_data_conf: Dict) -> List:
     return results
 
 
-def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
+def _es_filters_converter(filters: typing.List, es_data_conf: typing.Dict) -> typing.List:
     result = []
     for section in filters:
         res_section = {
@@ -56,7 +112,7 @@ def _es_filters_converter(filters: List, es_data_conf: Dict) -> List:
 
 
 # TODO: cache
-def project_config_resolver_wrapper(request: Request, project_name: str):
+def project_config_resolver_wrapper(request: starlette.requests.Request, project_name: str):
     async def resolver(*_):
         config_repo = get_repository_from_request(request, ConfigRepository)
         # TODO: find a way to avoid unnecessary connection openings
@@ -68,14 +124,28 @@ def project_config_resolver_wrapper(request: Request, project_name: str):
 
 
 # TODO: cache
-def entity_configs_resolver_wrapper(request: Request, project_name: str):
+def entity_configs_resolver_wrapper(request: starlette.requests.Request, project_name: str):
     async def resolver(*_):
         config_repo = get_repository_from_request(request, ConfigRepository)
-        # TODO: find a way to avoid unnecessary connection openings
-        db_result = await config_repo.get_entity_types_config(project_name)
+        entity_types_config = await config_repo.get_entity_types_config(project_name)
+        relation_types_config = await config_repo.get_relation_types_config(project_name)
+
+        entity_field_lookup = {}
+        for entity_system_name, entity_config in entity_types_config.items():
+            if 'data' in entity_config['config']:
+                for id_, config in entity_config['config']['data'].items():
+                    entity_field_lookup[id_] = config['system_name']
+
+        relation_lookup = {}
+        relation_field_lookup = {}
+        for relation_system_name, relation_config in relation_types_config.items():
+            relation_lookup[relation_config['id']] = relation_system_name
+            if 'data' in relation_config['config']:
+                for id_, config in relation_config['config']['data'].items():
+                    relation_field_lookup[id_] = config['system_name']
 
         results = []
-        for entity_system_name, entity_config in db_result.items():
+        for entity_system_name, entity_config in entity_types_config.items():
             data_conf = {}
             config_item = {
                 'system_name': entity_system_name,
@@ -87,12 +157,18 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
             # TODO: add display_names from data to display, so data doesn't need to be exported
             if 'display' in entity_config['config']:
                 config_item['display'] = {
-                    # TODO: support relations
-                    'title': RE_FIELD_CONVERSION.sub(
-                        lambda m: '$' + data_conf[m.group()[1:]]['system_name'] if m.group()[1:] in data_conf else m[0],
-                        entity_config['config']['display']['title']
+                    'title': _replace_field_ids_by_system_names(
+                        entity_config['config']['display']['title'],
+                        entity_field_lookup,
+                        relation_lookup,
+                        relation_field_lookup,
                     ),
-                    'layout': _layout_field_converter(entity_config['config']['display']['layout'], data_conf),
+                    'layout': _layout_field_converter(
+                        entity_config['config']['display']['layout'],
+                        entity_field_lookup,
+                        relation_lookup,
+                        relation_field_lookup,
+                    ),
                 }
             if 'es_data' in entity_config['config']:
                 es_data_conf = {esd['system_name']: esd for esd in entity_config['config']['es_data']}
@@ -115,14 +191,13 @@ def entity_configs_resolver_wrapper(request: Request, project_name: str):
 
 
 # TODO: cache
-def relation_configs_resolver_wrapper(request: Request, project_name: str):
+def relation_configs_resolver_wrapper(request: starlette.requests.Request, project_name: str):
     async def resolver(*_):
         config_repo = get_repository_from_request(request, ConfigRepository)
-        # TODO: find a way to avoid unnecessary connection openings
-        db_result = await config_repo.get_relation_types_config(project_name)
+        relation_types_config = await config_repo.get_relation_types_config(project_name)
 
         results = []
-        for relation_system_name, relation_config in db_result.items():
+        for relation_system_name, relation_config in relation_types_config.items():
             config_item = {
                 'system_name': relation_system_name,
                 'display_name': relation_config['display_name'],
@@ -134,6 +209,7 @@ def relation_configs_resolver_wrapper(request: Request, project_name: str):
                 'range_names': relation_config['range_names'],
             }
             if 'data' in relation_config['config']:
+                # TODO: full conversion (see entity_configs_resolver_wrapper)
                 data_conf = relation_config['config']['data']
                 config_item['data'] = list(data_conf.values())
                 config_item['display']['layout'] = \
@@ -227,14 +303,14 @@ async def create_type_defs():
 
     type_defs_array = [construct_type_def(type.capitalize(), props) for type, props in type_defs_dict.items()]
 
-    return gql('\n\n'.join(type_defs_array))
+    return ariadne.gql('\n\n'.join(type_defs_array))
 
 
 async def create_object_types(
-    request: Request,
+    request: starlette.requests.Request,
     project_name: str,
 ):
-    object_types = {'Query': QueryType()}
+    object_types = {'Query': ariadne.QueryType()}
 
     object_types['Query'].set_field(
         'Project_config',
@@ -255,11 +331,11 @@ async def create_object_types(
 
 
 # TODO: cache per project_name (app always hangs after 6 requests when using cache)
-async def create_schema(request: Request):
+async def create_schema(request: starlette.requests.Request):
     type_defs = await create_type_defs()
     object_types = await create_object_types(
         request,
         request.path_params['project_name'],
     )
 
-    return make_executable_schema(type_defs, *object_types)
+    return ariadne.make_executable_schema(type_defs, *object_types)
