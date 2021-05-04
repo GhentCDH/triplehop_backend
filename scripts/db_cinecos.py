@@ -33,6 +33,7 @@ async def create_structure():
         'city': 'City',
         'address': 'Address',
         'venue': 'Venue',
+        'person': 'Person'
     }
     for (system_name, display_name) in entities_types.items():
         await utils.create_entity_config(
@@ -133,50 +134,69 @@ async def create_data():
     conn = await asyncpg.connect(**config.DATABASE)
     await utils.init_age(conn)
 
-    # await create_entity(
-    #     conn,
-    #     {
-    #         'filename': 'tblFilm.csv',
-    #         'entity_type_name': 'film',
-    #         'props': {
-    #             'id': ['int', 'film_id'],
-    #             'original_id': ['int', 'film_id'],
-    #             'title': ['string', 'title'],
-    #             'year': ['int', 'film_year'],
-    #             'imdb_id': ['string', 'imdb'],
-    #             'wikidata_id': ['string', 'wikidata'],
-    #         },
-    #     }
-    # )
+    await create_entity(
+        conn,
+        {
+            'filename': 'tblFilm.csv',
+            'entity_type_name': 'film',
+            'props': {
+                'id': ['int', 'film_id'],
+                'original_id': ['int', 'film_id'],
+                'title': ['string', 'title'],
+                'year': ['int', 'film_year'],
+                'imdb_id': ['string', 'imdb'],
+                'wikidata_id': ['string', 'wikidata'],
+            },
+        }
+    )
 
-    # await create_entity(
-    #     conn,
-    #     {
-    #         'filename': 'tblFilmTitleVariation.csv',
-    #         'entity_type_name': 'mentioned_film_title',
-    #         'props': {
-    #             'id': ['int', 'film_variation_id'],
-    #             'title': ['string', 'title'],
-    #         },
-    #     }
-    # )
+    await create_entity(
+        conn,
+        {
+            'filename': 'tblFilmTitleVariation.csv',
+            'entity_type_name': 'mentioned_film_title',
+            'props': {
+                'id': ['int', 'film_variation_id'],
+                'title': ['string', 'title'],
+            },
+        }
+    )
 
-    # await create_relation(
-    #     conn,
-    #     {
-    #         'filename': 'tblFilmTitleVariation.csv',
-    #         'relation_type_name': 'mentioned_film_title',
-    #         'domain_type_name': 'film',
-    #         'range_type_name': 'mentioned_film_title',
-    #         'domain': {
-    #             'id': ['int', 'film_id'],
-    #         },
-    #         'range': {
-    #             'id': ['int', 'film_variation_id'],
-    #         },
-    #         'props': {}
-    #     }
-    # )
+    await create_entity(
+        conn,
+        {
+            'filename': 'tblPersonWithFirstNames.csv',
+            'entity_type_name': 'person',
+            'props': {
+                'id': ['int', 'person_id'],
+                'original_id': ['int', 'person_id'],
+                'first_names': ['array[string]', 'first_names', '|'],
+                'last_name': ['string', 'last_name'],
+                'suffix': ['string', 'suffix'],
+                'name': ['string', 'name'],
+                'info': ['string', 'info'],
+                'imdb_id': ['string', 'imdb'],
+                'wikidata_id': ['string', 'wikidata'],
+            },
+        }
+    )
+
+    await create_relation(
+        conn,
+        {
+            'filename': 'tblFilmTitleVariation.csv',
+            'relation_type_name': 'mentioned_film_title',
+            'domain_type_name': 'film',
+            'range_type_name': 'mentioned_film_title',
+            'domain': {
+                'id': ['int', 'film_id'],
+            },
+            'range': {
+                'id': ['int', 'film_variation_id'],
+            },
+            'props': {}
+        }
+    )
 
     await create_entity(
         conn,

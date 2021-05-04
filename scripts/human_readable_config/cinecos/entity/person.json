@@ -1,0 +1,84 @@
+{
+    "data": [
+        {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        {
+            "system_name": "name",
+            "display_name": "Name",
+            "type": "String"
+        },
+        {
+            "system_name": "first_names",
+            "display_name": "First names",
+            "type": "Array"
+        },
+        {
+            "system_name": "last_name",
+            "display_name": "Last name",
+            "type": "String"
+        },
+        {
+            "system_name": "last_name",
+            "display_name": "Last name",
+            "type": "String"
+        },
+        {
+            "system_name": "suffix",
+            "display_name": "Suffix",
+            "type": "String"
+        },
+        {
+            "system_name": "info",
+            "display_name": "Info",
+            "type": "String"
+        },
+        {
+            "system_name": "imdb_id",
+            "display_name": "IMDb ID",
+            "type": "String"
+        },
+        {
+            "system_name": "wikidata_id",
+            "display_name": "Wikidata ID",
+            "type": "String"
+        }
+    ],
+    "display": {
+        "title": "$name",
+        "layout": [
+            {
+                "label": "General",
+                "fields": [
+                    {
+                        "field": "$name"
+                    },
+                    {
+                        "field": "$first_names"
+                    },
+                    {
+                        "field": "$last_name"
+                    },
+                    {
+                        "field": "$suffix"
+                    },
+                    {
+                        "field": "$info"
+                    },
+                    {
+                        "field": "$imdb_id",
+                        "type": "online_identifier",
+                        "base_url": "https://www.imdb.com/title/"
+                    },
+                    {
+                        "field": "$wikidata_id",
+                        "type": "online_identifier",
+                        "base_url": "https://www.wikidata.org/wiki/"
+                    }
+                ]
+            }
+        ]
+    }
+}

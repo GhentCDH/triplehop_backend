@@ -399,6 +399,9 @@ def age_format_properties(properties: typing.Dict, prefix: str = ''):
         if value_type == 'edtf':
             formatted_properties[f'p_{key}'] = value_value
             continue
+        if value_type == 'array':
+            formatted_properties[f'p_{key}'] = value_value
+            continue
         # https://github.com/apache/incubator-age/issues/48
         # if value_type == 'point':
         #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
@@ -447,6 +450,15 @@ def create_properties(
             properties[db_key] = {
                 'type': 'edtf',
                 'value': value,
+            }
+            continue
+        if conf[0] == 'array[string]':
+            value = row[file_header_lookup[conf[1]]]
+            if value in ['']:
+                continue
+            properties[db_key] = {
+                'type': 'array',
+                'value': value.split(conf[2]),
             }
             continue
         # https://github.com/apache/incubator-age/issues/48

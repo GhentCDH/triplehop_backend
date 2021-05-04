@@ -110,3 +110,44 @@ with open('data/processed/tblAddress.csv') as input_file,\
             city_counter += 1
 
         join_writer.writerow([row[header_lookup['address_id']], city_lookup[key]])
+
+# join tlbPerson and tblPersonFirstNames so an update is not needed
+with open('data/processed/tblPerson.csv') as p_file,\
+     open('data/processed/tblPersonFirstNames.csv') as fn_file,\
+     open('data/processed/tblPersonWithFirstNames.csv', 'w') as join_file:
+    p_reader = csv.reader(p_file)
+    fn_reader = csv.reader(fn_file)
+    join_writer = csv.writer(join_file, lineterminator='\n')
+
+    p_header = next(p_reader)
+    p_header.append('first_names')
+    p_header.append('imdb')
+    p_header_lookup = {h: p_header.index(h) for h in p_header}
+
+    fn_header = next(fn_reader)
+    fn_header_lookup = {h: fn_header.index(h) for h in fn_header}
+
+    join_writer.writerow(p_header)
+
+    fn_lookup = {}
+    for row in fn_reader:
+        person_id = row[fn_header_lookup['person_id']]
+        if person_id not in fn_lookup:
+            fn_lookup[person_id] = []
+        fn_lookup[person_id].append(row[fn_header_lookup['first_name']])
+
+    for row in p_reader:
+        person_id = row[p_header_lookup['person_id']]
+        if person_id in fn_lookup:
+            row.append('|'.join(fn_lookup[person_id]))
+        else:
+            row.append('')
+        if row[p_header_lookup['name']] == '':
+            row[p_header_lookup['name']] = (
+                f'{" / ".join(row[p_header_lookup["first_names"]].split("|"))} '
+                f'{row[p_header_lookup["last_name"]]} '
+                f'{row[p_header_lookup["suffix"]]}'
+            ).replace('  ', ' ').strip()
+        # imdb
+        row.append('')
+        join_writer.writerow(row)

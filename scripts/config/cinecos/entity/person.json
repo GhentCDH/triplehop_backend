@@ -1,0 +1,84 @@
+{
+    "data": {
+        "584927c8-29bf-4ed7-bf33-fa8262675354": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "da8140da-ae74-4563-8ef0-c555faa3ebbc": {
+            "system_name": "name",
+            "display_name": "Name",
+            "type": "String"
+        },
+        "6cfc0245-0adc-4976-9abe-9dfd9eb65f3f": {
+            "system_name": "first_names",
+            "display_name": "First names",
+            "type": "Array"
+        },
+        "d1e5ad45-229d-4204-8210-8540a42c5282": {
+            "system_name": "last_name",
+            "display_name": "Last name",
+            "type": "String"
+        },
+        "ee404c59-c152-47d9-a1ee-2daba690fc80": {
+            "system_name": "last_name",
+            "display_name": "Last name",
+            "type": "String"
+        },
+        "72b8e68e-85ed-4bba-a15f-cadf48c0a27f": {
+            "system_name": "suffix",
+            "display_name": "Suffix",
+            "type": "String"
+        },
+        "12c874ab-4469-4551-85e2-139aa775a066": {
+            "system_name": "info",
+            "display_name": "Info",
+            "type": "String"
+        },
+        "0c9f6144-da4b-44ea-a0d9-91d7390e2c34": {
+            "system_name": "imdb_id",
+            "display_name": "IMDb ID",
+            "type": "String"
+        },
+        "5377f066-630f-46b1-b9e8-bf0196e21f3f": {
+            "system_name": "wikidata_id",
+            "display_name": "Wikidata ID",
+            "type": "String"
+        }
+    },
+    "display": {
+        "title": "$da8140da-ae74-4563-8ef0-c555faa3ebbc",
+        "layout": [
+            {
+                "label": "General",
+                "fields": [
+                    {
+                        "field": "$da8140da-ae74-4563-8ef0-c555faa3ebbc"
+                    },
+                    {
+                        "field": "$6cfc0245-0adc-4976-9abe-9dfd9eb65f3f"
+                    },
+                    {
+                        "field": "$ee404c59-c152-47d9-a1ee-2daba690fc80"
+                    },
+                    {
+                        "field": "$72b8e68e-85ed-4bba-a15f-cadf48c0a27f"
+                    },
+                    {
+                        "field": "$12c874ab-4469-4551-85e2-139aa775a066"
+                    },
+                    {
+                        "field": "$0c9f6144-da4b-44ea-a0d9-91d7390e2c34",
+                        "type": "online_identifier",
+                        "base_url": "https://www.imdb.com/title/"
+                    },
+                    {
+                        "field": "$5377f066-630f-46b1-b9e8-bf0196e21f3f",
+                        "type": "online_identifier",
+                        "base_url": "https://www.wikidata.org/wiki/"
+                    }
+                ]
+            }
+        ]
+    }
+}
