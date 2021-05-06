@@ -390,22 +390,10 @@ def age_format_properties(properties: typing.Dict, prefix: str = ''):
                 raise Exception('Non-int ids are not yet implemented')
         else:
             key = dtu(key)
-        if value_type == 'int':
-            formatted_properties[f'p_{key}'] = int(value_value)
-            continue
-        if value_type == 'string':
+        # TODO: postgis (https://github.com/apache/incubator-age/issues/48)
+        if value_type in ['int', 'string', 'edtf', 'array', 'geometry']:
             formatted_properties[f'p_{key}'] = value_value
             continue
-        if value_type == 'edtf':
-            formatted_properties[f'p_{key}'] = value_value
-            continue
-        if value_type == 'array':
-            formatted_properties[f'p_{key}'] = value_value
-            continue
-        # https://github.com/apache/incubator-age/issues/48
-        # if value_type == 'point':
-        #     formatted_properties.append(f"p_{key}: ST_SetSRID(ST_MakePoint({', '.join(value_value)}),4326)")
-        #     continue
         raise Exception(f'Value type {value_type} is not yet implemented')
     return [
         ', '.join([f'{k if k != prefix_id else "id"}: ${k}' for k in formatted_properties.keys()]),
@@ -461,16 +449,15 @@ def create_properties(
                 'value': value.split(conf[2]),
             }
             continue
-        # https://github.com/apache/incubator-age/issues/48
-        # if conf[0] == 'point':
-        #     value = row[file_header_lookup[conf[1]]]
-        #     if value[0] in ['']:
-        #         continue
-        #     properties[db_key] = {
-        #         'type': 'point',
-        #         'value': value.split(', '),
-        #     }
-        #     continue
+        if conf[0] == 'geometry':
+            value = row[file_header_lookup[conf[1]]]
+            if value in ['']:
+                continue
+            properties[db_key] = {
+                'type': 'geometry',
+                'value': json.loads(value),
+            }
+            continue
         else:
             raise Exception(f'Type {conf[0]} has not yet been implemented')
     return properties

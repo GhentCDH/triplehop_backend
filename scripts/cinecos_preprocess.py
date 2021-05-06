@@ -1,11 +1,11 @@
-from typing import Dict
-
 import csv
+import json
 import os
 import re
+import typing
 
 
-def fix_cell(value: str, short_config: Dict):
+def fix_cell(value: str, short_config: typing.Dict):
     if value in ['', 'N/A']:
         return ''
     if short_config is None:
@@ -29,7 +29,7 @@ def fix_cell(value: str, short_config: Dict):
     return value
 
 
-def fix_data(filename: str, config: Dict):
+def fix_data(filename: str, config: typing.Dict):
     with open(f'data/original/{filename}') as input_file,\
          open(f'data/processed/{filename}', 'w') as output_file:
         input_reader = csv.reader(input_file)
@@ -79,37 +79,52 @@ for filename in os.listdir('data/original'):
 
 
 # tblAddress.csv -> tblCity.csv and tblJoinAddressCity.csv
+# tblAddress -> save geodata as geojson
 city_counter = 1
 city_lookup = {}
 
-with open('data/processed/tblAddress.csv') as input_file,\
+with open('data/processed/tblAddress.csv') as address_file,\
      open('data/processed/tblCity.csv', 'w') as city_file,\
-     open('data/processed/tblJoinAddressCity.csv', 'w') as join_file:
-    input_reader = csv.reader(input_file)
+     open('data/processed/tblJoinAddressCity.csv', 'w') as join_file,\
+     open('data/processed/tblAddressWithGeoJson.csv', 'w') as address_out_file:
+    address_reader = csv.reader(address_file)
     city_writer = csv.writer(city_file, lineterminator='\n')
     join_writer = csv.writer(join_file, lineterminator='\n')
+    address_out_writer = csv.writer(address_out_file, lineterminator='\n')
 
-    header = next(input_reader)
-    header_lookup = {h: header.index(h) for h in header}
+    address_header = next(address_reader)
+    address_header_lookup = {h: address_header.index(h) for h in address_header}
+    address_out_writer.writerow(address_header)
 
     city_writer.writerow(['id', 'name', 'postal_code'])
     join_writer.writerow(['address_id', 'city_id'])
 
-    for row in input_reader:
+    for row in address_reader:
         if (
-            row[header_lookup["city_name"]] == ''
-            and row[header_lookup["postal_code"]] == ''
+            row[address_header_lookup['city_name']] != ''
+            or row[address_header_lookup['postal_code']] != ''
         ):
-            continue
+            key = f'{row[address_header_lookup["city_name"]]}_{row[address_header_lookup["postal_code"]]}'
 
-        key = f'{row[header_lookup["city_name"]]}_{row[header_lookup["postal_code"]]}'
+            if key not in city_lookup:
+                city_lookup[key] = city_counter
+                city_writer.writerow([
+                    city_counter,
+                    row[address_header_lookup['city_name']],
+                    row[address_header_lookup['postal_code']]
+                ])
+                city_counter += 1
 
-        if key not in city_lookup:
-            city_lookup[key] = city_counter
-            city_writer.writerow([city_counter, row[header_lookup['city_name']], row[header_lookup['postal_code']]])
-            city_counter += 1
+            join_writer.writerow([row[address_header_lookup['address_id']], city_lookup[key]])
 
-        join_writer.writerow([row[header_lookup['address_id']], city_lookup[key]])
+        if (row[address_header_lookup['geodata']] != ''):
+            coordinates = row[address_header_lookup['geodata']].split(', ')
+            row[address_header_lookup['geodata']] = json.dumps({
+                'type': 'Point',
+                'coordinates': [coordinates[1], coordinates[0]]
+            })
+        address_out_writer.writerow(row)
+
 
 # join tlbPerson and tblPersonFirstNames so an update is not needed
 with open('data/processed/tblPerson.csv') as p_file,\
