@@ -13,12 +13,7 @@
         "6cfc0245-0adc-4976-9abe-9dfd9eb65f3f": {
             "system_name": "first_names",
             "display_name": "First names",
-            "type": "Array"
-        },
-        "d1e5ad45-229d-4204-8210-8540a42c5282": {
-            "system_name": "last_name",
-            "display_name": "Last name",
-            "type": "String"
+            "type": "[String]"
         },
         "ee404c59-c152-47d9-a1ee-2daba690fc80": {
             "system_name": "last_name",
@@ -56,7 +51,8 @@
                         "field": "$da8140da-ae74-4563-8ef0-c555faa3ebbc"
                     },
                     {
-                        "field": "$6cfc0245-0adc-4976-9abe-9dfd9eb65f3f"
+                        "field": "$6cfc0245-0adc-4976-9abe-9dfd9eb65f3f",
+                        "type": "list"
                     },
                     {
                         "field": "$ee404c59-c152-47d9-a1ee-2daba690fc80"
