@@ -215,14 +215,13 @@ async def create_data():
     await create_entity(
         conn,
         {
-            'filename': 'tblAddress.csv',
+            'filename': 'tblAddressWithGeoJson.csv',
             'entity_type_name': 'address',
             'props': {
                 'id': ['int', 'sequential_id'],
                 'original_id': ['string', 'address_id'],
                 'street_name': ['string', 'street_name'],
-                # https://github.com/apache/incubator-age/issues/48
-                # 'location': ['point', 'geodata'],
+                'location': ['geometry', 'geodata'],
                 'district': ['string', 'info'],
                 'architectural_info': ['string', 'architectural_info'],
             },
