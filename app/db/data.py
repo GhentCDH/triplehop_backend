@@ -303,7 +303,7 @@ class DataRepository(BaseRepository):
 
                 # add the additional relation data to the result
                 for entity_id in results:
-                    if relation_type_id in results[entity_id]['relations']:
+                    if 'relations' in results[entity_id] and relation_type_id in results[entity_id]['relations']:
                         for relation_id in results[entity_id]['relations'][relation_type_id]:
                             (rel_entity_type_id, rel_entity_id) = mapping[relation_type_id][relation_id]
                             if rel_entity_id in raw_rel_results_per_entity_type_id[rel_entity_type_id]:

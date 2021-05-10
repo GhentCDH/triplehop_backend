@@ -108,6 +108,10 @@ class BaseElasticsearch:
                     )
                     break
                 # not last element => p = relation => travel
+                if 'relations' not in current_level:
+                    return ''
+                if p not in current_level['relations']:
+                    return ''
                 if len(current_level['relations'][p].values()) > 1:
                     raise Exception('Not implemented')
                 current_level = list(current_level['relations'][p].values())[0]
