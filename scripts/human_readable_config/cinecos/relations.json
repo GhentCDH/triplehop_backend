@@ -1,4 +1,14 @@
 {
+    "venue_address": {
+        "id": "d833a091-047b-4f5f-b1a5-79b914c5e3bf",
+        "domain": "venue",
+        "range": "address"
+    },
+    "film_person": {
+        "id": "03eaa66b-a59c-4062-b7b6-50d82f65c3ba",
+        "domain": "film",
+        "range": "person"
+    },
     "mentioned_film_title": {
         "id": "e56ce384-7d5f-42e6-a16e-f9f75fa7ffdb",
         "domain": "film",
@@ -8,10 +18,5 @@
         "id": "7b5005be-f207-4a36-a454-d721f098bfa9",
         "domain": "address",
         "range": "city"
-    },
-    "venue_address": {
-        "id": "d833a091-047b-4f5f-b1a5-79b914c5e3bf",
-        "domain": "venue",
-        "range": "address"
     }
 }
