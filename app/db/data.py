@@ -48,11 +48,13 @@ class DataRepository(BaseRepository):
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
 
+        # OR with equals instead of IN [] because of performance issues
+        where_clause = [f'n.id = $entity_id_{entity_id}' for entity_id in entity_ids]
         query = (
             f'SELECT * FROM cypher('
             f'\'{self._project_id}\', '
             f'$$MATCH (n:n_{dtu(entity_type_id)}) '
-            f'WHERE n.id IN $entity_ids '
+            f'WHERE {" OR ".join(where_clause)} '
             f'return n$$, :params'
             f') as (n agtype);'
         )
@@ -60,7 +62,7 @@ class DataRepository(BaseRepository):
             query,
             {
                 'params': json.dumps({
-                    'entity_ids': entity_ids
+                    f'entity_id_{entity_id}': entity_id for entity_id in entity_ids
                 })
             },
             age=True
@@ -118,7 +120,7 @@ class DataRepository(BaseRepository):
         inverse: bool = False,
     ) -> typing.Dict:
         '''
-        Get relations and linked entity information starting from an entity type, an entity id and a relation type.
+        Get relations and linked entity information starting from an entity type, entity ids and a relation type.
 
         Return: Dict = {
             entity_id: {
@@ -135,21 +137,24 @@ class DataRepository(BaseRepository):
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
 
+        # OR with equals instead of IN [] because of performance issues
         if inverse:
+            where_clause = [f'r.id = $entity_id_{entity_id}' for entity_id in entity_ids]
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{self._project_id}\', '
                 f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
-                f'WHERE r.id IN $entity_ids '
+                f'WHERE {" OR ".join(where_clause)} '
                 f'return r.id, e, n$$, :params'
                 f') as (id agtype, e agtype, n agtype);'
             )
         else:
+            where_clause = [f'd.id = $entity_id_{entity_id}' for entity_id in entity_ids]
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{self._project_id}\', '
                 f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (n)'
-                f'WHERE d.id IN $entity_ids '
+                f'WHERE {" OR ".join(where_clause)} '
                 f'return d.id, e, n$$, :params'
                 f') as (id agtype, e agtype, n agtype);'
             )
@@ -158,7 +163,7 @@ class DataRepository(BaseRepository):
             query,
             {
                 'params': json.dumps({
-                    'entity_ids': entity_ids
+                    f'entity_id_{entity_id}': entity_id for entity_id in entity_ids
                 })
             },
             age=True
