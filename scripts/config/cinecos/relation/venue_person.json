@@ -1,0 +1,40 @@
+{
+    "data": {
+        "b3e16536-d17a-4fd6-bfc9-eb1610dc8e14": {
+            "system_name": "type",
+            "display_name": "Job type",
+            "type": "String"
+        },
+        "1f569f85-2bd6-470e-803a-6b2ffd24b688": {
+            "system_name": "date_start",
+            "display_name": "Start date",
+            "type": "String"
+        },
+        "8cca29d6-bc09-4be2-9a6e-bca6bc076fa2": {
+            "system_name": "date_end",
+            "display_name": "End date",
+            "type": "String"
+        }
+    },
+    "display": {
+        "domain_title": "People",
+        "range_title": "Venues",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "0"
+                    },
+                    {
+                        "field": "1",
+                        "type": "edtf_year"
+                    },
+                    {
+                        "field": "2",
+                        "type": "edtf_year"
+                    }
+                ]
+            }
+        ]
+    }
+}

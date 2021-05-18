@@ -47,6 +47,15 @@ async def executemany(
     await conn.executemany(query, args)
 
 
+async def fetch(
+    conn: asyncpg.connection.Connection,
+    query_template,
+    params: typing.Dict[str, typing.Any] = None,
+):
+    query, args = render(query_template, params)
+    return await conn.fetch(query, *args)
+
+
 async def fetchval(
     conn: asyncpg.connection.Connection,
     query_template,

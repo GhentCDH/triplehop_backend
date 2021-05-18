@@ -1,0 +1,40 @@
+{
+    "data": [
+        {
+            "system_name": "type",
+            "display_name": "Job type",
+            "type": "String"
+        },
+        {
+            "system_name": "date_start",
+            "display_name": "Start date",
+            "type": "String"
+        },
+        {
+            "system_name": "date_end",
+            "display_name": "End date",
+            "type": "String"
+        }
+    ],
+    "display": {
+        "domain_title": "People",
+        "range_title": "Companies",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "0"
+                    },
+                    {
+                        "field": "1",
+                        "type": "edtf_year"
+                    },
+                    {
+                        "field": "2",
+                        "type": "edtf_year"
+                    }
+                ]
+            }
+        ]
+    }
+}

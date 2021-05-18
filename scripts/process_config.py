@@ -7,11 +7,11 @@ import uuid
 RE_PROPERTY_VALUE = re.compile(r'(?<![$])[$]([a-z_]+(?:->(?<![$])[$]([a-z_]+))*)')
 
 
-def replace(project_config: dict, entity_name: str, input: str):
+def replace(project_config: dict, er: str, er_name: str, input: str):
     def replacer(match):
-        # todo: test properties through relations
+        # todo: more advanced properties on relations?
         # todo: relations with multiple domains / ranges?
-        current_entity = entity_name
+        current_er = er_name
         parts = match.group(0).split('->')
         result = []
         for part in parts:
@@ -23,15 +23,15 @@ def replace(project_config: dict, entity_name: str, input: str):
                     raise Exception('Relations ids, domains, ranges not available')
                 relation_name = part[2:]
                 result.append(f'$r_{project_config["relations_base"][relation_name]["id"]}')
-                current_entity = project_config["relations_base"][relation_name]['range']
+                current_er = project_config["relations_base"][relation_name]['range']
             elif part[:3] == 'ri_':
                 if 'relations_base' not in project_config:
                     raise Exception('Relations ids, domains, ranges not available')
                 relation_name = part[3:]
                 result.append(f'$ri_{project_config["relations_base"][relation_name]["id"]}')
-                current_entity = project_config["relations_base"][relation_name]['domain']
+                current_er = project_config["relations_base"][relation_name]['domain']
             else:
-                result.append(f'${project_config["entity"][current_entity]["lookup"][part]}')
+                result.append(f'${project_config[er][current_er]["lookup"][part]}')
         return '->'.join(result)
 
     return RE_PROPERTY_VALUE.sub(replacer, input)
@@ -83,14 +83,14 @@ for project_folder in os.listdir('human_readable_config'):
                 project_config[er][name]['display'] = copy.deepcopy(config['display'])
                 display = project_config[er][name]['display']
                 if 'title' in display:
-                    display['title'] = replace(project_config, name, display['title'])
+                    display['title'] = replace(project_config, er, name, display['title'])
                 if 'layout' in display:
                     for layout in display['layout']:
                         if 'label' in layout:
-                            layout['label'] = replace(project_config, name, layout['label'])
+                            layout['label'] = replace(project_config, er, name, layout['label'])
                         if 'fields' in layout:
                             for field in layout['fields']:
-                                field['field'] = replace(project_config, name, field['field'])
+                                field['field'] = replace(project_config, er, name, field['field'])
     # third iteration: es_data, es_display
     for er in ['entity', 'relation']:
         for fn in os.listdir(f'human_readable_config/{project_folder}/{er}'):
@@ -102,11 +102,11 @@ for project_folder in os.listdir('human_readable_config'):
                 es_data = project_config[er][name]['es_data']
                 for field in es_data:
                     if field['type'] == 'nested':
-                        field['base'] = replace(project_config, name, field['base'])
+                        field['base'] = replace(project_config, er, name, field['base'])
                         for part in field['parts'].values():
-                            part['selector_value'] = replace(project_config, name, part['selector_value'])
+                            part['selector_value'] = replace(project_config, er, name, part['selector_value'])
                     else:
-                        field['selector_value'] = replace(project_config, name, field['selector_value'])
+                        field['selector_value'] = replace(project_config, er, name, field['selector_value'])
             if 'es_display' in config:
                 project_config[er][name]['es_display'] = copy.deepcopy(config['es_display'])
 

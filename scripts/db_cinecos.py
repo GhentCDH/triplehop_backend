@@ -8,10 +8,10 @@ import config
 import utils
 
 
-async def batch(method: typing.Callable, data: typing.Iterable, *args):
+async def batch(method: typing.Callable, data: typing.Iterable, limit: int = None, *args):
     counter = 0
     batch = []
-    for row in tqdm.tqdm([r for r in data]):
+    for row in tqdm.tqdm([r for r in data][:limit]):
         counter += 1
         batch.append(row)
         if not counter % 500:
@@ -49,6 +49,7 @@ async def create_structure():
         'mentioned_film_title': ['Mentioned Film Title', ['film'], ['mentioned_film_title']],
         'address_city': ['City', ['address'], ['city']],
         'venue_address': ['Address', ['venue'], ['address']],
+        'film_person': ['Film Person', ['film'], ['person']],
     }
     for (system_name, (display_name, domains, ranges)) in relation_types.items():
         await utils.create_relation_config(
@@ -68,7 +69,7 @@ async def create_structure():
     await conn.close()
 
 
-async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict):
+async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict, limit: int = None):
     print(f'Cinecos importing entity {conf["entity_type_name"]}')
     with open(f'data/processed/{conf["filename"]}') as data_file:
         data_reader = csv.reader(data_file)
@@ -87,6 +88,7 @@ async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict):
         await batch(
             utils.create_entities,
             data_reader,
+            limit,
             conn,
             params,
             db_props_lookup,
@@ -95,7 +97,7 @@ async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict):
         )
 
 
-async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict):
+async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict, limit: int = None):
     print(f'Cinecos importing relation {conf["relation_type_name"]}')
     with open(f'data/processed/{conf["filename"]}') as data_file:
         data_reader = csv.reader(data_file)
@@ -118,6 +120,7 @@ async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict
         await batch(
             utils.create_relations,
             data_reader,
+            limit,
             conn,
             params,
             db_domain_props_lookup,
@@ -147,7 +150,7 @@ async def create_data():
                 'imdb_id': ['string', 'imdb'],
                 'wikidata_id': ['string', 'wikidata'],
             },
-        }
+        },
     )
 
     await create_entity(
@@ -159,7 +162,26 @@ async def create_data():
                 'id': ['int', 'film_variation_id'],
                 'title': ['string', 'title'],
             },
-        }
+        },
+        1000,
+    )
+
+    await create_relation(
+        conn,
+        {
+            'filename': 'tblFilmTitleVariation.csv',
+            'relation_type_name': 'mentioned_film_title',
+            'domain_type_name': 'film',
+            'range_type_name': 'mentioned_film_title',
+            'domain': {
+                'id': ['int', 'film_id'],
+            },
+            'range': {
+                'id': ['int', 'film_variation_id'],
+            },
+            'props': {}
+        },
+        1000,
     )
 
     await create_entity(
@@ -178,24 +200,28 @@ async def create_data():
                 'imdb_id': ['string', 'imdb'],
                 'wikidata_id': ['string', 'wikidata'],
             },
-        }
+        },
     )
 
     await create_relation(
         conn,
         {
-            'filename': 'tblFilmTitleVariation.csv',
-            'relation_type_name': 'mentioned_film_title',
+            'filename': 'tblJoinFilmPerson.csv',
+            'relation_type_name': 'film_person',
             'domain_type_name': 'film',
-            'range_type_name': 'mentioned_film_title',
+            'range_type_name': 'person',
             'domain': {
                 'id': ['int', 'film_id'],
             },
             'range': {
-                'id': ['int', 'film_variation_id'],
+                'id': ['int', 'person_id'],
             },
-            'props': {}
-        }
+            'props': {
+                'original_id': ['int', 'film_person_id'],
+                'type': ['string', 'info'],
+            }
+        },
+        1000,
     )
 
     await create_entity(
@@ -209,7 +235,7 @@ async def create_data():
                 'name': ['string', 'name'],
                 'postal_code': ['int', 'postal_code'],
             },
-        }
+        },
     )
 
     await create_entity(
@@ -225,7 +251,7 @@ async def create_data():
                 'district': ['string', 'info'],
                 'architectural_info': ['string', 'architectural_info'],
             },
-        }
+        },
     )
 
     await create_relation(
@@ -242,7 +268,8 @@ async def create_data():
                 'id': ['int', 'city_id'],
             },
             'props': {}
-        }
+        },
+        1000,
     )
 
     await create_entity(
@@ -263,7 +290,7 @@ async def create_data():
                 'infrastructure_info':  ['string', 'infrastructure_info'],
                 'name_remarks':  ['string', 'name_remarks'],
             },
-        }
+        },
     )
 
     await create_relation(
@@ -280,7 +307,8 @@ async def create_data():
                 'original_id': ['string', 'address_id'],
             },
             'props': {}
-        }
+        },
+        1000,
     )
 
     await conn.close()

@@ -51,11 +51,12 @@ def _replace_field_ids_by_system_names(
     return result
 
 
+# Relation layouts can only have data from their own data fields, this is passed as entity_field_lookup.
 def _layout_field_converter(
     layout: typing.List,
     entity_field_lookup: typing.Dict,
-    relation_lookup: typing.Dict,
-    relation_field_lookup: typing.Dict,
+    relation_lookup: typing.Dict = None,
+    relation_field_lookup: typing.Dict = None,
 ) -> typing.List:
     result = copy.deepcopy(layout)
     for panel in result:
@@ -131,7 +132,7 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
         relation_types_config = await config_repo.get_relation_types_config(project_name)
 
         entity_field_lookup = {}
-        for entity_system_name, entity_config in entity_types_config.items():
+        for entity_config in entity_types_config.values():
             if 'data' in entity_config['config']:
                 for id_, config in entity_config['config']['data'].items():
                     entity_field_lookup[id_] = config['system_name']
@@ -196,6 +197,14 @@ def relation_configs_resolver_wrapper(request: starlette.requests.Request, proje
         config_repo = get_repository_from_request(request, ConfigRepository)
         relation_types_config = await config_repo.get_relation_types_config(project_name)
 
+        relation_lookup = {}
+        relation_field_lookup = {}
+        for relation_system_name, relation_config in relation_types_config.items():
+            relation_lookup[relation_config['id']] = relation_system_name
+            if 'data' in relation_config['config']:
+                for id_, config in relation_config['config']['data'].items():
+                    relation_field_lookup[id_] = config['system_name']
+
         results = []
         for relation_system_name, relation_config in relation_types_config.items():
             config_item = {
@@ -209,11 +218,13 @@ def relation_configs_resolver_wrapper(request: starlette.requests.Request, proje
                 'range_names': relation_config['range_names'],
             }
             if 'data' in relation_config['config']:
-                # TODO: full conversion (see entity_configs_resolver_wrapper)
                 data_conf = relation_config['config']['data']
                 config_item['data'] = list(data_conf.values())
-                config_item['display']['layout'] = \
-                    _layout_field_converter(relation_config['config']['display']['layout'], data_conf),
+            if 'display' in relation_config['config'] and 'layout' in relation_config['config']['display']:
+                config_item['display']['layout'] = _layout_field_converter(
+                    relation_config['config']['display']['layout'],
+                    relation_field_lookup,
+                )
             results.append(config_item)
 
         return results
@@ -252,7 +263,7 @@ async def create_type_defs():
         ],
         'display_panel_config': [
             ['label', 'String'],
-            ['fields', '[Display_panel_field_config!]!'],
+            ['fields', '[Display_panel_field_config!]'],
         ],
         'display_panel_field_config': [
             ['label', 'String'],
