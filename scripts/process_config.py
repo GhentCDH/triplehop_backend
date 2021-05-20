@@ -31,16 +31,18 @@ def replace(project_config: dict, er: str, er_name: str, input: str):
                 # relation property
                 if '.' in p:
                     (rel_type_id, r_prop) = p.split('.')
-                    relation_name = rel_type_id.split('_', 1)[1]
-                    new_path.append(f'${project_config["relations_base"][relation_name]["id"]}')
+                    (direction, relation_name) = rel_type_id.split('_', 1)
+                    new_path.append(f'${direction}_{project_config["relations_base"][relation_name]["id"]}')
                     result = result.replace(
                         match.group(0),
-                        f'{"->".join(new_path)}.${project_config["relation"][relation_name]["lookup"][r_prop]}'
+                        f'{"->".join(new_path)}.${project_config["relation"][relation_name]["lookup"][r_prop]}',
+                        1
                     )
                     break
                 # base -> relation
                 if p.split('_')[0] in ['r', 'ri']:
-                    new_path.append(f'${project_config["relations_base"][p.split("_", 1)[1]]["id"]}')
+                    (direction, relation_name) = p.split('_', 1)
+                    new_path.append(f'${direction}_{project_config["relations_base"][relation_name]["id"]}')
                 # entity display name
                 elif p == 'display_name':
                     new_path.append('$display_name')
@@ -49,7 +51,8 @@ def replace(project_config: dict, er: str, er_name: str, input: str):
                     new_path.append(f'${project_config[er][current_er]["lookup"][p]}')
                 result = result.replace(
                     match.group(0),
-                    f'{"->".join(new_path)}'
+                    f'{"->".join(new_path)}',
+                    1
                 )
                 break
             # not last element => p = relation => travel
@@ -58,7 +61,7 @@ def replace(project_config: dict, er: str, er_name: str, input: str):
                 current_er = project_config['relations_base'][relation_name]['range']
             else:
                 current_er = project_config['relations_base'][relation_name]['domain']
-            new_path.append(f'${project_config["relations_base"][relation_name]["id"]}')
+            new_path.append(f'${direction}_{project_config["relations_base"][relation_name]["id"]}')
 
     return result
 
