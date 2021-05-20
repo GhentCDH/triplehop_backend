@@ -1,0 +1,14 @@
+{
+    "data": {
+        "b3678cc1-fd94-431d-94f7-2359673338b4": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "091877b5-eb2f-4113-8e6f-013c6f46f43e": {
+            "system_name": "name",
+            "display_name": "Name",
+            "type": "String"
+        }
+    }
+}

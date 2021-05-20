@@ -76,5 +76,103 @@
                 ]
             }
         ]
+    },
+    "es_data": [
+        {
+            "system_name": "name",
+            "display_name": "Name",
+            "selector_value": "$da8140da-ae74-4563-8ef0-c555faa3ebbc",
+            "type": "text"
+        },
+        {
+            "system_name": "function",
+            "display_name": "Functions",
+            "selector_value": "$ri_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$display_name $ri_03eaa66b-a59c-4062-b7b6-50d82f65c3ba.$d3a48f50-5278-4340-9841-8e5cd24dd15d $||$ $ri_34c98b92-53f8-41bf-9407-b4f53209b269->$display_name $ri_34c98b92-53f8-41bf-9407-b4f53209b269.$b3e16536-d17a-4fd6-bfc9-eb1610dc8e14 $||$ $ri_ab766fd1-b2b5-48a7-a193-300d7c944cb3->$display_name $ri_ab766fd1-b2b5-48a7-a193-300d7c944cb3.$8942c943-ad65-48d7-9ef7-115d78bf85cc",
+            "type": "text"
+        },
+        {
+            "system_name": "venue",
+            "display_name": "Venues",
+            "base": "$ri_34c98b92-53f8-41bf-9407-b4f53209b269",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_34c98b92-53f8-41bf-9407-b4f53209b269->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_34c98b92-53f8-41bf-9407-b4f53209b269->$fd083354-0e22-4a5b-8b3a-c28fb90da272",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "company",
+            "display_name": "Companies",
+            "base": "$ri_ab766fd1-b2b5-48a7-a193-300d7c944cb3",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_ab766fd1-b2b5-48a7-a193-300d7c944cb3->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_ab766fd1-b2b5-48a7-a193-300d7c944cb3->$31fb8a0a-e788-4f46-939c-4128fd63d02b",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "film",
+            "display_name": "Films",
+            "base": "$ri_03eaa66b-a59c-4062-b7b6-50d82f65c3ba",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$7cb3c377-e3c5-4d60-8c9f-efc4626aa64c",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        }
+    ],
+    "es_display": {
+        "title": "Search persons",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$name",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$function",
+                        "type": "dropdown"
+                    },
+                    {
+                        "filter": "$venue"
+                    },
+                    {
+                        "filter": "$company"
+                    },
+                    {
+                        "filter": "$film"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$name",
+                "sortable": true
+            },
+            {
+                "column": "$function",
+                "sortable": true
+            }
+        ]
     }
 }

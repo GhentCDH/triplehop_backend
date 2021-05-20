@@ -1,8 +1,8 @@
 {
     "data": [
         {
-            "system_name": "type",
-            "display_name": "Job type",
+            "system_name": "subsidiary_type",
+            "display_name": "Subsidiary type",
             "type": "String"
         },
         {
@@ -14,32 +14,24 @@
             "system_name": "date_end",
             "display_name": "End date",
             "type": "String"
-        },
-        {
-            "system_name": "years",
-            "display_name": "Years",
-            "type": "String"
         }
     ],
     "display": {
-        "domain_title": "People",
-        "range_title": "Venues",
+        "domain_title": "Subsidiary",
+        "range_title": "Subsidiary of",
         "layout": [
             {
                 "fields": [
                     {
-                        "field": "$type"
+                        "field": "$subsidiary_type"
                     },
                     {
                         "field": "$date_start",
-                        "type": "edtf_year"
+                        "type": "edtf"
                     },
                     {
                         "field": "$date_end",
-                        "type": "edtf_year"
-                    },
-                    {
-                        "field": "$years"
+                        "type": "edtf"
                     }
                 ]
             }

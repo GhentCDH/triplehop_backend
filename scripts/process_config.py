@@ -4,37 +4,63 @@ import os
 import re
 import uuid
 
-RE_PROPERTY_VALUE = re.compile(r'(?<![$])[$]([a-z_]+(?:->(?<![$])[$]([a-z_]+))*)')
+RE_FIELD_CONVERSION = re.compile(
+    (
+        # zero, one or multiple (inverse) relations
+        r'(?:[$]ri?_[a-z_]+->)*'
+        # zero or one (inverse) relations; dot for relation property and arrow for entity property
+        r'(?:[$]ri?_[a-z_]+(?:[.]|->)){0,1}'
+        # one property (entity or relation)
+        r'[$](?:[a-z_]+)'
+    )
+)
 
 
 def replace(project_config: dict, er: str, er_name: str, input: str):
-    def replacer(match):
-        # todo: more advanced properties on relations?
-        # todo: relations with multiple domains / ranges?
-        current_er = er_name
-        parts = match.group(0).split('->')
-        result = []
-        for part in parts:
-            # strip leading $
-            part = part[1:]
-            # relation
-            if part[:2] == 'r_':
-                if 'relations_base' not in project_config:
-                    raise Exception('Relations ids, domains, ranges not available')
-                relation_name = part[2:]
-                result.append(f'$r_{project_config["relations_base"][relation_name]["id"]}')
-                current_er = project_config["relations_base"][relation_name]['range']
-            elif part[:3] == 'ri_':
-                if 'relations_base' not in project_config:
-                    raise Exception('Relations ids, domains, ranges not available')
-                relation_name = part[3:]
-                result.append(f'$ri_{project_config["relations_base"][relation_name]["id"]}')
-                current_er = project_config["relations_base"][relation_name]['domain']
-            else:
-                result.append(f'${project_config[er][current_er]["lookup"][part]}')
-        return '->'.join(result)
+    result = input
+    current_er = er_name
+    for match in RE_FIELD_CONVERSION.finditer(input):
+        if not match:
+            continue
 
-    return RE_PROPERTY_VALUE.sub(replacer, input)
+        path = [p.replace('$', '') for p in match.group(0).split('->')]
+        new_path = []
+        for i, p in enumerate(path):
+            # last element => p = relation.r_prop or e_prop
+            if i == len(path) - 1:
+                # relation property
+                if '.' in p:
+                    (rel_type_id, r_prop) = p.split('.')
+                    relation_name = rel_type_id.split('_', 1)[1]
+                    new_path.append(f'${project_config["relations_base"][relation_name]["id"]}')
+                    result = result.replace(
+                        match.group(0),
+                        f'{"->".join(new_path)}.${project_config["relation"][relation_name]["lookup"][r_prop]}'
+                    )
+                    break
+                # base -> relation
+                if p.split('_')[0] in ['r', 'ri']:
+                    new_path.append(f'${project_config["relations_base"][p.split("_", 1)[1]]["id"]}')
+                # entity display name
+                elif p == 'display_name':
+                    new_path.append('$display_name')
+                # entity property
+                else:
+                    new_path.append(f'${project_config[er][current_er]["lookup"][p]}')
+                result = result.replace(
+                    match.group(0),
+                    f'{"->".join(new_path)}'
+                )
+                break
+            # not last element => p = relation => travel
+            (direction, relation_name) = p.split('_', 1)
+            if direction == 'r':
+                current_er = project_config['relations_base'][relation_name]['range']
+            else:
+                current_er = project_config['relations_base'][relation_name]['domain']
+            new_path.append(f'${project_config["relations_base"][relation_name]["id"]}')
+
+    return result
 
 
 for project_folder in os.listdir('human_readable_config'):
@@ -54,6 +80,7 @@ for project_folder in os.listdir('human_readable_config'):
             prev_field_lookup = {}
             with open(f'human_readable_config/{project_folder}/{er}/{fn}') as f:
                 config = json.load(f)
+            # Store previously used uuids so they don't change
             if os.path.exists(f'config/{project_folder}/{er}/{fn}'):
                 with open(f'config/{project_folder}/{er}/{fn}') as f:
                     prev_config = json.load(f)

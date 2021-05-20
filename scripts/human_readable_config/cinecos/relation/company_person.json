@@ -14,6 +14,11 @@
             "system_name": "date_end",
             "display_name": "End date",
             "type": "String"
+        },
+        {
+            "system_name": "years",
+            "display_name": "Years",
+            "type": "String"
         }
     ],
     "display": {
@@ -23,15 +28,18 @@
             {
                 "fields": [
                     {
-                        "field": "0"
+                        "field": "$type"
                     },
                     {
-                        "field": "1",
+                        "field": "$date_start",
                         "type": "edtf_year"
                     },
                     {
-                        "field": "2",
+                        "field": "$date_end",
                         "type": "edtf_year"
+                    },
+                    {
+                        "field": "$years"
                     }
                 ]
             }

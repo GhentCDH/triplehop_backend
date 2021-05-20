@@ -1,0 +1,32 @@
+{
+    "data": {
+        "53f0ff56-7763-47da-93b4-817529e2b4f1": {
+            "system_name": "date_start",
+            "display_name": "Start date",
+            "type": "String"
+        },
+        "ecb9aefc-c9b9-4d6d-83d2-4975548c46f9": {
+            "system_name": "date_end",
+            "display_name": "End date",
+            "type": "String"
+        }
+    },
+    "display": {
+        "domain_title": "Companies",
+        "range_title": "Company names",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "$53f0ff56-7763-47da-93b4-817529e2b4f1",
+                        "type": "edtf_year"
+                    },
+                    {
+                        "field": "$ecb9aefc-c9b9-4d6d-83d2-4975548c46f9",
+                        "type": "edtf_year"
+                    }
+                ]
+            }
+        ]
+    }
+}

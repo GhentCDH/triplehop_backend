@@ -1,0 +1,40 @@
+{
+    "data": {
+        "e813d551-6837-4c76-8099-c4f032dfccfb": {
+            "system_name": "subsidiary_type",
+            "display_name": "Subsidiary type",
+            "type": "String"
+        },
+        "4d388a34-006e-4db3-8b62-5077bad9ec86": {
+            "system_name": "date_start",
+            "display_name": "Start date",
+            "type": "String"
+        },
+        "a25d7df3-5c1d-4670-a855-40a7ef0605a6": {
+            "system_name": "date_end",
+            "display_name": "End date",
+            "type": "String"
+        }
+    },
+    "display": {
+        "domain_title": "Subsidiary",
+        "range_title": "Subsidiary of",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "$e813d551-6837-4c76-8099-c4f032dfccfb"
+                    },
+                    {
+                        "field": "$4d388a34-006e-4db3-8b62-5077bad9ec86",
+                        "type": "edtf"
+                    },
+                    {
+                        "field": "$a25d7df3-5c1d-4670-a855-40a7ef0605a6",
+                        "type": "edtf"
+                    }
+                ]
+            }
+        ]
+    }
+}

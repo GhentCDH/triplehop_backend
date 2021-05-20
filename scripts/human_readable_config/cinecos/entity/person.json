@@ -76,5 +76,103 @@
                 ]
             }
         ]
+    },
+    "es_data": [
+        {
+            "system_name": "name",
+            "display_name": "Name",
+            "selector_value": "$name",
+            "type": "text"
+        },
+        {
+            "system_name": "function",
+            "display_name": "Functions",
+            "selector_value": "$ri_film_person->$display_name $ri_film_person.$type $||$ $ri_venue_person->$display_name $ri_venue_person.$type $||$ $ri_company_person->$display_name $ri_company_person.$type",
+            "type": "text"
+        },
+        {
+            "system_name": "venue",
+            "display_name": "Venues",
+            "base": "$ri_venue_person",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_venue_person->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_venue_person->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "company",
+            "display_name": "Companies",
+            "base": "$ri_company_person",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_company_person->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_company_person->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "film",
+            "display_name": "Films",
+            "base": "$ri_film_person",
+            "parts": {
+                "id": {
+                    "selector_value": "$ri_film_person->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$ri_film_person->$title",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        }
+    ],
+    "es_display": {
+        "title": "Search persons",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$name",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$function",
+                        "type": "dropdown"
+                    },
+                    {
+                        "filter": "$venue"
+                    },
+                    {
+                        "filter": "$company"
+                    },
+                    {
+                        "filter": "$film"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$name",
+                "sortable": true
+            },
+            {
+                "column": "$function",
+                "sortable": true
+            }
+        ]
     }
 }

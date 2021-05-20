@@ -1,8 +1,13 @@
 {
     "data": [
         {
-            "system_name": "type",
-            "display_name": "Job type",
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        {
+            "system_name": "name",
+            "display_name": "Name",
             "type": "String"
         },
         {
@@ -16,30 +21,38 @@
             "type": "String"
         },
         {
-            "system_name": "years",
-            "display_name": "Years",
+            "system_name": "info",
+            "display_name": "Info",
+            "type": "String"
+        },
+        {
+            "system_name": "nature",
+            "display_name": "Nature",
             "type": "String"
         }
     ],
     "display": {
-        "domain_title": "People",
-        "range_title": "Venues",
+        "title": "$name",
         "layout": [
             {
+                "label": "General",
                 "fields": [
                     {
-                        "field": "$type"
+                        "field": "$name"
                     },
                     {
                         "field": "$date_start",
-                        "type": "edtf_year"
+                        "type": "edtf"
                     },
                     {
                         "field": "$date_end",
-                        "type": "edtf_year"
+                        "type": "edtf"
                     },
                     {
-                        "field": "$years"
+                        "field": "$info"
+                    },
+                    {
+                        "field": "$nature"
                     }
                 ]
             }

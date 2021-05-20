@@ -1,11 +1,6 @@
 {
     "data": [
         {
-            "system_name": "type",
-            "display_name": "Job type",
-            "type": "String"
-        },
-        {
             "system_name": "date_start",
             "display_name": "Start date",
             "type": "String"
@@ -14,22 +9,14 @@
             "system_name": "date_end",
             "display_name": "End date",
             "type": "String"
-        },
-        {
-            "system_name": "years",
-            "display_name": "Years",
-            "type": "String"
         }
     ],
     "display": {
-        "domain_title": "People",
-        "range_title": "Venues",
+        "domain_title": "Companies",
+        "range_title": "Company names",
         "layout": [
             {
                 "fields": [
-                    {
-                        "field": "$type"
-                    },
                     {
                         "field": "$date_start",
                         "type": "edtf_year"
@@ -37,9 +24,6 @@
                     {
                         "field": "$date_end",
                         "type": "edtf_year"
-                    },
-                    {
-                        "field": "$years"
                     }
                 ]
             }

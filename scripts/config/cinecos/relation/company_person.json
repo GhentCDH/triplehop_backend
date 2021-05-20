@@ -14,6 +14,11 @@
             "system_name": "date_end",
             "display_name": "End date",
             "type": "String"
+        },
+        "ac4f4d74-628e-43ba-8dc2-85094643c9ce": {
+            "system_name": "years",
+            "display_name": "Years",
+            "type": "String"
         }
     },
     "display": {
@@ -23,15 +28,18 @@
             {
                 "fields": [
                     {
-                        "field": "0"
+                        "field": "$8942c943-ad65-48d7-9ef7-115d78bf85cc"
                     },
                     {
-                        "field": "1",
+                        "field": "$27c9cdc7-e6c8-456f-b53c-9748b3efcb83",
                         "type": "edtf_year"
                     },
                     {
-                        "field": "2",
+                        "field": "$58a624c2-3550-4dfc-a6a4-85052a440bb8",
                         "type": "edtf_year"
+                    },
+                    {
+                        "field": "$ac4f4d74-628e-43ba-8dc2-85094643c9ce"
                     }
                 ]
             }
