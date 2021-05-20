@@ -21,11 +21,8 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
     try:
         config_repo = get_repository_from_request(request, ConfigRepository)
         entity_types_config = await config_repo.get_entity_types_config(project_name)
+
         entity_type_config = entity_types_config[entity_type_name]
-        entity_type_names = {
-            et_config['id']: et_name
-            for et_name, et_config in entity_types_config.items()
-        }
         es_data_config = entity_type_config['config']['es_data']
         crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
         es = get_es_from_request(request, BaseElasticsearch)
@@ -41,7 +38,7 @@ async def reindex(job_id: uuid.UUID, project_name: str, entity_type_name: str, r
             )
 
             batch_docs = BaseElasticsearch.convert_entities_to_docs(
-                entity_type_names,
+                entity_types_config,
                 es_data_config,
                 batch_entities
             )

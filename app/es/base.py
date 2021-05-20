@@ -75,48 +75,143 @@ class BaseElasticsearch:
         return query
 
     @staticmethod
-    def replace(input: str, data: typing.Dict) -> str:
+    def find_common_base_path(
+        matches: typing.List[str]
+    ) -> typing.List:
+        split_matches = [match.replace('.', '->.').split('->') for match in matches]
+        common = []
+        while len(split_matches[0]) > 1:
+            common_to_test = split_matches[0][0]
+            is_common = True
+            for split_match in split_matches:
+                if split_match[0] != common_to_test:
+                    is_common = False
+                    break
+            if not is_common:
+                break
+            common.append(common_to_test)
+            for split_match in split_matches:
+                split_match.pop(0)
+        return [
+            '->'.join(common),
+            [
+                '->'.join(split_match).replace('->.', '.')
+                for split_match in split_matches
+            ]
+        ]
+
+    @staticmethod
+    def replace(
+        entity_types_config: typing.Dict,
+        entity_type_names: typing.Dict,
+        input: str,
+        data: typing.Dict,
+    ) -> typing.List[str]:
         '''
         Always returns a string because of the usage of str.replace().
         '''
-        result = input
-        for match in RE_FIELD_CONVERSION.finditer(input):
+        # Split concatenate cases
+        if ' $||$ ' in input:
+            return [
+                result
+                for input_part in input.split(' $||$ ')
+                for result in BaseElasticsearch.replace(
+                    entity_types_config,
+                    entity_type_names,
+                    input_part,
+                    data,
+                )
+            ]
+
+        results = [input]
+
+        matches = RE_FIELD_CONVERSION.findall(input)
+
+        # Find common base in matches, preventing multiplying current_level numbers
+        if len(matches) > 1:
+            (base, based_matches) = BaseElasticsearch.find_common_base_path(matches)
+            if base != '':
+                for i, match in enumerate(matches):
+                    input = input.replace(match, based_matches[i], 1)
+                return [
+                    result
+                    for data in BaseElasticsearch.get_datas_for_base(base, data)
+                    for result in BaseElasticsearch.replace(
+                        entity_types_config,
+                        entity_type_names,
+                        input,
+                        data,
+                    )
+                ]
+
+        for match in matches:
             if not match:
                 continue
 
-            current_level = data
-            path = [p.replace('$', '') for p in match.group(0).split('->')]
+            current_levels = [data]
+            path = [p.replace('$', '') for p in match.split('->')]
             for i, p in enumerate(path):
-                # last element => p = relation.r_prop or e_prop
                 if i == len(path) - 1:
                     # relation property
                     if '.' in p:
                         (rel_type_id, r_prop) = p.split('.')
-                        if len(current_level['relations'][rel_type_id].values()) > 1:
-                            raise Exception('Not implemented')
                         key = 'id' if r_prop == 'id' else f'p_{dtu(r_prop)}'
-                        result = result.replace(
-                            match.group(0),
-                            str(list(current_level['relations'][rel_type_id].values())[0]['r_props'].get(key, ''))
-                        )
+                        new_results = []
+                        for result in results:
+                            for current_level in current_levels:
+                                if rel_type_id == '':
+                                    new_results.append(
+                                        result.replace(
+                                            match,
+                                            str(current_level['r_props'][key])
+                                        )
+                                    )
+                                else:
+                                    if rel_type_id not in current_level['relations']:
+                                        continue
+                                    for relation in current_level['relations'][rel_type_id].values():
+                                        if key not in relation['r_props']:
+                                            continue
+                                        new_results.append(
+                                            result.replace(
+                                                match,
+                                                str(relation['r_props'][key])
+                                            )
+                                        )
+                        results = new_results
                         break
                     # entity property
+                    if p == 'display_name':
+                        results = [
+                            result.replace(
+                                match,
+                                entity_types_config[entity_type_names[current_level['entity_type_id']]]['display_name']
+                            )
+                            for result in results
+                            for current_level in current_levels
+                        ]
+                        break
                     key = 'id' if p == 'id' else f'p_{dtu(p)}'
-                    result = result.replace(
-                        match.group(0),
-                        str(current_level['e_props'].get(key, ''))
-                    )
+                    results = [
+                        result.replace(
+                            match,
+                            str(current_level['e_props'][key])
+                        )
+                        for result in results
+                        for current_level in current_levels
+                        if key in current_level['e_props']
+                    ]
                     break
                 # not last element => p = relation => travel
-                if 'relations' not in current_level:
-                    return ''
-                if p not in current_level['relations']:
-                    return ''
-                if len(current_level['relations'][p].values()) > 1:
-                    raise Exception('Not implemented')
-                current_level = list(current_level['relations'][p].values())[0]
+                new_current_levels = []
+                for current_level in current_levels:
+                    if 'relations' not in current_level or p not in current_level['relations']:
+                        continue
+                    for new_current_level in current_level['relations'][p].values():
+                        new_current_levels.append(new_current_level)
+                current_levels = new_current_levels
 
-        return result
+        return results
 
     @staticmethod
     def get_datas_for_base(base: str, data: typing.Dict) -> typing.List[typing.Dict]:
@@ -131,6 +226,8 @@ class BaseElasticsearch:
             for current_level in current_levels:
                 if 'relations' not in current_level:
                     continue
+                if p not in current_level['relations']:
+                    continue
                 for related in current_level['relations'][p].values():
                     new_current_levels.append(related)
             current_levels = new_current_levels
@@ -138,31 +235,48 @@ class BaseElasticsearch:
 
     @staticmethod
     def convert_field(
+        entity_types_config: typing.Dict,
         entity_type_names: typing.Dict,
         es_field_conf: str,
         data: typing.Dict,
     ) -> typing.Any:
         if es_field_conf['type'] == 'integer':
-            str_value = BaseElasticsearch.replace(
-                    es_field_conf['selector_value'],
-                    data,
-                )
-            if str_value != '':
-                return int(str_value)
-            return None
-        if es_field_conf['type'] == 'text':
-            str_value = BaseElasticsearch.replace(
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
                 es_field_conf['selector_value'],
                 data,
             )
-            if str_value != '':
-                return str_value
-            return None
+            if len(str_values) > 1:
+                raise Exception('Not implemented')
+            if not str_values:
+                return None
+            return int(str_values[0])
+
+        if es_field_conf['type'] == 'text':
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
+                es_field_conf['selector_value'],
+                data,
+            )
+            if not str_values:
+                return None
+            return list(set(str_values))
+
         if es_field_conf['type'] == 'edtf':
-            str_value = BaseElasticsearch.replace(
-                    es_field_conf['selector_value'],
-                    data,
-                )
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
+                es_field_conf['selector_value'],
+                data,
+            )
+            if len(str_values) > 1:
+                raise Exception('Not implemented')
+            if not str_values:
+                return None
+            str_value = str_values[0]
+
             # Open ending
             if str_value == '..':
                 if es_field_conf['subtype'] == 'start':
@@ -177,6 +291,7 @@ class BaseElasticsearch:
                         'lower': DATE_MAX,
                         'upper': DATE_MAX,
                     }
+
             # Unknown
             if str_value == '':
                 return {
@@ -184,6 +299,7 @@ class BaseElasticsearch:
                     'lower': None,
                     'upper': None,
                 }
+
             try:
                 # edtf module needs to be updated to the newest revision
                 old_edtf_text = str_value.replace('X', 'u')
@@ -201,6 +317,7 @@ class BaseElasticsearch:
                     edtf_date.upper_strict()
                 )
             }
+
         if es_field_conf['type'] == 'nested':
             # TODO: relation properties of base?
             datas = BaseElasticsearch.get_datas_for_base(
@@ -215,6 +332,7 @@ class BaseElasticsearch:
                 for key, part_def in es_field_conf['parts'].items():
                     part_def['selector_value'] = part_def['selector_value'].replace(f'{es_field_conf["base"]}->', '')
                     result[key] = BaseElasticsearch.convert_field(
+                        entity_types_config,
                         entity_type_names,
                         part_def,
                         data,
@@ -225,15 +343,21 @@ class BaseElasticsearch:
 
     @staticmethod
     def convert_entities_to_docs(
-        entity_type_names: typing.Dict,
+        entity_types_config: typing.Dict,
         es_data_config: typing.List,
         entities: typing.Dict,
     ) -> typing.Dict:
+        entity_type_names = {
+            et_config['id']: et_name
+            for et_name, et_config in entity_types_config.items()
+        }
+
         docs = {}
         for entity_id, entity in entities.items():
             doc = {}
             for es_field_conf in es_data_config:
                 doc[es_field_conf['system_name']] = BaseElasticsearch.convert_field(
+                    entity_types_config,
                     entity_type_names,
                     es_field_conf,
                     entity,
