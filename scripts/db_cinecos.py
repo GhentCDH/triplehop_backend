@@ -22,10 +22,9 @@ async def batch(method: typing.Callable, data: typing.Iterable, limit: int = Non
 
 
 async def create_structure():
-    conn = await asyncpg.connect(**config.DATABASE)
-    await utils.init_age(conn)
+    pool = await asyncpg.create_pool(**config.DATABASE)
 
-    await utils.create_project_config(conn, 'cinecos', 'Cinecos', 'info@cinemabelgica.be')
+    await utils.create_project_config(pool, 'cinecos', 'Cinecos', 'info@cinemabelgica.be')
 
     entities_types = {
         'film': 'Film',
@@ -37,7 +36,7 @@ async def create_structure():
     }
     for (system_name, display_name) in entities_types.items():
         await utils.create_entity_config(
-            conn,
+            pool,
             'cinecos',
             'info@cinemabelgica.be',
             system_name,
@@ -53,7 +52,7 @@ async def create_structure():
     }
     for (system_name, (display_name, domains, ranges)) in relation_types.items():
         await utils.create_relation_config(
-            conn,
+            pool,
             'cinecos',
             'info@cinemabelgica.be',
             system_name,
@@ -63,13 +62,13 @@ async def create_structure():
             ranges,
         )
 
-    await utils.drop_project_graph(conn, 'cinecos')
-    await utils.create_project_graph(conn, 'cinecos')
+    await utils.drop_project_graph(pool, 'cinecos')
+    await utils.create_project_graph(pool, 'cinecos')
 
-    await conn.close()
+    await pool.close()
 
 
-async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict, limit: int = None):
+async def create_entity(pool: asyncpg.pool.Pool, conf: typing.Dict, limit: int = None):
     print(f'Cinecos importing entity {conf["entity_type_name"]}')
     with open(f'data/processed/{conf["filename"]}') as data_file:
         data_reader = csv.reader(data_file)
@@ -83,13 +82,13 @@ async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict, 
         file_header = next(data_reader)
         file_header_lookup = {h: file_header.index(h) for h in file_header}
 
-        db_props_lookup = await utils.get_entity_props_lookup(conn, 'cinecos', conf['entity_type_name'])
+        db_props_lookup = await utils.get_entity_props_lookup(pool, 'cinecos', conf['entity_type_name'])
 
         await batch(
             utils.create_entities,
             data_reader,
             limit,
-            conn,
+            pool,
             params,
             db_props_lookup,
             file_header_lookup,
@@ -97,7 +96,7 @@ async def create_entity(conn: asyncpg.connection.Connection, conf: typing.Dict, 
         )
 
 
-async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict, limit: int = None):
+async def create_relation(pool: asyncpg.pool.Pool, conf: typing.Dict, limit: int = None):
     print(f'Cinecos importing relation {conf["relation_type_name"]}')
     with open(f'data/processed/{conf["filename"]}') as data_file:
         data_reader = csv.reader(data_file)
@@ -113,15 +112,15 @@ async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict
         file_header = next(data_reader)
         file_header_lookup = {h: file_header.index(h) for h in file_header}
 
-        db_domain_props_lookup = await utils.get_entity_props_lookup(conn, 'cinecos', conf['domain_type_name'])
-        db_range_props_lookup = await utils.get_entity_props_lookup(conn, 'cinecos', conf['range_type_name'])
-        db_props_lookup = await utils.get_relation_props_lookup(conn, 'cinecos', conf['relation_type_name'])
+        db_domain_props_lookup = await utils.get_entity_props_lookup(pool, 'cinecos', conf['domain_type_name'])
+        db_range_props_lookup = await utils.get_entity_props_lookup(pool, 'cinecos', conf['range_type_name'])
+        db_props_lookup = await utils.get_relation_props_lookup(pool, 'cinecos', conf['relation_type_name'])
 
         await batch(
             utils.create_relations,
             data_reader,
             limit,
-            conn,
+            pool,
             params,
             db_domain_props_lookup,
             db_range_props_lookup,
@@ -134,11 +133,10 @@ async def create_relation(conn: asyncpg.connection.Connection, conf: typing.Dict
 
 
 async def create_data():
-    conn = await asyncpg.connect(**config.DATABASE)
-    await utils.init_age(conn)
+    pool = await asyncpg.create_pool(**config.DATABASE)
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblFilm.csv',
             'entity_type_name': 'film',
@@ -154,7 +152,7 @@ async def create_data():
     )
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblFilmTitleVariation.csv',
             'entity_type_name': 'mentioned_film_title',
@@ -167,7 +165,7 @@ async def create_data():
     )
 
     await create_relation(
-        conn,
+        pool,
         {
             'filename': 'tblFilmTitleVariation.csv',
             'relation_type_name': 'mentioned_film_title',
@@ -185,7 +183,7 @@ async def create_data():
     )
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblPersonWithFirstNames.csv',
             'entity_type_name': 'person',
@@ -204,7 +202,7 @@ async def create_data():
     )
 
     await create_relation(
-        conn,
+        pool,
         {
             'filename': 'tblJoinFilmPerson.csv',
             'relation_type_name': 'film_person',
@@ -225,7 +223,7 @@ async def create_data():
     )
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblCity.csv',
             'entity_type_name': 'city',
@@ -239,7 +237,7 @@ async def create_data():
     )
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblAddressWithGeoJson.csv',
             'entity_type_name': 'address',
@@ -255,7 +253,7 @@ async def create_data():
     )
 
     await create_relation(
-        conn,
+        pool,
         {
             'filename': 'tblJoinAddressCity.csv',
             'relation_type_name': 'address_city',
@@ -273,7 +271,7 @@ async def create_data():
     )
 
     await create_entity(
-        conn,
+        pool,
         {
             'filename': 'tblVenue.csv',
             'entity_type_name': 'venue',
@@ -294,7 +292,7 @@ async def create_data():
     )
 
     await create_relation(
-        conn,
+        pool,
         {
             'filename': 'tblVenue.csv',
             'relation_type_name': 'venue_address',
@@ -311,7 +309,7 @@ async def create_data():
         1000,
     )
 
-    await conn.close()
+    await pool.close()
 
 
 def main():
