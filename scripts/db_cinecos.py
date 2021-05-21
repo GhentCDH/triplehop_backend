@@ -32,7 +32,9 @@ async def create_structure():
         'city': 'City',
         'address': 'Address',
         'venue': 'Venue',
-        'person': 'Person'
+        'person': 'Person',
+        'company': 'Company',
+        'company_name': 'Company name',
     }
     for (system_name, display_name) in entities_types.items():
         await utils.create_entity_config(
@@ -49,6 +51,10 @@ async def create_structure():
         'address_city': ['City', ['address'], ['city']],
         'venue_address': ['Address', ['venue'], ['address']],
         'film_person': ['Film Person', ['film'], ['person']],
+        'venue_person': ['Venue Person', ['venue'], ['person']],
+        'company_name': ['Company Name', ['company'], ['company_name']],
+        'company_company': ['Subsidiary', ['company'], ['company']],
+        'company_person': ['Company Person', ['company'], ['person']],
     }
     for (system_name, (display_name, domains, ranges)) in relation_types.items():
         await utils.create_relation_config(
@@ -307,6 +313,121 @@ async def create_data():
             'props': {}
         },
         1000,
+    )
+
+    await create_relation(
+        pool,
+        {
+            'filename': 'tblJoinVenuePerson.csv',
+            'relation_type_name': 'venue_person',
+            'domain_type_name': 'venue',
+            'range_type_name': 'person',
+            'domain': {
+                'original_id': ['string', 'venue_id'],
+            },
+            'range': {
+                'id': ['int', 'person_id'],
+            },
+            'props': {
+                'type': ['string', 'job_type'],
+                'date_start': ['edtf', 'start_date'],
+                'date_end': ['edtf', 'end_date'],
+                'years': ['string', 'years'],
+            }
+        },
+    )
+
+    await create_entity(
+        pool,
+        {
+            'filename': 'tblCompany.csv',
+            'entity_type_name': 'company',
+            'props': {
+                'id': ['int', 'company_id'],
+                'original_id': ['int', 'company_id'],
+                'name': ['string', 'name'],
+                'date_start':  ['edtf', 'date_extablished'],
+                'date_end':  ['edtf', 'date_disbanded'],
+                'info':  ['string', 'info'],
+                'nature':  ['string', 'nature'],
+            },
+        },
+    )
+
+    await create_entity(
+        pool,
+        {
+            'filename': 'tblCompanyNamesSplitDates.csv',
+            'entity_type_name': 'company_name',
+            'props': {
+                'id': ['int', 'sequential_id'],
+                'original_id': ['int', 'sequential_id'],
+                'name': ['string', 'name'],
+            },
+        },
+    )
+
+    await create_relation(
+        pool,
+        {
+            'filename': 'tblCompanyNamesSplitDates.csv',
+            'relation_type_name': 'company_name',
+            'domain_type_name': 'company',
+            'range_type_name': 'company_name',
+            'domain': {
+                'id': ['int', 'company_id'],
+            },
+            'range': {
+                'id': ['int', 'sequential_id'],
+            },
+            'props': {
+                'date_start': ['edtf', 'date_start'],
+                'date_end': ['edtf', 'date_end'],
+            }
+        },
+    )
+
+    await create_relation(
+        pool,
+        {
+            'filename': 'tblJoinCompanyCompany.csv',
+            'relation_type_name': 'company_company',
+            'domain_type_name': 'company',
+            'range_type_name': 'company',
+            'domain': {
+                'id': ['int', 'company_id'],
+            },
+            'range': {
+                'id': ['int', 'subsidiary_id'],
+            },
+            'props': {
+                'subsidiary_type': ['string', 'subsidiary_type'],
+                'date_start': ['edtf', 'start_date'],
+                'date_end': ['edtf', 'end_date'],
+            }
+        },
+    )
+
+    await create_relation(
+        pool,
+        {
+            'filename': 'tblJoinCompanyPerson.csv',
+            'relation_type_name': 'company_person',
+            'domain_type_name': 'company',
+            'range_type_name': 'person',
+            'domain': {
+                'id': ['int', 'company_id'],
+            },
+            'range': {
+                'id': ['int', 'person_id'],
+            },
+            'props': {
+                'type': ['string', 'job_type'],
+                'date_start': ['edtf', 'start_date'],
+                'date_end': ['edtf', 'end_date'],
+                'years': ['string', 'years'],
+            }
+        },
     )
 
     await pool.close()

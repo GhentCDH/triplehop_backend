@@ -166,3 +166,26 @@ with open('data/processed/tblPerson.csv') as p_file,\
         # imdb
         row.append('')
         join_writer.writerow(row)
+
+
+# split dates in tblCompanyNames
+with open('data/processed/tblCompanyNames.csv') as input_file,\
+     open('data/processed/tblCompanyNamesSplitDates.csv', 'w') as output_file:
+    i_reader = csv.reader(input_file)
+    o_writer = csv.writer(output_file, lineterminator='\n')
+
+    i_header = next(i_reader)
+    i_header_lookup = {h: i_header.index(h) for h in i_header}
+
+    o_header = ['company_id', 'name', 'date_start', 'date_end', 'sequential_id']
+    o_writer.writerow(o_header)
+
+    for row in i_reader:
+        date = row[i_header_lookup['date']]
+        if '/' in date:
+            (date_start, date_end) = date.split('/')
+        else:
+            date_start = date
+            date_end = date
+        row[i_header_lookup['date']:i_header_lookup['date'] + 1] = date_start, date_end
+        o_writer.writerow(row)
