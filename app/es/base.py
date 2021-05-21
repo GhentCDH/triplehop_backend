@@ -160,6 +160,8 @@ class BaseElasticsearch:
                         for result in results:
                             for current_level in current_levels:
                                 if rel_type_id == '':
+                                    if key not in current_level['r_props']:
+                                        continue
                                     new_results.append(
                                         result.replace(
                                             match,
