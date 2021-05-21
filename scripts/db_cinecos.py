@@ -1,6 +1,7 @@
 import asyncio
 import asyncpg
 import csv
+import time
 import tqdm
 import typing
 
@@ -434,10 +435,12 @@ async def create_data():
 
 
 def main():
+    start_time = time.time()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(create_structure())
     loop.run_until_complete(create_data())
     loop.close()
+    print(f'Total time: {time.time() - start_time}')
 
 
 if __name__ == '__main__':
