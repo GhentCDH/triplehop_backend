@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import asyncpg
 import json
 import typing
@@ -38,43 +39,53 @@ class DataRepository(BaseRepository):
             for entity_id, raw_result in raw_results.items()
         }
 
-    async def get_entities_raw(
+    async def get_entity_raw(
         self,
         entity_type_id: str,
-        entity_ids: typing.List[int],
+        entity_id: int,
     ) -> typing.Dict:
         # TODO: set _project_id on init
         # TODO: only retrieve requested properties
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
 
-        # OR with equals instead of IN [] because of performance issues
-        where_clause = [f'n.id = $entity_id_{entity_id}' for entity_id in entity_ids]
         query = (
             f'SELECT * FROM cypher('
             f'\'{self._project_id}\', '
-            f'$$MATCH (n:n_{dtu(entity_type_id)}) '
-            f'WHERE {" OR ".join(where_clause)} '
+            f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
             f'return n$$, :params'
             f') as (n agtype);'
         )
-        records = await self.fetch(
+        record = await self.fetchrow(
             query,
             {
                 'params': json.dumps({
-                    f'entity_id_{entity_id}': entity_id for entity_id in entity_ids
+                    'entity_id': entity_id
                 })
             },
             age=True
         )
 
-        results = {}
-        for record in records:
-            # strip ::vertex from record data
-            properties = json.loads(record['n'][:-8])['properties']
+        properties = json.loads(record['n'][:-8])['properties']
+        return {'e_props': properties}
 
-            results[int(properties['id'])] = {'e_props': properties}
-        return results
+    async def get_entities_raw(
+        self,
+        entity_type_id: str,
+        entity_ids: typing.List[int],
+    ) -> typing.Dict:
+        co_results = [
+            self.get_entity_raw(
+                entity_type_id,
+                entity_id,
+            )
+            for entity_id in entity_ids
+        ]
+        results = await asyncio.gather(*co_results)
+        return {
+            entity_id: results[i]
+            for i, entity_id in enumerate(entity_ids)
+        }
 
     async def get_relations_graphql(
         self,
@@ -112,6 +123,80 @@ class DataRepository(BaseRepository):
 
         return results
 
+    async def get_relation_raw(
+        self,
+        entity_type_id: str,
+        entity_id: int,
+        relation_type_id: str,
+        inverse: bool = False,
+    ) -> typing.Dict:
+        '''
+        Get relations and linked entity information starting from an entity type, entity id and a relation type.
+
+        Return: Dict = {
+            relation_id: {
+                r_props: Dict, # relation properties
+                e_props: Dict, # linked entity properties
+                entity_type_id: str, # linked entity type
+            }
+        }
+        '''
+        # TODO: set _project_id on init
+        # TODO: only retrieve requested properties
+        if not self._project_id:
+            self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+
+        if inverse:
+            query = (
+                f'SELECT * FROM cypher('
+                f'\'{self._project_id}\', '
+                f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
+                f'WHERE r.id = $entity_id '
+                f'return e, n$$, :params'
+                f') as (e agtype, n agtype);'
+            )
+        else:
+            query = (
+                f'SELECT * FROM cypher('
+                f'\'{self._project_id}\', '
+                f'$$MATCH (d:n_{dtu(entity_type_id)} {{id: $entity_id}}) -[e:e_{dtu(relation_type_id)}] -> (n)'
+                f'WHERE d.id = $entity_id '
+                f'return e, n$$, :params'
+                f') as (e agtype, n agtype);'
+            )
+        records = await self.fetch(
+            query,
+            {
+                'params': json.dumps({
+                    'entity_id': entity_id
+                })
+            },
+            age=True
+        )
+
+        results = {}
+
+        for record in records:
+            # relation properties
+            # strip ::edge from record data
+            relation_properties = json.loads(record['e'][:-6])['properties']
+
+            # entity properties
+            # strip ::vertex from record data
+            entity_properties = json.loads(record['n'][:-8])['properties']
+
+            label = json.loads(record['n'][:-8])['label']
+            # strip n_ from label, convert underscores to dashes
+            etid = utd(label[2:])
+
+            results[relation_properties['id']] = {
+                'r_props': relation_properties,
+                'e_props': entity_properties,
+                'entity_type_id': etid
+            }
+
+        return results
+
     async def get_relations_raw(
         self,
         entity_type_id: str,
@@ -132,75 +217,20 @@ class DataRepository(BaseRepository):
             }
         }
         '''
-        # TODO: set _project_id on init
-        # TODO: only retrieve requested properties
-        if not self._project_id:
-            self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
-
-        # OR with equals instead of IN [] because of performance issues
-        if inverse:
-            where_clause = [f'r.id = $entity_id_{entity_id}' for entity_id in entity_ids]
-            query = (
-                f'SELECT * FROM cypher('
-                f'\'{self._project_id}\', '
-                f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
-                f'WHERE {" OR ".join(where_clause)} '
-                f'return r.id, e, n$$, :params'
-                f') as (id agtype, e agtype, n agtype);'
+        co_results = [
+            self.get_relation_raw(
+                entity_type_id,
+                entity_id,
+                relation_type_id,
+                inverse,
             )
-        else:
-            where_clause = [f'd.id = $entity_id_{entity_id}' for entity_id in entity_ids]
-            query = (
-                f'SELECT * FROM cypher('
-                f'\'{self._project_id}\', '
-                f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (n)'
-                f'WHERE {" OR ".join(where_clause)} '
-                f'return d.id, e, n$$, :params'
-                f') as (id agtype, e agtype, n agtype);'
-            )
-
-        records = await self.fetch(
-            query,
-            {
-                'params': json.dumps({
-                    f'entity_id_{entity_id}': entity_id for entity_id in entity_ids
-                })
-            },
-            age=True
-        )
-
-        # group records on entity type of domain (inverse) or range
-        grouped_records = {}
-        for record in records:
-            label = json.loads(record['n'][:-8])['label']
-            # strip n_ from label, convert underscores to dashes
-            etid = utd(label[2:])
-            if etid not in grouped_records:
-                grouped_records[etid] = []
-            grouped_records[etid].append(record)
-
-        results = {}
-
-        for etid, records in grouped_records.items():
-            for record in records:
-                entity_id = int(record['id'])
-                if entity_id not in results:
-                    results[entity_id] = {}
-
-                # relation properties
-                # strip ::edge from record data
-                relation_properties = json.loads(record['e'][:-6])['properties']
-                if relation_properties['id'] not in results[entity_id]:
-                    results[entity_id][relation_properties['id']] = {}
-                results[entity_id][relation_properties['id']]['r_props'] = relation_properties
-
-                # entity properties
-                # strip ::vertex from record data
-                entity_properties = json.loads(record['n'][:-8])['properties']
-                results[entity_id][relation_properties['id']]['e_props'] = entity_properties
-                results[entity_id][relation_properties['id']]['entity_type_id'] = etid
-
-        return results
+            for entity_id in entity_ids
+        ]
+        results = await asyncio.gather(*co_results)
+        return {
+            entity_id: results[i]
+            for i, entity_id in enumerate(entity_ids)
+        }
 
     async def get_entity_ids_by_type_name(
         self,
