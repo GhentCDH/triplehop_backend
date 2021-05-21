@@ -866,7 +866,10 @@ async def create_relations(
 
     for placeholder in props_collection:
         split = placeholder.split('|')
-        await executemany(
+
+        # Execute first insert separately, to prevent unique constraint on edge label
+        params = props_collection[placeholder].pop(0)
+        await execute(
             pool,
             (
                 f'SELECT * FROM cypher('
@@ -879,8 +882,33 @@ async def create_relations(
                 f'(d)-[\\:e_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
                 f') as (a agtype);'
             ),
-            [{'params': json.dumps(params)} for params in props_collection[placeholder]],
+            {
+                'params': json.dumps(params)
+            },
             True,
         )
+
+        co_execs = [
+            execute(
+                pool,
+                (
+                    f'SELECT * FROM cypher('
+                    f'\'{project_id}\', '
+                    f'$$MATCH'
+                    f'        (d:n_{dtu(domain_type_id)} {{{split[0]}}}),'
+                    f'        (r:n_{dtu(range_type_id)} {{{split[1]}}})'
+                    f' '
+                    f'CREATE'
+                    f'(d)-[\\:e_{dtu(relation_type_id)} {{{split[2]}}}]->(r)$$, :params'
+                    f') as (a agtype);'
+                ),
+                {
+                    'params': json.dumps(params)
+                },
+                True,
+            )
+            for params in props_collection[placeholder]
+        ]
+        await asyncio.gather(*co_execs)
 
     # TODO: relation entity, revision, property relations
