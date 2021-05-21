@@ -88,7 +88,7 @@
             "system_name": "function",
             "display_name": "Functions",
             "selector_value": "$ri_film_person->$display_name $ri_film_person.$type $||$ $ri_venue_person->$display_name $ri_venue_person.$type $||$ $ri_company_person->$display_name $ri_company_person.$type",
-            "type": "text"
+            "type": "[text]"
         },
         {
             "system_name": "venue",

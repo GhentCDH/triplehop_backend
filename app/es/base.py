@@ -255,7 +255,7 @@ class BaseElasticsearch:
                 return None
             return int(str_values[0])
 
-        if es_field_conf['type'] == 'text':
+        if es_field_conf['type'] == '[text]':
             str_values = BaseElasticsearch.replace(
                 entity_types_config,
                 entity_type_names,
@@ -265,6 +265,17 @@ class BaseElasticsearch:
             if not str_values:
                 return None
             return list(set(str_values))
+
+        if es_field_conf['type'] == 'text':
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
+                es_field_conf['selector_value'],
+                data,
+            )
+            if not str_values:
+                return None
+            return str_values[0]
 
         if es_field_conf['type'] == 'edtf':
             str_values = BaseElasticsearch.replace(
