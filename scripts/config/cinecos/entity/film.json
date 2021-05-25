@@ -56,5 +56,159 @@
                 ]
             }
         ]
+    },
+    "es_data": [
+        {
+            "system_name": "title",
+            "display_name": "Title",
+            "selector_value": "$7cb3c377-e3c5-4d60-8c9f-efc4626aa64c",
+            "type": "text"
+        },
+        {
+            "system_name": "mentioned_titles",
+            "display_name": "Mentioned titles",
+            "selector_value": "$r_e56ce384-7d5f-42e6-a16e-f9f75fa7ffdb->$2d46c2be-124f-4cf7-b7b7-563d7989463a",
+            "type": "[text]"
+        },
+        {
+            "system_name": "year",
+            "display_name": "Production year",
+            "selector_value": "$71d1f4c4-90da-402f-b2b7-84a83520bc7f",
+            "type": "integer"
+        },
+        {
+            "system_name": "director",
+            "display_name": "Directors",
+            "base": "$IF$ $r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba.info == 'director'$THEN$$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$da8140da-ae74-4563-8ef0-c555faa3ebbc",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "actor",
+            "display_name": "Actors",
+            "base": "$IF$ $r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba.info == 'actor'$THEN$$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_03eaa66b-a59c-4062-b7b6-50d82f65c3ba->$da8140da-ae74-4563-8ef0-c555faa3ebbc",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "distributor",
+            "display_name": "Distributors",
+            "base": "$IF$ $r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2.type == 'distrubutor'$THEN$$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2->$31fb8a0a-e788-4f46-939c-4128fd63d02b",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "production_company",
+            "display_name": "Production companies",
+            "base": "$IF$ $r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2.type == 'production_company'$THEN$$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_ac1f46f6-7df2-4544-a1f6-de5bdfce2aa2->$31fb8a0a-e788-4f46-939c-4128fd63d02b",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "country",
+            "display_name": "Countries",
+            "base": "r_film_country",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_459e3152-2d0e-4ff3-9285-f242172af8d4->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_459e3152-2d0e-4ff3-9285-f242172af8d4->$cffa2ebc-fb44-4f7b-93d1-78bda7f47acc",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        }
+    ],
+    "es_display": {
+        "title": "Search films",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$title",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$mentioned_titles",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$year",
+                        "type": "histogram_slider",
+                        "interval": 10
+                    },
+                    {
+                        "filter": "$director"
+                    },
+                    {
+                        "filter": "$distributor"
+                    },
+                    {
+                        "filter": "$production_company"
+                    },
+                    {
+                        "filter": "$country"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$title",
+                "sortable": true,
+                "main_link": true
+            },
+            {
+                "column": "$mentioned_titles",
+                "sortable": true
+            },
+            {
+                "column": "$year",
+                "sortable": true
+            },
+            {
+                "column": "$director",
+                "sortable": true,
+                "link": true
+            }
+        ]
     }
 }

@@ -56,5 +56,159 @@
                 ]
             }
         ]
+    },
+    "es_data": [
+        {
+            "system_name": "title",
+            "display_name": "Title",
+            "selector_value": "$title",
+            "type": "text"
+        },
+        {
+            "system_name": "mentioned_titles",
+            "display_name": "Mentioned titles",
+            "selector_value": "$r_mentioned_film_title->$title",
+            "type": "[text]"
+        },
+        {
+            "system_name": "year",
+            "display_name": "Production year",
+            "selector_value": "$year",
+            "type": "integer"
+        },
+        {
+            "system_name": "director",
+            "display_name": "Directors",
+            "base": "$IF$ $r_film_person.info == 'director'$THEN$$r_film_person$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_person->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_person->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "actor",
+            "display_name": "Actors",
+            "base": "$IF$ $r_film_person.info == 'actor'$THEN$$r_film_person$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_person->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_person->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "distributor",
+            "display_name": "Distributors",
+            "base": "$IF$ $r_film_company.type == 'distrubutor'$THEN$$r_film_company$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_company->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_company->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "production_company",
+            "display_name": "Production companies",
+            "base": "$IF$ $r_film_company.type == 'production_company'$THEN$$r_film_company$ENDIF$",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_company->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_company->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        },
+        {
+            "system_name": "country",
+            "display_name": "Countries",
+            "base": "r_film_country",
+            "parts": {
+                "id": {
+                    "selector_value": "$r_film_country->$id",
+                    "type": "integer"
+                },
+                "name": {
+                    "selector_value": "$r_film_country->$name",
+                    "type": "text"
+                }
+            },
+            "type": "nested"
+        }
+    ],
+    "es_display": {
+        "title": "Search films",
+        "filters": [
+            {
+                "filters": [
+                    {
+                        "filter": "$title",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$mentioned_titles",
+                        "type": "autocomplete"
+                    },
+                    {
+                        "filter": "$year",
+                        "type": "histogram_slider",
+                        "interval": 10
+                    },
+                    {
+                        "filter": "$director"
+                    },
+                    {
+                        "filter": "$distributor"
+                    },
+                    {
+                        "filter": "$production_company"
+                    },
+                    {
+                        "filter": "$country"
+                    }
+                ]
+            }
+        ],
+        "columns": [
+            {
+                "column": "$title",
+                "sortable": true,
+                "main_link": true
+            },
+            {
+                "column": "$mentioned_titles",
+                "sortable": true
+            },
+            {
+                "column": "$year",
+                "sortable": true
+            },
+            {
+                "column": "$director",
+                "sortable": true,
+                "link": true
+            }
+        ]
     }
 }

@@ -14,5 +14,6 @@ passlib
 python-multipart
 PyJWT
 tqdm
+typer
 ujson
 uvicorn

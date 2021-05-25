@@ -1,0 +1,27 @@
+{
+    "data": [
+        {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        {
+            "system_name": "type",
+            "display_name": "Company type",
+            "type": "String"
+        }
+    ],
+    "display": {
+        "domain_title": "Companies",
+        "range_title": "Films",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "$type"
+                    }
+                ]
+            }
+        ]
+    }
+}

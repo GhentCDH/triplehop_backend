@@ -1,0 +1,27 @@
+{
+    "data": {
+        "56d63f76-c95c-43d8-98d9-6b8d1c5ae73f": {
+            "system_name": "original_id",
+            "display_name": "Original id",
+            "type": "Int"
+        },
+        "b24cd282-d167-44de-88d5-c28d83cfffc7": {
+            "system_name": "type",
+            "display_name": "Company type",
+            "type": "String"
+        }
+    },
+    "display": {
+        "domain_title": "Companies",
+        "range_title": "Films",
+        "layout": [
+            {
+                "fields": [
+                    {
+                        "field": "$b24cd282-d167-44de-88d5-c28d83cfffc7"
+                    }
+                ]
+            }
+        ]
+    }
+}
