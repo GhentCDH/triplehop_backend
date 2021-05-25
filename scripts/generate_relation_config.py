@@ -8,11 +8,11 @@ import utils
 
 
 async def generate_config():
-    conn = await asyncpg.connect(**config.DATABASE)
+    pool = await asyncpg.create_pool(**config.DATABASE)
     for project_folder in os.listdir('human_readable_config'):
         relations = {}
         records = await utils.fetch(
-            conn,
+            pool,
             '''
                 SELECT relation.id::text, relation.system_name
                 FROM app.relation
@@ -33,7 +33,7 @@ async def generate_config():
             id = relations[relation]['id']
             # todo: relations with multiple domains / ranges?
             relations[relation]['domain'] = await utils.fetchval(
-                conn,
+                pool,
                 '''
                     SELECT entity.system_name
                     FROM app.relation_domain
@@ -46,7 +46,7 @@ async def generate_config():
                 }
             )
             relations[relation]['range'] = await utils.fetchval(
-                conn,
+                pool,
                 '''
                     SELECT entity.system_name
                     FROM app.relation_range
@@ -62,7 +62,7 @@ async def generate_config():
         with open(f'human_readable_config/{project_folder}/relations.json', 'w') as f:
             json.dump(relations, f, indent=4)
 
-    await conn.close()
+    await pool.close()
 
 
 def main():
