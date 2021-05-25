@@ -3,11 +3,16 @@ from __future__ import annotations
 import asyncio
 import asyncpg
 import json
+import re
 import typing
 
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, utd
+
+RE_LABEL_DOES_NOT_EXIST = re.compile(
+    r'^label[ ][en]_[a-f0-9]{8}_[a-f0-9]{4}_4[a-f0-9]{3}_[89ab][a-f0-9]{3}_[a-f0-9]{12}[ ]does not exists$'
+)
 
 
 class DataRepository(BaseRepository):
@@ -56,15 +61,20 @@ class DataRepository(BaseRepository):
             f'return n$$, :params'
             f') as (n agtype);'
         )
-        record = await self.fetchrow(
-            query,
-            {
-                'params': json.dumps({
-                    'entity_id': entity_id
-                })
-            },
-            age=True
-        )
+        try:
+            record = await self.fetchrow(
+                query,
+                {
+                    'params': json.dumps({
+                        'entity_id': entity_id
+                    })
+                },
+                age=True
+            )
+        # If no items have been added, the label does not exist
+        except asyncpg.exceptions.FeatureNotSupportedError as e:
+            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+                return None
 
         properties = json.loads(record['n'][:-8])['properties']
         return {'e_props': properties}
@@ -85,6 +95,7 @@ class DataRepository(BaseRepository):
         return {
             entity_id: results[i]
             for i, entity_id in enumerate(entity_ids)
+            if results[i] is not None
         }
 
     async def get_relations_graphql(
@@ -164,15 +175,20 @@ class DataRepository(BaseRepository):
                 f'return e, n$$, :params'
                 f') as (e agtype, n agtype);'
             )
-        records = await self.fetch(
-            query,
-            {
-                'params': json.dumps({
-                    'entity_id': entity_id
-                })
-            },
-            age=True
-        )
+        try:
+            records = await self.fetch(
+                query,
+                {
+                    'params': json.dumps({
+                        'entity_id': entity_id
+                    })
+                },
+                age=True
+            )
+        # If no items have been added, the label does not exist
+        except asyncpg.exceptions.FeatureNotSupportedError as e:
+            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+                return {}
 
         results = {}
 
@@ -248,10 +264,15 @@ class DataRepository(BaseRepository):
             f'return id$$'
             f') as (id agtype);'
         )
-        records = await self.fetch(
-            query,
-            age=True
-        )
+        try:
+            records = await self.fetch(
+                query,
+                age=True
+            )
+        # If no items have been added, the label does not exist
+        except asyncpg.exceptions.FeatureNotSupportedError as e:
+            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+                return []
         return [int(r['id']) for r in records]
 
     async def get_entity_data(
