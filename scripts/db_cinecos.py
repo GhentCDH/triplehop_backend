@@ -3,6 +3,7 @@ import asyncpg
 import csv
 import time
 import tqdm
+import typer
 import typing
 
 import config
@@ -30,6 +31,8 @@ async def create_structure():
     entities_types = {
         'film': 'Film',
         'mentioned_film_title': 'Mentioned Film Title',
+        'continent': 'Continent',
+        'country': 'Country',
         'city': 'City',
         'address': 'Address',
         'venue': 'Venue',
@@ -49,6 +52,8 @@ async def create_structure():
 
     relation_types = {
         'mentioned_film_title': ['Mentioned Film Title', ['film'], ['mentioned_film_title']],
+        'country_continent': ['Continent', ['country'], ['continent']],
+        'film_country': ['Film Country', ['film'], ['country']],
         'address_city': ['City', ['address'], ['city']],
         'venue_address': ['Address', ['venue'], ['address']],
         'film_person': ['Film Person', ['film'], ['person']],
@@ -56,6 +61,7 @@ async def create_structure():
         'company_name': ['Company Name', ['company'], ['company_name']],
         'company_company': ['Subsidiary', ['company'], ['company']],
         'company_person': ['Company Person', ['company'], ['person']],
+        'film_company': ['Film Company', ['film'], ['company']],
     }
     for (system_name, (display_name, domains, ranges)) in relation_types.items():
         await utils.create_relation_config(
@@ -139,309 +145,417 @@ async def create_relation(pool: asyncpg.pool.Pool, conf: typing.Dict, limit: int
         )
 
 
-async def create_data():
+async def create_data(data_actions):
     pool = await asyncpg.create_pool(**config.DATABASE)
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblFilm.csv',
-            'entity_type_name': 'film',
-            'props': {
-                'id': ['int', 'film_id'],
-                'original_id': ['int', 'film_id'],
-                'title': ['string', 'title'],
-                'year': ['int', 'film_year'],
-                'imdb_id': ['string', 'imdb'],
-                'wikidata_id': ['string', 'wikidata'],
+    if data_actions is None or 'entity__film' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblFilm.csv',
+                'entity_type_name': 'film',
+                'props': {
+                    'id': ['int', 'film_id'],
+                    'original_id': ['int', 'film_id'],
+                    'title': ['string', 'title'],
+                    'year': ['int', 'film_year'],
+                    'imdb_id': ['string', 'imdb'],
+                    'wikidata_id': ['string', 'wikidata'],
+                },
             },
-        },
-    )
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblFilmTitleVariation.csv',
-            'entity_type_name': 'mentioned_film_title',
-            'props': {
-                'id': ['int', 'film_variation_id'],
-                'title': ['string', 'title'],
+    if data_actions is None or 'entity__mentioned_film_title' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblFilmTitleVariation.csv',
+                'entity_type_name': 'mentioned_film_title',
+                'props': {
+                    'id': ['int', 'film_variation_id'],
+                    'title': ['string', 'title'],
+                },
             },
-        },
-        1000,
-    )
+            1000,
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblFilmTitleVariation.csv',
-            'relation_type_name': 'mentioned_film_title',
-            'domain_type_name': 'film',
-            'range_type_name': 'mentioned_film_title',
-            'domain': {
-                'id': ['int', 'film_id'],
+    if data_actions is None or 'entity__person' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblPersonWithFirstNames.csv',
+                'entity_type_name': 'person',
+                'props': {
+                    'id': ['int', 'person_id'],
+                    'original_id': ['int', 'person_id'],
+                    'first_names': ['array[string]', 'first_names', '|'],
+                    'last_name': ['string', 'last_name'],
+                    'suffix': ['string', 'suffix'],
+                    'name': ['string', 'name'],
+                    'info': ['string', 'info'],
+                    'imdb_id': ['string', 'imdb'],
+                    'wikidata_id': ['string', 'wikidata'],
+                },
             },
-            'range': {
-                'id': ['int', 'film_variation_id'],
-            },
-            'props': {}
-        },
-        1000,
-    )
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblPersonWithFirstNames.csv',
-            'entity_type_name': 'person',
-            'props': {
-                'id': ['int', 'person_id'],
-                'original_id': ['int', 'person_id'],
-                'first_names': ['array[string]', 'first_names', '|'],
-                'last_name': ['string', 'last_name'],
-                'suffix': ['string', 'suffix'],
-                'name': ['string', 'name'],
-                'info': ['string', 'info'],
-                'imdb_id': ['string', 'imdb'],
-                'wikidata_id': ['string', 'wikidata'],
+    if data_actions is None or 'entity__continent' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblContinent.csv',
+                'entity_type_name': 'continent',
+                'props': {
+                    'id': ['int', 'continent_id'],
+                    'original_id': ['string', 'code'],
+                    'name': ['string', 'name'],
+                },
             },
-        },
-    )
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblJoinFilmPerson.csv',
-            'relation_type_name': 'film_person',
-            'domain_type_name': 'film',
-            'range_type_name': 'person',
-            'domain': {
-                'id': ['int', 'film_id'],
+    if data_actions is None or 'entity__country' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblCountry.csv',
+                'entity_type_name': 'country',
+                'props': {
+                    'id': ['int', 'country_id'],
+                    'original_id': ['string', 'code'],
+                    'name': ['string', 'name'],
+                },
             },
-            'range': {
-                'id': ['int', 'person_id'],
-            },
-            'props': {
-                'original_id': ['int', 'film_person_id'],
-                'type': ['string', 'info'],
-            }
-        },
-        1000,
-    )
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblCity.csv',
-            'entity_type_name': 'city',
-            'props': {
-                'id': ['int', 'id'],
-                'original_id': ['int', 'id'],
-                'name': ['string', 'name'],
-                'postal_code': ['int', 'postal_code'],
+    if data_actions is None or 'entity__city' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblCity.csv',
+                'entity_type_name': 'city',
+                'props': {
+                    'id': ['int', 'id'],
+                    'original_id': ['int', 'id'],
+                    'name': ['string', 'name'],
+                    'postal_code': ['int', 'postal_code'],
+                },
             },
-        },
-    )
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblAddressWithGeoJson.csv',
-            'entity_type_name': 'address',
-            'props': {
-                'id': ['int', 'sequential_id'],
-                'original_id': ['string', 'address_id'],
-                'street_name': ['string', 'street_name'],
-                'location': ['geometry', 'geodata'],
-                'district': ['string', 'info'],
-                'architectural_info': ['string', 'architectural_info'],
+    if data_actions is None or 'entity__address' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblAddressWithGeoJson.csv',
+                'entity_type_name': 'address',
+                'props': {
+                    'id': ['int', 'sequential_id'],
+                    'original_id': ['string', 'address_id'],
+                    'street_name': ['string', 'street_name'],
+                    'location': ['geometry', 'geodata'],
+                    'district': ['string', 'info'],
+                    'architectural_info': ['string', 'architectural_info'],
+                },
             },
-        },
-    )
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblJoinAddressCity.csv',
-            'relation_type_name': 'address_city',
-            'domain_type_name': 'address',
-            'range_type_name': 'city',
-            'domain': {
-                'original_id': ['string', 'address_id'],
+    if data_actions is None or 'entity__venue' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblVenue.csv',
+                'entity_type_name': 'venue',
+                'props': {
+                    'id': ['int', 'sequential_id'],
+                    'original_id': ['string', 'venue_id'],
+                    'name': ['string', 'name'],
+                    'date_opened':  ['edtf', 'date_opened'],
+                    'date_closed':  ['edtf', 'date_closed'],
+                    'status':  ['string', 'status'],
+                    'type':  ['string', 'type'],
+                    'ideological_characteristic':  ['string', 'ideological_characteristic'],
+                    'ideological_remark':  ['string', 'ideological_remark'],
+                    'infrastructure_info':  ['string', 'infrastructure_info'],
+                    'name_remarks':  ['string', 'name_remarks'],
+                },
             },
-            'range': {
-                'id': ['int', 'city_id'],
-            },
-            'props': {}
-        },
-        1000,
-    )
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblVenue.csv',
-            'entity_type_name': 'venue',
-            'props': {
-                'id': ['int', 'sequential_id'],
-                'original_id': ['string', 'venue_id'],
-                'name': ['string', 'name'],
-                'date_opened':  ['edtf', 'date_opened'],
-                'date_closed':  ['edtf', 'date_closed'],
-                'status':  ['string', 'status'],
-                'type':  ['string', 'type'],
-                'ideological_characteristic':  ['string', 'ideological_characteristic'],
-                'ideological_remark':  ['string', 'ideological_remark'],
-                'infrastructure_info':  ['string', 'infrastructure_info'],
-                'name_remarks':  ['string', 'name_remarks'],
+    if data_actions is None or 'entity__company' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblCompany.csv',
+                'entity_type_name': 'company',
+                'props': {
+                    'id': ['int', 'company_id'],
+                    'original_id': ['int', 'company_id'],
+                    'name': ['string', 'name'],
+                    'date_start':  ['edtf', 'date_extablished'],
+                    'date_end':  ['edtf', 'date_disbanded'],
+                    'info':  ['string', 'info'],
+                    'nature':  ['string', 'nature'],
+                },
             },
-        },
-    )
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblVenue.csv',
-            'relation_type_name': 'venue_address',
-            'domain_type_name': 'venue',
-            'range_type_name': 'address',
-            'domain': {
-                'original_id': ['string', 'venue_id'],
+    if data_actions is None or 'entity__company_name' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblCompanyNamesSplitDates.csv',
+                'entity_type_name': 'company_name',
+                'props': {
+                    'id': ['int', 'sequential_id'],
+                    'original_id': ['int', 'sequential_id'],
+                    'name': ['string', 'name'],
+                },
             },
-            'range': {
-                'original_id': ['string', 'address_id'],
-            },
-            'props': {}
-        },
-        1000,
-    )
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblJoinVenuePerson.csv',
-            'relation_type_name': 'venue_person',
-            'domain_type_name': 'venue',
-            'range_type_name': 'person',
-            'domain': {
-                'original_id': ['string', 'venue_id'],
+    if data_actions is None or 'relation__mentioned_film_title' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblFilmTitleVariation.csv',
+                'relation_type_name': 'mentioned_film_title',
+                'domain_type_name': 'film',
+                'range_type_name': 'mentioned_film_title',
+                'domain': {
+                    'id': ['int', 'film_id'],
+                },
+                'range': {
+                    'id': ['int', 'film_variation_id'],
+                },
+                'props': {}
             },
-            'range': {
-                'id': ['int', 'person_id'],
-            },
-            'props': {
-                'type': ['string', 'job_type'],
-                'date_start': ['edtf', 'start_date'],
-                'date_end': ['edtf', 'end_date'],
-                'years': ['string', 'years'],
-            }
-        },
-    )
+            1000,
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblCompany.csv',
-            'entity_type_name': 'company',
-            'props': {
-                'id': ['int', 'company_id'],
-                'original_id': ['int', 'company_id'],
-                'name': ['string', 'name'],
-                'date_start':  ['edtf', 'date_extablished'],
-                'date_end':  ['edtf', 'date_disbanded'],
-                'info':  ['string', 'info'],
-                'nature':  ['string', 'nature'],
+    if data_actions is None or 'relation__country_continent' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblCountry.csv',
+                'relation_type_name': 'country_continent',
+                'domain_type_name': 'country',
+                'range_type_name': 'continent',
+                'domain': {
+                    'id': ['int', 'country_id'],
+                },
+                'range': {
+                    'original_id': ['string', 'continent_code'],
+                },
+                'props': {}
             },
-        },
-    )
+            1000,
+        )
 
-    await create_entity(
-        pool,
-        {
-            'filename': 'tblCompanyNamesSplitDates.csv',
-            'entity_type_name': 'company_name',
-            'props': {
-                'id': ['int', 'sequential_id'],
-                'original_id': ['int', 'sequential_id'],
-                'name': ['string', 'name'],
+    if data_actions is None or 'relation__film_country' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblFilm.csv',
+                'relation_type_name': 'film_country',
+                'domain_type_name': 'film',
+                'range_type_name': 'country',
+                'domain': {
+                    'id': ['int', 'film_id'],
+                },
+                'range': {
+                    'original_id': ['string', 'country'],
+                },
+                'props': {}
             },
-        },
-    )
+            1000,
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblCompanyNamesSplitDates.csv',
-            'relation_type_name': 'company_name',
-            'domain_type_name': 'company',
-            'range_type_name': 'company_name',
-            'domain': {
-                'id': ['int', 'company_id'],
+    if data_actions is None or 'relation__address_city' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinAddressCity.csv',
+                'relation_type_name': 'address_city',
+                'domain_type_name': 'address',
+                'range_type_name': 'city',
+                'domain': {
+                    'original_id': ['string', 'address_id'],
+                },
+                'range': {
+                    'id': ['int', 'city_id'],
+                },
+                'props': {}
             },
-            'range': {
-                'id': ['int', 'sequential_id'],
-            },
-            'props': {
-                'date_start': ['edtf', 'date_start'],
-                'date_end': ['edtf', 'date_end'],
-            }
-        },
-    )
+            1000,
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblJoinCompanyCompany.csv',
-            'relation_type_name': 'company_company',
-            'domain_type_name': 'company',
-            'range_type_name': 'company',
-            'domain': {
-                'id': ['int', 'company_id'],
+    if data_actions is None or 'relation__film_person' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinFilmPerson.csv',
+                'relation_type_name': 'film_person',
+                'domain_type_name': 'film',
+                'range_type_name': 'person',
+                'domain': {
+                    'id': ['int', 'film_id'],
+                },
+                'range': {
+                    'id': ['int', 'person_id'],
+                },
+                'props': {
+                    'original_id': ['int', 'film_person_id'],
+                    'type': ['string', 'info'],
+                }
             },
-            'range': {
-                'id': ['int', 'subsidiary_id'],
-            },
-            'props': {
-                'subsidiary_type': ['string', 'subsidiary_type'],
-                'date_start': ['edtf', 'start_date'],
-                'date_end': ['edtf', 'end_date'],
-            }
-        },
-    )
+            1000,
+        )
 
-    await create_relation(
-        pool,
-        {
-            'filename': 'tblJoinCompanyPerson.csv',
-            'relation_type_name': 'company_person',
-            'domain_type_name': 'company',
-            'range_type_name': 'person',
-            'domain': {
-                'id': ['int', 'company_id'],
+    if data_actions is None or 'relation__venue_address' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblVenue.csv',
+                'relation_type_name': 'venue_address',
+                'domain_type_name': 'venue',
+                'range_type_name': 'address',
+                'domain': {
+                    'original_id': ['string', 'venue_id'],
+                },
+                'range': {
+                    'original_id': ['string', 'address_id'],
+                },
+                'props': {}
             },
-            'range': {
-                'id': ['int', 'person_id'],
+            1000,
+        )
+
+    if data_actions is None or 'relation__venue_person' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinVenuePerson.csv',
+                'relation_type_name': 'venue_person',
+                'domain_type_name': 'venue',
+                'range_type_name': 'person',
+                'domain': {
+                    'original_id': ['string', 'venue_id'],
+                },
+                'range': {
+                    'id': ['int', 'person_id'],
+                },
+                'props': {
+                    'type': ['string', 'job_type'],
+                    'date_start': ['edtf', 'start_date'],
+                    'date_end': ['edtf', 'end_date'],
+                    'years': ['string', 'years'],
+                }
             },
-            'props': {
-                'type': ['string', 'job_type'],
-                'date_start': ['edtf', 'start_date'],
-                'date_end': ['edtf', 'end_date'],
-                'years': ['string', 'years'],
-            }
-        },
-    )
+        )
+
+    if data_actions is None or 'relation__mcompany_name' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblCompanyNamesSplitDates.csv',
+                'relation_type_name': 'company_name',
+                'domain_type_name': 'company',
+                'range_type_name': 'company_name',
+                'domain': {
+                    'id': ['int', 'company_id'],
+                },
+                'range': {
+                    'id': ['int', 'sequential_id'],
+                },
+                'props': {
+                    'date_start': ['edtf', 'date_start'],
+                    'date_end': ['edtf', 'date_end'],
+                }
+            },
+        )
+
+    if data_actions is None or 'relation__company_company' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinCompanyCompany.csv',
+                'relation_type_name': 'company_company',
+                'domain_type_name': 'company',
+                'range_type_name': 'company',
+                'domain': {
+                    'id': ['int', 'company_id'],
+                },
+                'range': {
+                    'id': ['int', 'subsidiary_id'],
+                },
+                'props': {
+                    'subsidiary_type': ['string', 'subsidiary_type'],
+                    'date_start': ['edtf', 'start_date'],
+                    'date_end': ['edtf', 'end_date'],
+                }
+            },
+        )
+
+    if data_actions is None or 'relation__company_person' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinCompanyPerson.csv',
+                'relation_type_name': 'company_person',
+                'domain_type_name': 'company',
+                'range_type_name': 'person',
+                'domain': {
+                    'id': ['int', 'company_id'],
+                },
+                'range': {
+                    'id': ['int', 'person_id'],
+                },
+                'props': {
+                    'type': ['string', 'job_type'],
+                    'date_start': ['edtf', 'start_date'],
+                    'date_end': ['edtf', 'end_date'],
+                    'years': ['string', 'years'],
+                }
+            },
+        )
+
+    if data_actions is None or 'relation__film_company' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblJoinFilmCompany.csv',
+                'relation_type_name': 'film_company',
+                'domain_type_name': 'film',
+                'range_type_name': 'company',
+                'domain': {
+                    'id': ['int', 'film_id'],
+                },
+                'range': {
+                    'id': ['int', 'company_id'],
+                },
+                'props': {
+                    'type': ['string', 'info'],
+                }
+            },
+            1000,
+        )
 
     await pool.close()
 
 
-def main():
+def main(
+    actions: typing.List[str] = typer.Option(None, help="create_structure or create_data"),
+    data_actions: typing.List[str] = typer.Option(None)
+):
     start_time = time.time()
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(create_structure())
-    loop.run_until_complete(create_data())
+    if actions is None or 'create_structure' in actions:
+        loop.run_until_complete(create_structure())
+    if actions is None or 'create_data' in actions:
+        loop.run_until_complete(create_data(data_actions))
     loop.close()
     print(f'Total time: {time.time() - start_time}')
 
 
 if __name__ == '__main__':
-    main()
+    typer.run(main)
