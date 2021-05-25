@@ -418,8 +418,8 @@ class BaseElasticsearch:
 
         for es_field_conf in es_data_config:
             mapping = {}
-            # TODO: does this need to be added for all text fields?
-            if es_field_conf['type'] == 'text':
+            # TODO: do the keywords and completion need to be added for all text fields?
+            if es_field_conf['type'] in ['text', '[text]']:
                 mapping['type'] = 'text'
                 mapping['fields'] = {
                     'keyword': {
@@ -433,6 +433,8 @@ class BaseElasticsearch:
                         'type': 'completion'
                     },
                 }
+            elif es_field_conf['type'] == 'integer':
+                mapping['type'] = 'integer'
             elif es_field_conf['type'] == 'edtf':
                 mapping['type'] = 'object'
                 mapping['properties'] = {
