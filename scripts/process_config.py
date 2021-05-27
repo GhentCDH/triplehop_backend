@@ -137,9 +137,10 @@ for project_folder in os.listdir('human_readable_config'):
                             part['selector_value'] = replace(project_config, er, name, part['selector_value'])
                     else:
                         field['selector_value'] = replace(project_config, er, name, field['selector_value'])
+                    if 'filter' in field:
+                        field['filter'] = replace(project_config, er, name, field['filter'])
             if 'es_display' in config:
                 project_config[er][name]['es_display'] = copy.deepcopy(config['es_display'])
-
 
     # write out config
     for er in ['entity', 'relation']:
@@ -152,4 +153,3 @@ for project_folder in os.listdir('human_readable_config'):
                     if conf in project_config[er][name]:
                         config[conf] = project_config[er][name][conf]
                 json.dump(config, f, indent=4)
-
