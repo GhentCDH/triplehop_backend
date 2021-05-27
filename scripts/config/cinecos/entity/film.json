@@ -187,6 +187,9 @@
                         "filter": "$director"
                     },
                     {
+                        "filter": "$actor"
+                    },
+                    {
                         "filter": "$distributor"
                     },
                     {
