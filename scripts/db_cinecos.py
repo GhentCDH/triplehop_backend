@@ -26,10 +26,10 @@ async def batch(method: typing.Callable, data: typing.Iterable, limit: int = Non
 async def create_structure(structure_actions: typing.List[str]):
     pool = await asyncpg.create_pool(**config.DATABASE)
 
-    if structure_actions is None or 'project_config' in structure_actions:
+    if not structure_actions or 'project_config' in structure_actions:
         await utils.create_project_config(pool, 'cinecos', 'Cinecos', 'info@cinemabelgica.be')
 
-    if structure_actions is None or 'entity_configs' in structure_actions:
+    if not structure_actions or 'entity_configs' in structure_actions:
         entities_types = {
             'film': 'Film',
             'mentioned_film_title': 'Mentioned Film Title',
@@ -52,7 +52,7 @@ async def create_structure(structure_actions: typing.List[str]):
                 utils.read_config_from_file('cinecos', 'entity', system_name),
             )
 
-    if structure_actions is None or 'relation_configs' in structure_actions:
+    if not structure_actions or 'relation_configs' in structure_actions:
         relation_types = {
             'mentioned_film_title': ['Mentioned Film Title', ['film'], ['mentioned_film_title']],
             'country_continent': ['Continent', ['country'], ['continent']],
@@ -78,7 +78,7 @@ async def create_structure(structure_actions: typing.List[str]):
                 ranges,
             )
 
-    if structure_actions is None or 'recreate_graph' in structure_actions:
+    if not structure_actions or 'recreate_graph' in structure_actions:
         await utils.drop_project_graph(pool, 'cinecos')
         await utils.create_project_graph(pool, 'cinecos')
 
@@ -149,10 +149,10 @@ async def create_relation(pool: asyncpg.pool.Pool, conf: typing.Dict, limit: int
         )
 
 
-async def create_data(data_actions: typing.List[str]):
+async def create_data(data_actions: typing.List[str] = None):
     pool = await asyncpg.create_pool(**config.DATABASE)
 
-    if data_actions is None or 'entity__film' in data_actions:
+    if not data_actions or 'entity__film' in data_actions:
         await create_entity(
             pool,
             {
@@ -160,7 +160,6 @@ async def create_data(data_actions: typing.List[str]):
                 'entity_type_name': 'film',
                 'props': {
                     'id': ['int', 'film_id'],
-                    'original_id': ['int', 'film_id'],
                     'title': ['string', 'title'],
                     'year': ['int', 'film_year'],
                     'imdb_id': ['string', 'imdb'],
@@ -169,7 +168,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__mentioned_film_title' in data_actions:
+    if not data_actions or 'entity__mentioned_film_title' in data_actions:
         await create_entity(
             pool,
             {
@@ -183,7 +182,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'entity__person' in data_actions:
+    if not data_actions or 'entity__person' in data_actions:
         await create_entity(
             pool,
             {
@@ -191,8 +190,7 @@ async def create_data(data_actions: typing.List[str]):
                 'entity_type_name': 'person',
                 'props': {
                     'id': ['int', 'person_id'],
-                    'original_id': ['int', 'person_id'],
-                    'first_names': ['array[string]', 'first_names', '|'],
+                    'first_names': ['[string]', 'first_names', '|'],
                     'last_name': ['string', 'last_name'],
                     'suffix': ['string', 'suffix'],
                     'name': ['string', 'name'],
@@ -203,7 +201,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__continent' in data_actions:
+    if not data_actions or 'entity__continent' in data_actions:
         await create_entity(
             pool,
             {
@@ -217,7 +215,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__country' in data_actions:
+    if not data_actions or 'entity__country' in data_actions:
         await create_entity(
             pool,
             {
@@ -231,7 +229,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__city' in data_actions:
+    if not data_actions or 'entity__city' in data_actions:
         await create_entity(
             pool,
             {
@@ -239,14 +237,13 @@ async def create_data(data_actions: typing.List[str]):
                 'entity_type_name': 'city',
                 'props': {
                     'id': ['int', 'id'],
-                    'original_id': ['int', 'id'],
                     'name': ['string', 'name'],
                     'postal_code': ['int', 'postal_code'],
                 },
             },
         )
 
-    if data_actions is None or 'entity__address' in data_actions:
+    if not data_actions or 'entity__address' in data_actions:
         await create_entity(
             pool,
             {
@@ -263,7 +260,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__venue' in data_actions:
+    if not data_actions or 'entity__venue' in data_actions:
         await create_entity(
             pool,
             {
@@ -285,7 +282,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__company' in data_actions:
+    if not data_actions or 'entity__company' in data_actions:
         await create_entity(
             pool,
             {
@@ -293,7 +290,6 @@ async def create_data(data_actions: typing.List[str]):
                 'entity_type_name': 'company',
                 'props': {
                     'id': ['int', 'company_id'],
-                    'original_id': ['int', 'company_id'],
                     'name': ['string', 'name'],
                     'date_start':  ['edtf', 'date_extablished'],
                     'date_end':  ['edtf', 'date_disbanded'],
@@ -303,7 +299,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'entity__company_name' in data_actions:
+    if not data_actions or 'entity__company_name' in data_actions:
         await create_entity(
             pool,
             {
@@ -311,13 +307,53 @@ async def create_data(data_actions: typing.List[str]):
                 'entity_type_name': 'company_name',
                 'props': {
                     'id': ['int', 'sequential_id'],
-                    'original_id': ['int', 'sequential_id'],
                     'name': ['string', 'name'],
                 },
             },
         )
 
-    if data_actions is None or 'relation__mentioned_film_title' in data_actions:
+    if not data_actions or 'entity__programme' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblProgrammeWithImages.csv',
+                'entity_type_name': 'programme',
+                'props': {
+                    'id': ['int', 'programme_id'],
+                    'vooruit_image': ['string', 'vooruit_image_url'],
+                },
+            },
+        )
+
+    if not data_actions or 'entity__programme_date' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblProgrammeDateCalculated.csv',
+                'entity_type_name': 'programme_date',
+                'props': {
+                    'id': ['int', 'programme_date_id'],
+                    'date_start': ['edtf', 'date_start'],
+                    'date_end': ['edtf', 'date_end'],
+                    'dates_mentioned': ['[string]', 'dates_mentioned', '|'],
+                },
+            },
+        )
+
+    if not data_actions or 'entity__programme_item' in data_actions:
+        await create_entity(
+            pool,
+            {
+                'filename': 'tblProgrammeItem.csv',
+                'entity_type_name': 'programme_item',
+                'props': {
+                    'id': ['int', 'programme_item_id'],
+                    'mentioned_venue': ['string', 'info'],
+                },
+            },
+        )
+
+    if not data_actions or 'relation__mentioned_film_title' in data_actions:
         await create_relation(
             pool,
             {
@@ -336,7 +372,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'relation__country_continent' in data_actions:
+    if not data_actions or 'relation__country_continent' in data_actions:
         await create_relation(
             pool,
             {
@@ -355,7 +391,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'relation__film_country' in data_actions:
+    if not data_actions or 'relation__film_country' in data_actions:
         await create_relation(
             pool,
             {
@@ -374,7 +410,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'relation__address_city' in data_actions:
+    if not data_actions or 'relation__address_city' in data_actions:
         await create_relation(
             pool,
             {
@@ -393,7 +429,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'relation__film_person' in data_actions:
+    if not data_actions or 'relation__film_person' in data_actions:
         await create_relation(
             pool,
             {
@@ -415,7 +451,7 @@ async def create_data(data_actions: typing.List[str]):
             5000,
         )
 
-    if data_actions is None or 'relation__venue_address' in data_actions:
+    if not data_actions or 'relation__venue_address' in data_actions:
         await create_relation(
             pool,
             {
@@ -434,7 +470,7 @@ async def create_data(data_actions: typing.List[str]):
             1000,
         )
 
-    if data_actions is None or 'relation__venue_person' in data_actions:
+    if not data_actions or 'relation__venue_person' in data_actions:
         await create_relation(
             pool,
             {
@@ -457,7 +493,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'relation__mcompany_name' in data_actions:
+    if not data_actions or 'relation__mcompany_name' in data_actions:
         await create_relation(
             pool,
             {
@@ -478,7 +514,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'relation__company_company' in data_actions:
+    if not data_actions or 'relation__company_company' in data_actions:
         await create_relation(
             pool,
             {
@@ -500,7 +536,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'relation__company_person' in data_actions:
+    if not data_actions or 'relation__company_person' in data_actions:
         await create_relation(
             pool,
             {
@@ -523,7 +559,7 @@ async def create_data(data_actions: typing.List[str]):
             },
         )
 
-    if data_actions is None or 'relation__film_company' in data_actions:
+    if not data_actions or 'relation__film_company' in data_actions:
         await create_relation(
             pool,
             {
@@ -553,9 +589,9 @@ def main(
 ):
     start_time = time.time()
     loop = asyncio.get_event_loop()
-    if actions is None or 'create_structure' in actions:
+    if not actions or 'create_structure' in actions:
         loop.run_until_complete(create_structure(sub_actions))
-    if actions is None or 'create_data' in actions:
+    if not actions or 'create_data' in actions:
         loop.run_until_complete(create_data(sub_actions))
     loop.close()
     print(f'Total time: {time.time() - start_time}')
