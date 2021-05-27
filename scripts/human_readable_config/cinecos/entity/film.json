@@ -79,7 +79,8 @@
         {
             "system_name": "director",
             "display_name": "Directors",
-            "base": "$IF$ $r_film_person.info == 'director'$THEN$$r_film_person$ENDIF$",
+            "base": "$r_film_person",
+            "filter": "$r_film_person.$type == director",
             "parts": {
                 "id": {
                     "selector_value": "$r_film_person->$id",
@@ -95,7 +96,8 @@
         {
             "system_name": "actor",
             "display_name": "Actors",
-            "base": "$IF$ $r_film_person.info == 'actor'$THEN$$r_film_person$ENDIF$",
+            "base": "$r_film_person",
+            "filter": "$r_film_person.$type == actor",
             "parts": {
                 "id": {
                     "selector_value": "$r_film_person->$id",
@@ -111,7 +113,8 @@
         {
             "system_name": "distributor",
             "display_name": "Distributors",
-            "base": "$IF$ $r_film_company.type == 'distrubutor'$THEN$$r_film_company$ENDIF$",
+            "base": "$r_film_company",
+            "filter": "$r_film_company.$type == distributor",
             "parts": {
                 "id": {
                     "selector_value": "$r_film_company->$id",
@@ -127,7 +130,8 @@
         {
             "system_name": "production_company",
             "display_name": "Production companies",
-            "base": "$IF$ $r_film_company.type == 'production_company'$THEN$$r_film_company$ENDIF$",
+            "base": "$r_film_company",
+            "filter": "$r_film_company.$type == production_company",
             "parts": {
                 "id": {
                     "selector_value": "$r_film_company->$id",

@@ -169,6 +169,8 @@ class BaseElasticsearch:
                                         )
                                     )
                                 else:
+                                    if 'relations' not in current_level:
+                                        continue
                                     if rel_type_id not in current_level['relations']:
                                         continue
                                     for relation in current_level['relations'][rel_type_id].values():
@@ -239,7 +241,7 @@ class BaseElasticsearch:
     def convert_field(
         entity_types_config: typing.Dict,
         entity_type_names: typing.Dict,
-        es_field_conf: str,
+        es_field_conf: typing.Dict,
         data: typing.Dict,
     ) -> typing.Any:
         if es_field_conf['type'] == 'integer':
@@ -337,13 +339,33 @@ class BaseElasticsearch:
                 es_field_conf['base'],
                 data,
             )
+            if 'filter' in es_field_conf:
+                (filter_value, comp_value) = es_field_conf['filter'].split(' == ')
+                datas = [
+                    data
+                    for data in datas
+                    if BaseElasticsearch.replace(
+                        entity_types_config,
+                        entity_type_names,
+                        (
+                            filter_value
+                            .replace(f'{es_field_conf["base"]}->', '')
+                            .replace(f'{es_field_conf["base"]}.', '.')
+                        ),
+                        data,
+                    )[0] == comp_value
+                ]
             results = []
             for data in datas:
                 result = {
                     'entity_type_name': entity_type_names[data['entity_type_id']]
                 }
                 for key, part_def in es_field_conf['parts'].items():
-                    part_def['selector_value'] = part_def['selector_value'].replace(f'{es_field_conf["base"]}->', '')
+                    part_def['selector_value'] = (
+                        part_def['selector_value']
+                        .replace(f'{es_field_conf["base"]}->', '')
+                        .replace(f'{es_field_conf["base"]}.', '.')
+                    )
                     result[key] = BaseElasticsearch.convert_field(
                         entity_types_config,
                         entity_type_names,
