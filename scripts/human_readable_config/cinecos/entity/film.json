@@ -36,6 +36,10 @@
                         "field": "$title"
                     },
                     {
+                        "label": "Mentioned titles",
+                        "field": "$r_mentioned_film_title->$title"
+                    },
+                    {
                         "field": "$year"
                     },
                     {
