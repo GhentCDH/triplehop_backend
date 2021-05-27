@@ -210,21 +210,23 @@ def relation_configs_resolver_wrapper(request: starlette.requests.Request, proje
             config_item = {
                 'system_name': relation_system_name,
                 'display_name': relation_config['display_name'],
-                'display': {
-                    'domain_title': relation_config['config']['display']['domain_title'],
-                    'range_title': relation_config['config']['display']['range_title'],
-                },
                 'domain_names': relation_config['domain_names'],
                 'range_names': relation_config['range_names'],
             }
             if 'data' in relation_config['config']:
                 data_conf = relation_config['config']['data']
                 config_item['data'] = list(data_conf.values())
-            if 'display' in relation_config['config'] and 'layout' in relation_config['config']['display']:
-                config_item['display']['layout'] = _layout_field_converter(
-                    relation_config['config']['display']['layout'],
-                    relation_field_lookup,
-                )
+            if 'display' in relation_config['config']:
+                config_item['display'] = {}
+                if 'domain_title' in relation_config['config']['display']:
+                    config_item['display']['domain_title'] = relation_config['config']['display']['domain_title']
+                if 'range_title' in relation_config['config']['display']:
+                    config_item['display']['range_title'] = relation_config['config']['display']['range_title']
+                if 'layout' in relation_config['config']['display']:
+                    config_item['display']['layout'] = _layout_field_converter(
+                        relation_config['config']['display']['layout'],
+                        relation_field_lookup,
+                    )
             results.append(config_item)
 
         return results
@@ -300,7 +302,7 @@ async def create_type_defs():
             ['system_name', 'String!'],
             ['display_name', 'String!'],
             ['data', '[Data_config!]'],
-            ['display', 'Relation_display_config!'],
+            ['display', 'Relation_display_config'],
             ['domain_names', '[String!]!'],
             ['range_names', '[String!]!'],
         ],
