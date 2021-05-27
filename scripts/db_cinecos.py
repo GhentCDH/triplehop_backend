@@ -23,60 +23,64 @@ async def batch(method: typing.Callable, data: typing.Iterable, limit: int = Non
         await method(*args, batch)
 
 
-async def create_structure():
+async def create_structure(structure_actions: typing.List[str]):
     pool = await asyncpg.create_pool(**config.DATABASE)
 
-    await utils.create_project_config(pool, 'cinecos', 'Cinecos', 'info@cinemabelgica.be')
+    if structure_actions is None or 'project_config' in structure_actions:
+        await utils.create_project_config(pool, 'cinecos', 'Cinecos', 'info@cinemabelgica.be')
 
-    entities_types = {
-        'film': 'Film',
-        'mentioned_film_title': 'Mentioned Film Title',
-        'continent': 'Continent',
-        'country': 'Country',
-        'city': 'City',
-        'address': 'Address',
-        'venue': 'Venue',
-        'person': 'Person',
-        'company': 'Company',
-        'company_name': 'Company name',
-    }
-    for (system_name, display_name) in entities_types.items():
-        await utils.create_entity_config(
-            pool,
-            'cinecos',
-            'info@cinemabelgica.be',
-            system_name,
-            display_name,
-            utils.read_config_from_file('cinecos', 'entity', system_name),
-        )
+    if structure_actions is None or 'entity_configs' in structure_actions:
+        entities_types = {
+            'film': 'Film',
+            'mentioned_film_title': 'Mentioned Film Title',
+            'continent': 'Continent',
+            'country': 'Country',
+            'city': 'City',
+            'address': 'Address',
+            'venue': 'Venue',
+            'person': 'Person',
+            'company': 'Company',
+            'company_name': 'Company name',
+        }
+        for (system_name, display_name) in entities_types.items():
+            await utils.create_entity_config(
+                pool,
+                'cinecos',
+                'info@cinemabelgica.be',
+                system_name,
+                display_name,
+                utils.read_config_from_file('cinecos', 'entity', system_name),
+            )
 
-    relation_types = {
-        'mentioned_film_title': ['Mentioned Film Title', ['film'], ['mentioned_film_title']],
-        'country_continent': ['Continent', ['country'], ['continent']],
-        'film_country': ['Film Country', ['film'], ['country']],
-        'address_city': ['City', ['address'], ['city']],
-        'venue_address': ['Address', ['venue'], ['address']],
-        'film_person': ['Film Person', ['film'], ['person']],
-        'venue_person': ['Venue Person', ['venue'], ['person']],
-        'company_name': ['Company Name', ['company'], ['company_name']],
-        'company_company': ['Subsidiary', ['company'], ['company']],
-        'company_person': ['Company Person', ['company'], ['person']],
-        'film_company': ['Film Company', ['film'], ['company']],
-    }
-    for (system_name, (display_name, domains, ranges)) in relation_types.items():
-        await utils.create_relation_config(
-            pool,
-            'cinecos',
-            'info@cinemabelgica.be',
-            system_name,
-            display_name,
-            utils.read_config_from_file('cinecos', 'relation', system_name),
-            domains,
-            ranges,
-        )
+    if structure_actions is None or 'relation_configs' in structure_actions:
+        relation_types = {
+            'mentioned_film_title': ['Mentioned Film Title', ['film'], ['mentioned_film_title']],
+            'country_continent': ['Continent', ['country'], ['continent']],
+            'film_country': ['Film Country', ['film'], ['country']],
+            'address_city': ['City', ['address'], ['city']],
+            'venue_address': ['Address', ['venue'], ['address']],
+            'film_person': ['Film Person', ['film'], ['person']],
+            'venue_person': ['Venue Person', ['venue'], ['person']],
+            'company_name': ['Company Name', ['company'], ['company_name']],
+            'company_company': ['Subsidiary', ['company'], ['company']],
+            'company_person': ['Company Person', ['company'], ['person']],
+            'film_company': ['Film Company', ['film'], ['company']],
+        }
+        for (system_name, (display_name, domains, ranges)) in relation_types.items():
+            await utils.create_relation_config(
+                pool,
+                'cinecos',
+                'info@cinemabelgica.be',
+                system_name,
+                display_name,
+                utils.read_config_from_file('cinecos', 'relation', system_name),
+                domains,
+                ranges,
+            )
 
-    await utils.drop_project_graph(pool, 'cinecos')
-    await utils.create_project_graph(pool, 'cinecos')
+    if structure_actions is None or 'recreate_graph' in structure_actions:
+        await utils.drop_project_graph(pool, 'cinecos')
+        await utils.create_project_graph(pool, 'cinecos')
 
     await pool.close()
 
@@ -145,7 +149,7 @@ async def create_relation(pool: asyncpg.pool.Pool, conf: typing.Dict, limit: int
         )
 
 
-async def create_data(data_actions):
+async def create_data(data_actions: typing.List[str]):
     pool = await asyncpg.create_pool(**config.DATABASE)
 
     if data_actions is None or 'entity__film' in data_actions:
@@ -408,7 +412,7 @@ async def create_data(data_actions):
                     'type': ['string', 'info'],
                 }
             },
-            1000,
+            5000,
         )
 
     if data_actions is None or 'relation__venue_address' in data_actions:
@@ -545,14 +549,14 @@ async def create_data(data_actions):
 
 def main(
     actions: typing.List[str] = typer.Option(None, help="create_structure or create_data"),
-    data_actions: typing.List[str] = typer.Option(None)
+    sub_actions: typing.List[str] = typer.Option(None)
 ):
     start_time = time.time()
     loop = asyncio.get_event_loop()
     if actions is None or 'create_structure' in actions:
-        loop.run_until_complete(create_structure())
+        loop.run_until_complete(create_structure(sub_actions))
     if actions is None or 'create_data' in actions:
-        loop.run_until_complete(create_data(data_actions))
+        loop.run_until_complete(create_data(sub_actions))
     loop.close()
     print(f'Total time: {time.time() - start_time}')
 
