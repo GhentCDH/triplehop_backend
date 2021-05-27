@@ -1,4 +1,5 @@
 import csv
+import datetime
 import json
 import os
 import re
@@ -189,3 +190,77 @@ with open('data/processed/tblCompanyNames.csv') as input_file,\
             date_end = date
         row[i_header_lookup['date']:i_header_lookup['date'] + 1] = date_start, date_end
         o_writer.writerow(row)
+
+
+# add Vooruit image urls to programme
+# calculate programme dates
+with open('data/processed/tblProgramme.csv') as programme_file,\
+     open('data/processed/programmes_image_urls.csv') as programme_image_file,\
+     open('data/processed/tblProgrammeDate.csv') as programme_date_file,\
+     open('data/processed/tblProgrammeWithImages.csv', 'w') as programme_ouptut_file,\
+     open('data/processed/tblProgrammeDateCalculated.csv', 'w') as programme_date_output_file:
+    p_reader = csv.reader(programme_file)
+    i_reader = csv.reader(programme_image_file)
+    pd_reader = csv.reader(programme_date_file)
+    po_writer = csv.writer(programme_ouptut_file, lineterminator='\n')
+    pdo_writer = csv.writer(programme_date_output_file, lineterminator='\n')
+
+    p_header = next(p_reader)
+    p_header_lookup = {h: p_header.index(h) for h in p_header}
+
+    i_header = next(i_reader)
+    i_header_lookup = {h: i_header.index(h) for h in i_header}
+
+    pd_header = next(pd_reader)
+    pd_header_lookup = {h: pd_header.index(h) for h in pd_header}
+
+    pdo_header = ['programme_date_id', 'programme_id', 'date_start', 'date_end', 'dates_mentioned']
+    pdo_writer.writerow(pdo_header)
+
+    p_header.append('vooruit_image_url')
+    po_writer.writerow(p_header)
+
+    i_lookup = {}
+    for row in i_reader:
+        i_lookup[row[i_header_lookup['programme_id']]] = row[i_header_lookup['image_url']]
+
+    p_lookup = {}
+    re_mentioned_dates = re.compile(r'[(]([a-z0-9- X]+)[)]')
+    for row in p_reader:
+        programme_id = row[p_header_lookup['programme_id']]
+        p_lookup[programme_id] = {
+            'is_week': 'Vertoningsweek' in row[p_header_lookup['programme_info']],
+            'dates_mentioned': re_mentioned_dates.findall(row[p_header_lookup['programme_info']])
+        }
+        if programme_id in i_lookup:
+            row.append(i_lookup[programme_id])
+        else:
+            row.append('')
+        po_writer.writerow(row)
+
+    counter = 0
+    for row in pd_reader:
+        counter += 1
+        programme_id = row[pd_header_lookup['programme_id']]
+        date_start = row[pd_header_lookup['programme_date']]
+        if p_lookup[programme_id]['is_week']:
+            if '193X' in date_start:
+                date_end = datetime.datetime.strftime(
+                        datetime.datetime.strptime(
+                            date_start.replace('193X', '1935'),
+                            '%Y-%m-%d'
+                        ) + datetime.timedelta(days=7),
+                        '%Y-%m-%d'
+                    ).replace('1935', '193X')
+            else:
+                date_end = datetime.datetime.strftime(
+                        datetime.datetime.strptime(
+                            date_start,
+                            '%Y-%m-%d'
+                        ) + datetime.timedelta(days=7),
+                        '%Y-%m-%d'
+                    )
+        else:
+            date_end = date_start
+        dates_mentioned = '|'.join(p_lookup[programme_id]['dates_mentioned'])
+        pdo_writer.writerow([counter, programme_id, date_start, date_end, dates_mentioned])

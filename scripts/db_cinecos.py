@@ -41,6 +41,9 @@ async def create_structure(structure_actions: typing.List[str]):
             'person': 'Person',
             'company': 'Company',
             'company_name': 'Company name',
+            'programme': 'Programme',
+            'programme_date': 'Programme date',
+            'programme_item': 'Programme item',
         }
         for (system_name, display_name) in entities_types.items():
             await utils.create_entity_config(
@@ -65,6 +68,13 @@ async def create_structure(structure_actions: typing.List[str]):
             'company_company': ['Subsidiary', ['company'], ['company']],
             'company_person': ['Company Person', ['company'], ['person']],
             'film_company': ['Film Company', ['film'], ['company']],
+            'programme_programme_date': ['Programme date', ['programme'], ['programme_date']],
+            'programme_programme_item': ['Programme item', ['programme'], ['programme_item']],
+            'programme_item_film': ['Film', ['programme_item'], ['film']],
+            'programme_item_mentioned_film_title': [
+                'Mentioned film title', ['programme_item'], ['mentioned_film_title']
+            ],
+            'programme_venue': ['Venue', ['programme'], ['venue']],
         }
         for (system_name, (display_name, domains, ranges)) in relation_types.items():
             await utils.create_relation_config(
@@ -576,6 +586,101 @@ async def create_data(data_actions: typing.List[str] = None):
                 'props': {
                     'type': ['string', 'info'],
                 }
+            },
+            1000,
+        )
+
+    if not data_actions or 'relation__programme_programme_date' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblProgrammeDateCalculated.csv',
+                'relation_type_name': 'programme_programme_date',
+                'domain_type_name': 'programme',
+                'range_type_name': 'programme_date',
+                'domain': {
+                    'id': ['int', 'programme_id'],
+                },
+                'range': {
+                    'id': ['int', 'programme_date_id'],
+                },
+                'props': {}
+            },
+            1000,
+        )
+
+    if not data_actions or 'relation__programme_programme_item' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblProgrammeItem.csv',
+                'relation_type_name': 'programme_programme_item',
+                'domain_type_name': 'programme',
+                'range_type_name': 'programme_item',
+                'domain': {
+                    'id': ['int', 'programme_id'],
+                },
+                'range': {
+                    'id': ['int', 'programme_item_id'],
+                },
+                'props': {}
+            },
+            1000,
+        )
+
+    if not data_actions or 'relation__programme_item_film' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblProgrammeItem.csv',
+                'relation_type_name': 'programme_item_film',
+                'domain_type_name': 'programme_item',
+                'range_type_name': 'film',
+                'domain': {
+                    'id': ['int', 'programme_item_id'],
+                },
+                'range': {
+                    'id': ['int', 'film_id'],
+                },
+                'props': {}
+            },
+            1000,
+        )
+
+    if not data_actions or 'relation__programme_item_mentioned_film_title' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblProgrammeItem.csv',
+                'relation_type_name': 'programme_item_mentioned_film_title',
+                'domain_type_name': 'programme_item',
+                'range_type_name': 'mentioned_film_title',
+                'domain': {
+                    'id': ['int', 'programme_item_id'],
+                },
+                'range': {
+                    'id': ['int', 'film_variation_id'],
+                },
+                'props': {}
+            },
+            1000,
+        )
+
+    if not data_actions or 'relation__programme_venue' in data_actions:
+        await create_relation(
+            pool,
+            {
+                'filename': 'tblProgrammeWithImages.csv',
+                'relation_type_name': 'programme_venue',
+                'domain_type_name': 'programme',
+                'range_type_name': 'venue',
+                'domain': {
+                    'id': ['int', 'programme_id'],
+                },
+                'range': {
+                    'original_id': ['string', 'venue_id'],
+                },
+                'props': {}
             },
             1000,
         )

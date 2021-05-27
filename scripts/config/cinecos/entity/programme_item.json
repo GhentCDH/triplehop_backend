@@ -1,0 +1,26 @@
+{
+    "data": {
+        "864bb070-639d-4c01-86ed-8bf36d1fbda6": {
+            "system_name": "mentioned_venue",
+            "display_name": "Mentioned venue name",
+            "type": "String"
+        }
+    },
+    "display": {
+        "title": "$r_6b270fbc-d9f3-482c-8ea9-731b10361ef6->$2d46c2be-124f-4cf7-b7b7-563d7989463a - $ri_fc18ed02-54d0-4014-a4c1-2f24d16da2f2->$r_32e90ce8-c4cf-48d8-bd2c-de258e1cc201->$fd083354-0e22-4a5b-8b3a-c28fb90da272 ($ri_fc18ed02-54d0-4014-a4c1-2f24d16da2f2->$r_10eb0738-5cad-42e0-8c9f-1939a99acec9->$855e1da8-1d8f-41b7-8f9c-6476c5253c2a - $ri_fc18ed02-54d0-4014-a4c1-2f24d16da2f2->$r_10eb0738-5cad-42e0-8c9f-1939a99acec9->$cfa1b7b8-00b6-49d0-9dd3-35fb97564429)",
+        "layout": [
+            {
+                "label": "General",
+                "fields": [
+                    {
+                        "label": "Mentioned film title",
+                        "field": "$r_6b270fbc-d9f3-482c-8ea9-731b10361ef6->$2d46c2be-124f-4cf7-b7b7-563d7989463a"
+                    },
+                    {
+                        "field": "$864bb070-639d-4c01-86ed-8bf36d1fbda6"
+                    }
+                ]
+            }
+        ]
+    }
+}

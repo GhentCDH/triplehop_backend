@@ -474,7 +474,7 @@ def create_properties(
                 'value': value,
             }
             continue
-        if conf[0] == 'array[string]':
+        if conf[0] == '[string]':
             value = row[file_header_lookup[conf[1]]]
             if value in ['']:
                 continue

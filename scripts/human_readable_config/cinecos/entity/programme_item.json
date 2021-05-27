@@ -1,0 +1,26 @@
+{
+    "data": [
+        {
+            "system_name": "mentioned_venue",
+            "display_name": "Mentioned venue name",
+            "type": "String"
+        }
+    ],
+    "display": {
+        "title": "$r_programme_item_mentioned_film_title->$title - $ri_programme_programme_item->$r_programme_venue->$name ($ri_programme_programme_item->$r_programme_programme_date->$date_start - $ri_programme_programme_item->$r_programme_programme_date->$date_end)",
+        "layout": [
+            {
+                "label": "General",
+                "fields": [
+                    {
+                        "label": "Mentioned film title",
+                        "field": "$r_programme_item_mentioned_film_title->$title"
+                    },
+                    {
+                        "field": "$mentioned_venue"
+                    }
+                ]
+            }
+        ]
+    }
+}
