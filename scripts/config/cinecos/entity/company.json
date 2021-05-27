@@ -1,10 +1,5 @@
 {
     "data": {
-        "70d42ad5-3aa3-4a31-9414-c78e1e1dbc43": {
-            "system_name": "original_id",
-            "display_name": "Original id",
-            "type": "Int"
-        },
         "31fb8a0a-e788-4f46-939c-4128fd63d02b": {
             "system_name": "name",
             "display_name": "Name",

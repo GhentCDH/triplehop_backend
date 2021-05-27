@@ -1,11 +1,6 @@
 {
     "data": [
         {
-            "system_name": "original_id",
-            "display_name": "Original id",
-            "type": "Int"
-        },
-        {
             "system_name": "title",
             "display_name": "Title",
             "type": "String"

@@ -1,10 +1,5 @@
 {
     "data": {
-        "16ffdac7-b572-452e-ba9e-781684efd45f": {
-            "system_name": "original_id",
-            "display_name": "Original id",
-            "type": "Int"
-        },
         "7cb3c377-e3c5-4d60-8c9f-efc4626aa64c": {
             "system_name": "title",
             "display_name": "Title",
