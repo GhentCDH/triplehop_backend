@@ -170,7 +170,7 @@ class DataRepository(BaseRepository):
             query = (
                 f'SELECT * FROM cypher('
                 f'\'{self._project_id}\', '
-                f'$$MATCH (d:n_{dtu(entity_type_id)} {{id: $entity_id}}) -[e:e_{dtu(relation_type_id)}] -> (n)'
+                f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (n) '
                 f'WHERE d.id = $entity_id '
                 f'return e, n$$, :params'
                 f') as (e agtype, n agtype);'
