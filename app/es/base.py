@@ -34,6 +34,9 @@ class BaseElasticsearch:
                     requested_fields.add(part['selector_value'])
                 if 'filter' in es_field_conf:
                     requested_fields.add(es_field_conf['filter'])
+            elif es_field_conf['type'] == 'edtf_interval':
+                requested_fields.add(es_field_conf['start'])
+                requested_fields.add(es_field_conf['end'])
             else:
                 requested_fields.add(es_field_conf['selector_value'])
 
@@ -294,9 +297,13 @@ class BaseElasticsearch:
                 return None
             str_value = str_values[0]
 
-            # Open ending
+            # Unknown
+            if str_value == '':
+                return None
+
+            # Open ending for intervals
             if str_value == '..':
-                if es_field_conf['subtype'] == 'start':
+                if es_field_conf['interval_position'] == 'start':
                     return {
                         'text': str_value,
                         'lower': DATE_MIN,
@@ -309,21 +316,14 @@ class BaseElasticsearch:
                         'upper': DATE_MAX,
                     }
 
-            # Unknown
-            if str_value == '':
-                return {
-                    'text': None,
-                    'lower': None,
-                    'upper': None,
-                }
-
             try:
                 # edtf module needs to be updated to the newest revision
+                # https://github.com/ixc/python-edtf/issues/24
                 old_edtf_text = str_value.replace('X', 'u')
                 edtf_date = edtf.parse_edtf(old_edtf_text)
             except edtf.parser.edtf_exceptions.EDTFParseException:
                 raise Exception(f'EDTF parser cannot parse {old_edtf_text}')
-            return {
+            result = {
                 'text': str_value,
                 'lower': time.strftime(
                     '%Y-%m-%d',
@@ -332,8 +332,55 @@ class BaseElasticsearch:
                 'upper': time.strftime(
                     '%Y-%m-%d',
                     edtf_date.upper_strict()
-                )
+                ),
             }
+            # only for edtf, not for edtf_interval
+            if 'interval_position' not in es_field_conf:
+                year_lower = edtf_date.lower_strict()[0]
+                year_upper = edtf_date.upper_strict()[0]
+                result['year_histogram'] = {
+                    'values': [y for y in range(year_lower, year_upper)],
+                    'counts': [1 for y in range(year_lower, year_upper)],
+                }
+
+            return result
+
+        if es_field_conf['type'] == 'edtf_interval':
+            result = {
+                key: BaseElasticsearch.convert_field(
+                    entity_types_config,
+                    entity_type_names,
+                    {
+                        'type': 'edtf',
+                        'selector_value': es_field_conf[key],
+                        'interval_position': key,
+                    },
+                    data,
+                )
+                for key in ['start', 'end']
+            }
+            for key in ['start', 'end']:
+                if (
+                    result[key] is None
+                    or result[key]['text'] == '..'
+                    or result[key]['text'] is None
+                ):
+                    result['year_histogram'] = None
+                    return result
+            year_lower = int(time.strftime(
+                '%Y',
+                time.strptime(result['start']['lower'], '%Y-%m-%d')
+            ))
+            year_upper = int(time.strftime(
+                '%Y',
+                time.strptime(result['end']['upper'], '%Y-%m-%d')
+            ))
+            result['year_histogram'] = {
+                'values': [y for y in range(year_lower, year_upper)],
+                'counts': [1 for y in range(year_lower, year_upper)],
+            }
+
+            return result
 
         if es_field_conf['type'] == 'nested':
             # TODO: relation properties of base?
@@ -459,6 +506,7 @@ class BaseElasticsearch:
                 }
             elif es_field_conf['type'] == 'integer':
                 mapping['type'] = 'integer'
+            # TODO: does year_histogram need to be added for all edtf fields?
             elif es_field_conf['type'] == 'edtf':
                 mapping['type'] = 'object'
                 mapping['properties'] = {
@@ -475,6 +523,55 @@ class BaseElasticsearch:
                     },
                     'upper': {
                         'type': 'date',
+                    },
+                    'year_histogram': {
+                        'type': 'histogram',
+                    },
+                }
+            # TODO: does year_histogram need to be added for all edtf_interval fields?
+            elif es_field_conf['type'] == 'edtf_interval':
+                mapping['type'] = 'object'
+                mapping['properties'] = {
+                    'start': {
+                        'type': 'object',
+                        'properties': {
+                            'text': {
+                                'type': 'text',
+                                'fields': {
+                                    'keyword': {
+                                        'type': 'keyword',
+                                    },
+                                },
+                            },
+                            'lower': {
+                                'type': 'date',
+                            },
+                            'upper': {
+                                'type': 'date',
+                            },
+                        },
+                    },
+                    'end': {
+                        'type': 'object',
+                        'properties': {
+                            'text': {
+                                'type': 'text',
+                                'fields': {
+                                    'keyword': {
+                                        'type': 'keyword',
+                                    },
+                                },
+                            },
+                            'lower': {
+                                'type': 'date',
+                            },
+                            'upper': {
+                                'type': 'date',
+                            },
+                        },
+                    },
+                    'year_histogram': {
+                        'type': 'histogram',
                     },
                 }
             elif es_field_conf['type'] == 'nested':

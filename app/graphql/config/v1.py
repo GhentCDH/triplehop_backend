@@ -86,7 +86,7 @@ def _es_columns_converter(columns: typing.List, es_data_conf: typing.Dict) -> ty
             'type': es_data_conf[column['column'][1:]]['type'],
             'sortable': column['sortable'],
         }
-        for key in ['main_link', 'link']:
+        for key in ['main_link', 'link', 'sub_field']:
             if key in column:
                 result[key] = column[key]
         results.append(result)
@@ -288,6 +288,7 @@ async def create_type_defs():
             ['sortable', 'Boolean!'],
             ['main_link', 'Boolean'],
             ['link', 'Boolean'],
+            ['sub_field', 'String'],
         ],
         'es_filter_group_config': [
             ['filters', '[Es_filter_config!]'],
