@@ -1,9 +1,0 @@
-{
-    "data": [
-        {
-            "system_name": "name",
-            "display_name": "Name",
-            "type": "String"
-        }
-    ]
-}
