@@ -32,6 +32,8 @@ class BaseElasticsearch:
             if es_field_conf['type'] == 'nested':
                 for part in es_field_conf['parts'].values():
                     requested_fields.add(part['selector_value'])
+                if 'filter' in es_field_conf:
+                    requested_fields.add(es_field_conf['filter'])
             else:
                 requested_fields.add(es_field_conf['selector_value'])
 
