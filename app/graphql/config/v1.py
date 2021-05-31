@@ -82,11 +82,11 @@ def _es_columns_converter(columns: typing.List, es_data_conf: typing.Dict) -> ty
     for column in columns:
         result = {
             'system_name': es_data_conf[column['column'][1:]]['system_name'],
-            'display_name': es_data_conf[column['column'][1:]]['display_name'],
+            'display_name': column.get('display_name', es_data_conf[column['column'][1:]]['display_name']),
             'type': es_data_conf[column['column'][1:]]['type'],
             'sortable': column['sortable'],
         }
-        for key in ['main_link', 'link', 'sub_field']:
+        for key in ['main_link', 'link', 'sub_field', 'sub_field_type']:
             if key in column:
                 result[key] = column[key]
         results.append(result)
@@ -289,6 +289,7 @@ async def create_type_defs():
             ['main_link', 'Boolean'],
             ['link', 'Boolean'],
             ['sub_field', 'String'],
+            ['sub_field_type', 'String'],
         ],
         'es_filter_group_config': [
             ['filters', '[Es_filter_config!]'],
