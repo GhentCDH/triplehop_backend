@@ -338,9 +338,9 @@ class BaseElasticsearch:
             if 'interval_position' not in es_field_conf:
                 year_lower = edtf_date.lower_strict()[0]
                 year_upper = edtf_date.upper_strict()[0]
-                result['year_histogram'] = {
-                    'values': [y for y in range(year_lower, year_upper)],
-                    'counts': [1 for y in range(year_lower, year_upper)],
+                result['year_range'] = {
+                    'gte': year_lower,
+                    'lte': year_upper,
                 }
 
             return result
@@ -365,7 +365,7 @@ class BaseElasticsearch:
                     or result[key]['text'] == '..'
                     or result[key]['text'] is None
                 ):
-                    result['year_histogram'] = None
+                    result['year_range'] = None
                     return result
             year_lower = int(time.strftime(
                 '%Y',
@@ -375,9 +375,9 @@ class BaseElasticsearch:
                 '%Y',
                 time.strptime(result['end']['upper'], '%Y-%m-%d')
             ))
-            result['year_histogram'] = {
-                'values': [y for y in range(year_lower, year_upper)],
-                'counts': [1 for y in range(year_lower, year_upper)],
+            result['year_range'] = {
+                'gte': year_lower,
+                'lte': year_upper,
             }
 
             return result
@@ -506,7 +506,7 @@ class BaseElasticsearch:
                 }
             elif es_field_conf['type'] == 'integer':
                 mapping['type'] = 'integer'
-            # TODO: does year_histogram need to be added for all edtf fields?
+            # TODO: does year_range need to be added for all edtf fields?
             elif es_field_conf['type'] == 'edtf':
                 mapping['type'] = 'object'
                 mapping['properties'] = {
@@ -524,11 +524,11 @@ class BaseElasticsearch:
                     'upper': {
                         'type': 'date',
                     },
-                    'year_histogram': {
-                        'type': 'histogram',
+                    'year_range': {
+                        'type': 'integer_range',
                     },
                 }
-            # TODO: does year_histogram need to be added for all edtf_interval fields?
+            # TODO: does year_range need to be added for all edtf_interval fields?
             elif es_field_conf['type'] == 'edtf_interval':
                 mapping['type'] = 'object'
                 mapping['properties'] = {
@@ -570,8 +570,8 @@ class BaseElasticsearch:
                             },
                         },
                     },
-                    'year_histogram': {
-                        'type': 'histogram',
+                    'year_range': {
+                        'type': 'integer_range',
                     },
                 }
             elif es_field_conf['type'] == 'nested':
