@@ -359,22 +359,49 @@ class BaseElasticsearch:
                 )
                 for key in ['start', 'end']
             }
-            for key in ['start', 'end']:
+
+            if (
+                result['start'] is None
+                or result['start']['text'] is None
+                or result['start']['text'] == '..'
+            ):
                 if (
-                    result[key] is None
-                    or result[key]['text'] == '..'
-                    or result[key]['text'] is None
+                    result['end'] is None
+                    or result['end']['text'] is None
+                    or result['end']['text'] == '..'
                 ):
                     result['year_range'] = None
                     return result
-            year_lower = int(time.strftime(
-                '%Y',
-                time.strptime(result['start']['lower'], '%Y-%m-%d')
-            ))
-            year_upper = int(time.strftime(
-                '%Y',
-                time.strptime(result['end']['upper'], '%Y-%m-%d')
-            ))
+
+                # start is not set or open => take end.lower for year_lower
+                year_lower = int(time.strftime(
+                    '%Y',
+                    time.strptime(result['end']['lower'], '%Y-%m-%d')
+                ))
+            else:
+                year_lower = int(time.strftime(
+                    '%Y',
+                    time.strptime(result['start']['lower'], '%Y-%m-%d')
+                ))
+
+            if (
+                result['end'] is None
+                or result['end']['text'] is None
+            ):
+                # end is not set => take start.upper for year_upper
+                year_upper = int(time.strftime(
+                    '%Y',
+                    time.strptime(result['start']['upper'], '%Y-%m-%d')
+                ))
+            elif result['end']['text'] == '..':
+                # end is open => take current year
+                year_upper = time.strftime('%Y')
+            else:
+                year_upper = int(time.strftime(
+                    '%Y',
+                    time.strptime(result['end']['upper'], '%Y-%m-%d')
+                ))
+
             result['year_range'] = {
                 'gte': year_lower,
                 'lte': year_upper,
