@@ -27,6 +27,7 @@
     sudo -u postgres createdb -O crdb crdb
     sudo -u postgres psql -d crdb -c "CREATE EXTENSION age;"
     sudo -u postgres psql -d crdb -c "GRANT USAGE ON SCHEMA ag_catalog TO crdb;"
+    sudo -u postgres psql -d crdb -c "GRANT SELECT ON TABLE ag_catalog.ag_label TO crdb;"
     ```
 
 * PostGIS
