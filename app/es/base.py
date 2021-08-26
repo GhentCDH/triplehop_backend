@@ -374,11 +374,13 @@ class BaseElasticsearch:
                     return result
 
                 # start is not set or open => take end.lower for year_lower
+                result['lower'] = result['end']['lower']
                 year_lower = int(time.strftime(
                     '%Y',
                     time.strptime(result['end']['lower'], '%Y-%m-%d')
                 ))
             else:
+                result['lower'] = result['start']['lower']
                 year_lower = int(time.strftime(
                     '%Y',
                     time.strptime(result['start']['lower'], '%Y-%m-%d')
@@ -389,14 +391,17 @@ class BaseElasticsearch:
                 or result['end']['text'] is None
             ):
                 # end is not set => take start.upper for year_upper
+                result['upper'] = result['start']['upper']
                 year_upper = int(time.strftime(
                     '%Y',
                     time.strptime(result['start']['upper'], '%Y-%m-%d')
                 ))
             elif result['end']['text'] == '..':
                 # end is open => take current year
+                result['upper'] = time.strftime('%Y-%m-%d')
                 year_upper = time.strftime('%Y')
             else:
+                result['upper'] = result['end']['upper']
                 year_upper = int(time.strftime(
                     '%Y',
                     time.strptime(result['end']['upper'], '%Y-%m-%d')
@@ -596,6 +601,12 @@ class BaseElasticsearch:
                                 'type': 'date',
                             },
                         },
+                    },
+                    'lower': {
+                        'type': 'date',
+                    },
+                    'upper': {
+                        'type': 'date',
                     },
                     'year_range': {
                         'type': 'integer_range',
