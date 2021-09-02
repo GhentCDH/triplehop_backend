@@ -339,7 +339,6 @@ class DataRepository(BaseRepository):
 
         results = {}
         for record in records:
-            print(record)
             id = record['id']
             relation_properties = json.loads(record['e_properties'])
             entity_properties = json.loads(record['n_properties'])

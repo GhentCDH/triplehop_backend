@@ -117,10 +117,10 @@ async def create_type_defs(
             and entity_types_config[etn]['config']['source']
         )
     ]
-    type_defs_dict['_source_'] = [['id', 'Int'], ['properties', '[String]']]
+    type_defs_dict['Source_'] = [['id', 'Int'], ['properties', '[String]']]
     if source_entity_names:
-        unions_array.append(f'union Source_entity = {" | ".join([sen.capitalize() for sen in source_entity_names])}')
-        type_defs_dict['_source_'].append(['entity', '[Source_entity!]!'])
+        unions_array.append(f'union Source_entity_types = {" | ".join([sen.capitalize() for sen in source_entity_names])}')
+        type_defs_dict['Source_'].append(['entity', 'Source_entity_types'])
 
     # TODO: add props which can contain multiple, values (sorted or unsorted)
     # Entities
@@ -132,7 +132,7 @@ async def create_type_defs(
         type_defs_dict[etn] = props
 
         # Entity sources
-        type_defs_dict[etn].append(['_source_', '[_source_!]!'])
+        type_defs_dict[etn].append(['_source_', '[Source_!]!'])
 
     # Relations
     # TODO: cardinality
