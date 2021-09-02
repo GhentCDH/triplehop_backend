@@ -10,7 +10,7 @@ import typing
 from app.cache.core import key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
-from app.utils import dtu, utd
+from app.utils import dtu, relation_label, utd
 
 RE_LABEL_DOES_NOT_EXIST = re.compile(
     r'^label[ ][en]_[a-f0-9]{8}_[a-f0-9]{4}_4[a-f0-9]{3}_[89ab][a-f0-9]{3}_[a-f0-9]{12}[ ]does not exists$'
@@ -307,7 +307,7 @@ class DataRepository(BaseRepository):
                 f'FROM "{self._project_id}".n_{dtu(entity_type_id)} r '
                 f'INNER JOIN "{self._project_id}"._i_n_{dtu(entity_type_id)} ri '
                 f'ON r.id = ri.nid '
-                f'INNER JOIN "{self._project_id}".e_{dtu(relation_type_id)} e '
+                f'INNER JOIN "{self._project_id}".{relation_label(relation_type_id)} e '
                 f'ON r.id = e.end_id '
                 f'INNER JOIN "{self._project_id}"._ag_label_vertex n '
                 f'ON e.start_id = n.id '
@@ -319,7 +319,7 @@ class DataRepository(BaseRepository):
                 f'FROM "{self._project_id}".n_{dtu(entity_type_id)} d '
                 f'INNER JOIN "{self._project_id}"._i_n_{dtu(entity_type_id)} di '
                 f'ON d.id = di.nid '
-                f'INNER JOIN "{self._project_id}".e_{dtu(relation_type_id)} e '
+                f'INNER JOIN "{self._project_id}".{relation_label(relation_type_id)} e '
                 f'ON d.id = e.start_id '
                 f'INNER JOIN "{self._project_id}"._ag_label_vertex n '
                 f'ON e.end_id = n.id '
@@ -339,6 +339,7 @@ class DataRepository(BaseRepository):
 
         results = {}
         for record in records:
+            print(record)
             id = record['id']
             relation_properties = json.loads(record['e_properties'])
             entity_properties = json.loads(record['n_properties'])

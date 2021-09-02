@@ -18,3 +18,11 @@ def dtu(string: str) -> str:
 def utd(string: str) -> str:
     '''Replace all underscores in a string with dashes.'''
     return string.replace('_', '-')
+
+
+def relation_label(relation_type_id: str) -> str:
+    '''Construct a relation_label from a relation type id.'''
+    # Special case '_source_'
+    if relation_type_id == '_source_':
+        return '_source_'
+    return f'e_{dtu(relation_type_id)}'

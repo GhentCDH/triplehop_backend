@@ -106,6 +106,21 @@ async def create_type_defs(
             ['coordinates', '[Float!]!'],
         ],
     }
+    unions_array = []
+
+    # Sources
+    source_entity_names = [
+        etn
+        for etn in entity_types_config
+        if (
+            'source' in entity_types_config[etn]['config']
+            and entity_types_config[etn]['config']['source']
+        )
+    ]
+    type_defs_dict['_source_'] = [['id', 'Int'], ['properties', '[String]']]
+    if source_entity_names:
+        unions_array.append(f'union Source_entity = {" | ".join([sen.capitalize() for sen in source_entity_names])}')
+        type_defs_dict['_source_'].append(['entity', '[Source_entity!]!'])
 
     # TODO: add props which can contain multiple, values (sorted or unsorted)
     # Entities
@@ -116,10 +131,12 @@ async def create_type_defs(
                 props.append([prop["system_name"], prop["type"]])
         type_defs_dict[etn] = props
 
+        # Entity sources
+        type_defs_dict[etn].append(['_source_', '[_source_!]!'])
+
     # Relations
     # TODO: cardinality
     # TODO: bidirectional relations
-    unions_array = []
     for rtn in relation_types_config:
         domain_names = relation_types_config[rtn]['domain_names']
         range_names = relation_types_config[rtn]['range_names']
@@ -152,25 +169,28 @@ async def create_object_types(
 ):
     object_types = {'Query': ariadne.QueryType()}
 
+    # Entities
     for entity_type_name in entity_types_config:
         object_types['Query'].set_field(
             entity_type_name.capitalize(),
             entity_resolver_wrapper(request, project_name, entity_type_name),
         )
 
+        # Entity sources
+        object_types[entity_type_name.capitalize()] = ariadne.ObjectType(entity_type_name.capitalize())
+        object_types[entity_type_name.capitalize()].set_field(
+            '_source_',
+            relation_resolver_wrapper(request, project_name, '_source_')
+        )
+
+    # Relations
     for relation_type_name in relation_types_config:
         for domain_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['domain_names']]:
-            if domain_name not in object_types:
-                object_types[domain_name] = ariadne.ObjectType(domain_name)
-
             object_types[domain_name].set_field(
                 f'r_{relation_type_name}_s',
                 relation_resolver_wrapper(request, project_name, relation_type_name)
             )
         for range_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['range_names']]:
-            if range_name not in object_types:
-                object_types[range_name] = ariadne.ObjectType(range_name)
-
             object_types[range_name].set_field(
                 f'ri_{relation_type_name}_s',
                 relation_resolver_wrapper(request, project_name, relation_type_name, True)

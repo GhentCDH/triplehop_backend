@@ -189,6 +189,13 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=key_builder)
     async def get_relation_type_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
+        # Special case: '_source_'
+        if relation_type_name == '_source_':
+            return {
+                'id': 'id',
+                'properties': 'properties',
+            }
+
         relation_types_config = await self.get_relation_types_config(project_name)
 
         try:
@@ -215,6 +222,10 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=key_builder)
     async def get_relation_type_id_by_name(self, project_name: str, relation_type_name: str) -> int:
+        # Special case '_source__'
+        if relation_type_name == '_source_':
+            return '_source_'
+
         relation_types_config = await self.get_relation_types_config(project_name)
 
         try:
