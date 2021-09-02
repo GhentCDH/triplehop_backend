@@ -180,8 +180,8 @@ class ConfigRepository(BaseRepository):
                 'id': record['id'],
                 'display_name': record['display_name'],
                 'config': json.loads(record['config']),
-                'domain_names': record['domain_names'],
-                'range_names': record['range_names'],
+                'domain_names': list(set(record['domain_names'])),
+                'range_names': list(set(record['range_names'])),
             }
 
         return result
