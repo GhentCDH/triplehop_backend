@@ -152,6 +152,8 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
             }
+            if 'source' in entity_config['config']:
+                config_item['source'] = entity_config['config']['source']
             if 'data' in entity_config['config']:
                 data_conf = entity_config['config']['data']
                 config_item['data'] = list(data_conf.values())
@@ -250,6 +252,7 @@ async def create_type_defs():
         'entity_config': [
             ['system_name', 'String!'],
             ['display_name', 'String!'],
+            ['source', 'Boolean'],
             ['data', '[Data_config!]'],
             ['display', 'Entity_display_config'],
             ['elasticsearch', 'Es_config'],
