@@ -94,6 +94,12 @@ class ConfigRepository(BaseRepository):
     async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
         entity_types_config = await self.get_entity_types_config(project_name)
 
+        if entity_type_name == '__all__':
+            result = {}
+            for etn in entity_types_config:
+                result.update(self.get_entity_type_property_mapping(project_name, etn))
+            return result
+
         try:
             entity_type_config = entity_types_config[entity_type_name]
         except KeyError:

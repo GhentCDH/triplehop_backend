@@ -177,6 +177,7 @@ class DataRepository(BaseRepository):
 
         results = {}
         rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
+        etpma = await self._conf_repo.get_entity_type_property_mapping(self._project_name, '__all__')
         etd = {}
         for entity_id, raw_result in raw_results.items():
             results[entity_id] = []
@@ -196,6 +197,7 @@ class DataRepository(BaseRepository):
                         'entity_type_name': etd[etid]['etn'],
                     }
                 )
+                # WIP: Convert source properties using etpma
 
         return results
 
