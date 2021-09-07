@@ -190,14 +190,27 @@ class DataRepository(BaseRepository):
                         'etpm': await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
                     }
                 etpm = etd[etid]['etpm']
-                results[entity_id].append(
-                    {
-                        'relation': {rtpm[k]: v for k, v in raw_relation_result['r_props'].items() if k in rtpm},
-                        'entity': {etpm[k]: v for k, v in raw_relation_result['e_props'].items() if k in etpm},
-                        'entity_type_name': etd[etid]['etn'],
-                    }
-                )
-                # WIP: Convert source properties using etpma
+                result = {
+                    'relation': {
+                        rtpm[k]: v
+                        for k, v in raw_relation_result['r_props'].items()
+                        if k in rtpm
+                    },
+                    'entity': {
+                        etpm[k]: v
+                        for k, v in raw_relation_result['e_props'].items()
+                        if k in etpm
+                    },
+                    'entity_type_name': etd[etid]['etn'],
+                }
+                if relation_type_id == '_source_':
+                    if 'properties' in result['relation']:
+                        result['relation']['properties'] = [
+                            etpma[f'p_{dtu(p)}']
+                            for p in result['relation']['properties']
+                            if f'p_{dtu(p)}' in etpma
+                        ]
+                results[entity_id].append(result)
 
         return results
 

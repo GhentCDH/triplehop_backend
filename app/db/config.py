@@ -97,7 +97,7 @@ class ConfigRepository(BaseRepository):
         if entity_type_name == '__all__':
             result = {}
             for etn in entity_types_config:
-                result.update(self.get_entity_type_property_mapping(project_name, etn))
+                result.update(await self.get_entity_type_property_mapping(project_name, etn))
             return result
 
         try:
