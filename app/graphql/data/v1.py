@@ -86,6 +86,13 @@ def relation_resolver_wrapper(
             result['entity'] = db_result['entity']
             result['entity']['__typename'] = db_result['entity_type_name'].capitalize()
 
+            result['_source_'] = []
+            for source in db_result['sources']:
+                source_result = source['relation']
+                source_result['entity'] = source['entity']
+                source_result['entity']['__typename'] = source['entity_type_name'].capitalize()
+                result['_source_'].append(source_result)
+
             results.append(result)
 
         return results
@@ -150,6 +157,10 @@ async def create_type_defs(
 
         type_defs_dict[f'r_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
         type_defs_dict[f'ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
+
+        # Relation sources
+        type_defs_dict[f'r_{rtn}'].append(['_source_', '[Source_!]!'])
+        type_defs_dict[f'ri_{rtn}'].append(['_source_', '[Source_!]!'])
 
         for domain_name in domain_names:
             type_defs_dict[domain_name].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])

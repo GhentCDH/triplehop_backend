@@ -204,6 +204,15 @@ class ConfigRepository(BaseRepository):
 
         relation_types_config = await self.get_relation_types_config(project_name)
 
+        if relation_type_name == '__all__':
+            result = {
+                # Used to indicate a source is relevant an entire relation
+                'p___rel__': '__rel__',
+            }
+            for rtn in relation_types_config:
+                result.update(await self.get_relation_type_property_mapping(project_name, rtn))
+            return result
+
         try:
             relation_type_config = relation_types_config[relation_type_name]
         except KeyError:

@@ -178,6 +178,7 @@ class DataRepository(BaseRepository):
         results = {}
         rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
         etpma = await self._conf_repo.get_entity_type_property_mapping(self._project_name, '__all__')
+        rtpma = await self._conf_repo.get_relation_type_property_mapping(self._project_name, '__all__')
         etd = {}
         for entity_id, raw_result in raw_results.items():
             results[entity_id] = []
@@ -202,6 +203,7 @@ class DataRepository(BaseRepository):
                         if k in etpm
                     },
                     'entity_type_name': etd[etid]['etn'],
+                    'sources': [],
                 }
                 if relation_type_id == '_source_':
                     if 'properties' in result['relation']:
@@ -210,6 +212,39 @@ class DataRepository(BaseRepository):
                             for p in result['relation']['properties']
                             if f'p_{dtu(p)}' in etpma
                         ]
+
+                # Source information
+                srtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, '_source_')
+                for source in raw_relation_result['sources']:
+                    setid = source['entity_type_id']
+                    if setid not in etd:
+                        etn = await self._conf_repo.get_entity_type_name_by_id(self._project_name, setid)
+                        etd[setid] = {
+                            'etn': etn,
+                            'etpm': await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
+                        }
+                    setpm = etd[setid]['etpm']
+                    source_result = {
+                        'relation': {
+                            srtpm[k]: v
+                            for k, v in source['r_props'].items()
+                            if k in srtpm
+                        },
+                        'entity': {
+                            setpm[k]: v
+                            for k, v in source['e_props'].items()
+                            if k in setpm
+                        },
+                        'entity_type_name': etd[setid]['etn'],
+                    }
+                    if 'properties' in source_result['relation']:
+                        source_result['relation']['properties'] = [
+                            rtpma[f'p_{dtu(p)}']
+                            for p in source_result['relation']['properties']
+                            if f'p_{dtu(p)}' in rtpma
+                        ]
+                    result['sources'].append(source_result)
+
                 results[entity_id].append(result)
 
         return results
@@ -365,8 +400,55 @@ class DataRepository(BaseRepository):
             results[id][relation_properties['id']] = {
                 'r_props': relation_properties,
                 'e_props': entity_properties,
-                'entity_type_id': etid
+                'entity_type_id': etid,
+                'sources': [],
             }
+
+        # Retrieve source information
+        relation_ids = [rid for eid in results for rid in results[eid]]
+        query = (
+            f'SELECT di.id, e.properties as e_properties, n.id as n_id, n.properties as n_properties '
+            f'FROM "{self._project_id}".en_{dtu(relation_type_id)} d '
+            f'INNER JOIN "{self._project_id}"._i_en_{dtu(relation_type_id)} di '
+            f'ON d.id = di.nid '
+            f'INNER JOIN "{self._project_id}"._source_ e '
+            f'ON d.id = e.start_id '
+            f'INNER JOIN "{self._project_id}"._ag_label_vertex n '
+            f'ON e.end_id = n.id '
+            f'WHERE di.id = ANY(:relation_ids);'
+        )
+        try:
+            records = await self.fetch(
+                query,
+                {
+                    'relation_ids': relation_ids,
+                },
+                age=True,
+            )
+        # If no relations have been added, the relation table doesn't exist
+        except asyncpg.exceptions.UndefinedTableError:
+            records = []
+
+        for record in records:
+            rel_id = record['id']
+            source_relation_properties = json.loads(record['e_properties'])
+            source_entity_properties = json.loads(record['n_properties'])
+            etid = await self.get_entity_type_id_from_vertex_graph_id(record['n_id'])
+
+            found = False
+            for eid in results:
+                for rid in results[eid]:
+                    if rid == rel_id:
+                        results[eid][rid]['sources'].append({
+                            'r_props': source_relation_properties,
+                            'e_props': source_entity_properties,
+                            'entity_type_id': etid,
+                        })
+
+                        found = True
+                        break
+                if found:
+                    break
 
         return results
 
