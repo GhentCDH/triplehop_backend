@@ -1,6 +1,8 @@
+from datetime import date, datetime
 import edtf
 import elasticsearch
 from elasticsearch.helpers import async_bulk
+import re
 import time
 import typing
 import uuid
@@ -17,6 +19,9 @@ SCROLL_SIZE = 1000
 # https://github.com/elastic/elasticsearch/issues/43966
 DATE_MIN = '-999999999'
 DATE_MAX = '999999999'
+
+RE_YYYY_MM_DD = re.compile(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+RE_YYYY = re.compile(r'^[0-9]{4}$')
 
 
 class BaseElasticsearch:
@@ -315,6 +320,40 @@ class BaseElasticsearch:
                         'lower': DATE_MAX,
                         'upper': DATE_MAX,
                     }
+
+            if RE_YYYY_MM_DD.match(str_value):
+                # parse as date to validate format and to retrieve year
+                yyyy_mm_dd = date.fromisoformat(str_value)
+
+                result = {
+                    'text': str_value,
+                    'lower': str_value,
+                    'upper': str_value,
+                }
+                # only for edtf, not for edtf_interval
+                if 'interval_position' not in es_field_conf:
+                    result['year_range'] = {
+                        'gte': yyyy_mm_dd.year,
+                        'lte': yyyy_mm_dd.year,
+                    }
+                return result
+
+            if RE_YYYY.match(str_value):
+                # parse as date to validate format and to retrieve year
+                yyyy = datetime.strptime(str_value, '%Y')
+
+                result = {
+                    'text': str_value,
+                    'lower': f'{str_value}-01-01',
+                    'upper': f'{str_value}-12-31',
+                }
+                # only for edtf, not for edtf_interval
+                if 'interval_position' not in es_field_conf:
+                    result['year_range'] = {
+                        'gte': yyyy.year,
+                        'lte': yyyy.year,
+                    }
+                return result
 
             try:
                 # edtf module needs to be updated to the newest revision
