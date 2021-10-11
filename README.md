@@ -7,9 +7,9 @@
     ```
     # https://age.apache.org/docs/installation.html - https://github.com/apache/incubator-age/issues/33
     sudo apt-get install bison build-essential flex postgresql-server-dev-11 postgresql-client-11 postgresql-11 unzip
-    wget https://github.com/bitnine-oss/AgensGraph-Extension/archive/master.zip
+    wget https://github.com/apache/incubator-age/archive/refs/heads/master.zip
     unzip master.zip
-    cd AgensGraph-Extension-master
+    cd incubator-age-master
     make clean
     make
     sudo make install
