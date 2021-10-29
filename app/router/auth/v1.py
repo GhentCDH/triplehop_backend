@@ -2,32 +2,34 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi_jwt_auth import AuthJWT
 from starlette.requests import Request
 
-from app.auth.core import authenticate_user, get_current_active_user_with_permissions
-from app.models.auth import FormUser, Token, UserWithPermissionsResponse
+from app.auth.core import authenticate_user, get_current_active_user_with_permissions, revoke_token
+from app.models.auth import FormUser, Token, UserWithPermissions, UserWithPermissionsResponse
 
 router = APIRouter()
 
 
 @router.post('/login', response_model=Token)
 async def login(request: Request, user: FormUser, Authorize: AuthJWT = Depends()):
-    print('login')
     user = await authenticate_user(request, user.username, user.password)
     if not user:
         raise HTTPException(status_code=400, detail='Incorrect username or password')
-    print(user)
-    access_token = Authorize.create_access_token(subject=user.username)
-    print(access_token)
     return {
-        'access_token': access_token,
+        'access_token': Authorize.create_access_token(subject=user.username),
     }
 
 
-@router.get('/user', response_model=UserWithPermissionsResponse)
-async def user(request: Request, Authorize: AuthJWT = Depends()):
+@router.get('/logout', response_model=None)
+async def logout(request: Request, Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
 
+    await revoke_token(request, Authorize)
+    return
+
+
+@router.get('/user', response_model=UserWithPermissionsResponse)
+async def user(user_with_permissions: UserWithPermissions = Depends(get_current_active_user_with_permissions)):
     return {
-        'user': await get_current_active_user_with_permissions(request, Authorize.get_jwt_subject()),
+        'user': user_with_permissions,
     }
 
 # TODO: password recovery via e-mail

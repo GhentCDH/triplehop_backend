@@ -1,10 +1,30 @@
 from typing import Dict
 
 from app.db.base import BaseRepository
-from app.models.auth import User
+from app.models.auth import User, UserInDB
 
 
-class PermissionRepository(BaseRepository):
+class AuthRepository(BaseRepository):
+    async def get_user(self, username: str) -> UserInDB:
+        record = await self.fetchrow(
+            '''
+                SELECT
+                    "user".id,
+                    "user".username,
+                    "user".display_name,
+                    "user".hashed_password,
+                    "user".disabled
+                FROM app.user
+                WHERE "user".username = :username;
+            ''',
+            {
+                'username': username,
+            }
+        )
+        if record:
+            return UserInDB(**dict(record))
+        return None
+
     async def get_permissions(self, user: User) -> Dict:
         records = await self.fetch(
             '''
@@ -48,3 +68,39 @@ class PermissionRepository(BaseRepository):
                     True if record['properties'] is None else record['properties']
 
         return permissions
+
+    async def denylist_add_token(self, token, expiration_time) -> None:
+        await self.execute(
+            '''
+                INSERT INTO app.denylist (token, expires)
+                VALUES (:token, NOW() + INTERVAL '1 SECOND' * :expiration_time );
+            ''',
+            {
+                'token': token,
+                'expiration_time': expiration_time,
+            }
+        )
+
+    async def denylist_purge_expired_tokens(self) -> None:
+        await self.execute(
+            '''
+                DELETE
+                FROM app.denylist
+                WHERE denylist.expires > now();
+            '''
+        )
+
+    async def denylist_check_token(self, token: str) -> bool:
+        return not (await self.fetchrow(
+            '''
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM app.denylist
+                    WHERE token = :token
+                    LIMIT 1
+                );
+            ''',
+            {
+                'token': token,
+            }
+        ))[0]

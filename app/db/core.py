@@ -1,7 +1,7 @@
 import asyncpg
 import fastapi
-import typing
 import starlette
+import typing
 
 from app.config import DATABASE
 from app.db.base import BaseRepository
