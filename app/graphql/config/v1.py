@@ -255,6 +255,7 @@ async def create_type_defs():
             ['source', 'Boolean'],
             ['data', '[Data_config!]'],
             ['display', 'Entity_display_config'],
+            ['edit', 'Entity_edit_config'],
             ['elasticsearch', 'Es_config'],
         ],
         'data_config': [
@@ -278,6 +279,18 @@ async def create_type_defs():
             # TODO: add overlays
             ['base_layer', 'String'],
             ['base_url', 'String'],
+        ],
+        'entity_edit_config': [
+            ['layout', '[Edit_panel_config!]'],
+        ],
+        'edit_panel_config': [
+            ['label', 'String'],
+            ['fields', '[Edit_panel_field_config!]'],
+        ],
+        'edit_panel_field_config': [
+            ['label', 'String'],
+            ['field', 'String!'],
+            ['type', 'String'],
         ],
         'es_config': [
             ['title', 'String!'],
