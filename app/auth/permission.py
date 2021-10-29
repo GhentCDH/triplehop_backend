@@ -16,26 +16,16 @@ def require_entity_permission(
 ) -> None:
     permissions = user.permissions
 
-    if permission not in permissions:
-        _raise_unauthorized_exception()
-
-    if (
-        '__all__' in permissions[permission]
-        and (
-            '__all__' in permissions[permission]['__all__']['entities']
-            or entity_type_name in permissions[permission]['__all__']['entities']
-        )
-    ):
-        return
-
-    if (
-        project_name in permissions[permission]
-        and (
-            '__all__' in permissions[permission][project_name]['entities']
-            or entity_type_name in permissions[permission][project_name]['entities']
-        )
-    ):
-        return
+    # Check for specific or all on permission, project, entity level
+    for perm in [permission, '__all__']:
+        for proj in [project_name, '__all__']:
+            for ent in [entity_type_name, '__all__']:
+                if (
+                    perm in permissions
+                    and proj in permissions[perm]
+                    and ent in permissions[perm][proj]['entities']
+                ):
+                    return
 
     _raise_unauthorized_exception()
 
@@ -46,15 +36,14 @@ def require_global_permission(
 ) -> None:
     permissions = user.permissions
 
-    if permission not in permissions:
-        _raise_unauthorized_exception()
-
-    if (
-        '__all__' in permissions[permission]
-        and '__all__' in permissions[permission]['__all__']['entities']
-        and '__all__' in permissions[permission]['__all__']['relations']
-    ):
-        return
+    # Check for specific or all on permission level
+    for perm in [permission, '__all__']:
+        if (
+            '__all__' in permissions[perm]
+            and '__all__' in permissions[perm]['__all__']['entities']
+            and '__all__' in permissions[perm]['__all__']['relations']
+        ):
+            return
 
     _raise_unauthorized_exception()
 
@@ -66,21 +55,13 @@ def require_project_permission(
 ) -> None:
     permissions = user.permissions
 
-    if permission not in permissions:
-        _raise_unauthorized_exception()
-
-    if (
-        '__all__' in permissions[permission]
-        and '__all__' in permissions[permission]['__all__']['entities']
-        and '__all__' in permissions[permission]['__all__']['relations']
-    ):
-        return
-
-    if (
-        project_name in permissions[permission]
-        and '__all__' in permissions[permission][project_name]['entities']
-        and '__all__' in permissions[permission][project_name]['relations']
-    ):
-        return
+    # Check for specific or all on permission, project level
+    for perm in [permission, '__all__']:
+        for proj in [project_name, '__all__']:
+            if (
+                '__all__' in permissions[perm][proj]['entities']
+                and '__all__' in permissions[perm][proj]['relations']
+            ):
+                return
 
     _raise_unauthorized_exception()
