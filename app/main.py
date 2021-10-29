@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_jwt_auth import AuthJWT
+from pydantic import BaseModel
 
-from app.config import ALLOWED_ORIGINS
+from app.config import ALLOWED_ORIGINS, SECRET_KEY
 from app.db.core import db_connect, db_disconnect
 from app.es.core import es_connect, es_disconnect
 from app.router.auth.v1 import router as router_auth_v1
@@ -19,6 +21,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class Settings(BaseModel):
+    authjwt_secret_key: str = SECRET_KEY
+
+
+@AuthJWT.load_config
+def get_config():
+    return Settings()
 
 
 @app.on_event("startup")

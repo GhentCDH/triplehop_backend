@@ -1,32 +1,35 @@
-from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi_jwt_auth import AuthJWT
 from starlette.requests import Request
 
-from app.auth.core import authenticate_user, create_access_token, get_current_active_user_with_permissions
-from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
-from app.models.auth import Token, UserWithPermissions
+from app.auth.core import authenticate_user, get_current_active_user_with_permissions
+from app.models.auth import FormUser, Token, UserWithPermissionsResponse
 
 router = APIRouter()
 
 
-@router.post('/token', response_model=Token)
-async def route_login_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await authenticate_user(request, form_data.username, form_data.password)
+@router.post('/login', response_model=Token)
+async def login(request: Request, user: FormUser, Authorize: AuthJWT = Depends()):
+    print('login')
+    user = await authenticate_user(request, user.username, user.password)
     if not user:
         raise HTTPException(status_code=400, detail='Incorrect username or password')
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={'sub': user.username}, expires_delta=access_token_expires
-    )
-    return {'access_token': access_token, 'token_type': 'bearer'}
+    print(user)
+    access_token = Authorize.create_access_token(subject=user.username)
+    print(access_token)
+    return {
+        'access_token': access_token,
+    }
 
 
-@router.get('/user', response_model=UserWithPermissions)
-async def read_user(current_user: UserWithPermissions = Depends(get_current_active_user_with_permissions)):
-    return current_user
+@router.get('/user', response_model=UserWithPermissionsResponse)
+async def user(request: Request, Authorize: AuthJWT = Depends()):
+    Authorize.jwt_required()
+
+    return {
+        'user': await get_current_active_user_with_permissions(request, Authorize.get_jwt_subject()),
+    }
 
 # TODO: password recovery via e-mail
 # TODO: password update
 # TODO: allow registration / adding users
-# TODO: refresh tokens, so users aren't logged out after 30 minutes

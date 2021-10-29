@@ -7,11 +7,11 @@ buildpg
 edtf
 elasticsearch[async]
 fastapi
+fastapi-jwt-auth
 flake8
 gunicorn
 msgpack
 passlib
 python-multipart
-PyJWT
 ujson
 uvicorn

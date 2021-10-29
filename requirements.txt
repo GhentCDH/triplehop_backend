@@ -15,6 +15,7 @@ click==8.0.3
 edtf==4.0.1
 elasticsearch==7.15.1
 fastapi==0.68.2
+fastapi-jwt-auth==0.5.0
 flake8==4.0.1
 graphql-core==3.1.6
 gunicorn==20.1.0
@@ -29,7 +30,8 @@ pkg_resources==0.0.0
 pycodestyle==2.8.0
 pycparser==2.20
 pydantic==1.8.2
-PyJWT==2.1.0
+pyflakes==2.4.0
+PyJWT==1.7.1
 pyparsing==3.0.3
 python-dateutil==2.8.2
 python-multipart==0.0.5
