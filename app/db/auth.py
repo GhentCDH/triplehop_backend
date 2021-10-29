@@ -72,7 +72,7 @@ class AuthRepository(BaseRepository):
     async def denylist_add_token(self, token, expiration_time) -> None:
         await self.execute(
             '''
-                INSERT INTO app.denylist (token, expires)
+                INSERT INTO app.token_denylist (token, expires)
                 VALUES (:token, NOW() + INTERVAL '1 SECOND' * :expiration_time );
             ''',
             {
@@ -85,8 +85,8 @@ class AuthRepository(BaseRepository):
         await self.execute(
             '''
                 DELETE
-                FROM app.denylist
-                WHERE denylist.expires > now();
+                FROM app.token_denylist
+                WHERE token_denylist.expires > now();
             '''
         )
 
@@ -95,8 +95,8 @@ class AuthRepository(BaseRepository):
             '''
                 SELECT EXISTS (
                     SELECT 1
-                    FROM app.denylist
-                    WHERE token = :token
+                    FROM app.token_denylist
+                    WHERE token_denylist.token = :token
                     LIMIT 1
                 );
             ''',
