@@ -114,6 +114,7 @@ async def create_type_defs(
         ],
     }
     unions_array = []
+    scalars_array = []
 
     # Sources
     source_entity_names = [
@@ -124,7 +125,12 @@ async def create_type_defs(
             and entity_types_config[etn]['config']['source']
         )
     ]
-    type_defs_dict['Source_'] = [['id', 'Int'], ['properties', '[String]']]
+    scalars_array.append('scalar JSON')
+    type_defs_dict['Source_'] = [
+        ['id', 'Int!'],
+        ['properties', '[String!]!'],
+        ['source_props', 'JSON']
+    ]
     if source_entity_names:
         unions_array.append(f'union Source_entity_types = {" | ".join([sen.capitalize() for sen in source_entity_names])}')
         type_defs_dict['Source_'].append(['entity', 'Source_entity_types'])
@@ -169,7 +175,7 @@ async def create_type_defs(
 
     type_defs_array = [construct_type_def(type.capitalize(), props) for type, props in type_defs_dict.items()]
 
-    return ariadne.gql('\n'.join(unions_array) + '\n\n' + '\n\n'.join(type_defs_array))
+    return ariadne.gql('\n'.join(scalars_array) + '\n\n' + '\n'.join(unions_array) + '\n\n' + '\n\n'.join(type_defs_array))
 
 
 async def create_object_types(

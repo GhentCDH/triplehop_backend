@@ -200,6 +200,7 @@ class ConfigRepository(BaseRepository):
             return {
                 'id': 'id',
                 'properties': 'properties',
+                'source_props': 'source_props',
             }
 
         relation_types_config = await self.get_relation_types_config(project_name)
