@@ -10,7 +10,7 @@ import typing
 from app.cache.core import key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
-from app.utils import dtu, relation_label, utd
+from app.utils import dtu, relation_label, utd, RE_SOURCE_PROP_INDEX
 
 RE_LABEL_DOES_NOT_EXIST = re.compile(
     r'^label[ ][en]_[a-f0-9]{8}_[a-f0-9]{4}_4[a-f0-9]{3}_[89ab][a-f0-9]{3}_[a-f0-9]{12}[ ]does not exists$'
@@ -207,11 +207,19 @@ class DataRepository(BaseRepository):
                 }
                 if relation_type_id == '_source_':
                     if 'properties' in result['relation']:
-                        result['relation']['properties'] = [
-                            etpma[f'p_{dtu(p)}']
-                            for p in result['relation']['properties']
-                            if f'p_{dtu(p)}' in etpma
-                        ]
+                        props = []
+                        for p in result['relation']['properties']:
+                            print(p)
+                            m = RE_SOURCE_PROP_INDEX.match(p)
+                            if m:
+                                p = f'p_{dtu(m.group("property"))}'
+                                if p in etpma:
+                                    props.append(f'{etpma[p]}[{m.group("index")}]')
+                            else:
+                                p = f'p_{dtu(p)}'
+                                if p in etpma:
+                                    props.append(etpma[p])
+                        result['relation']['properties'] = props
 
                 # Source information
                 srtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, '_source_')
@@ -238,11 +246,18 @@ class DataRepository(BaseRepository):
                         'entity_type_name': etd[setid]['etn'],
                     }
                     if 'properties' in source_result['relation']:
-                        source_result['relation']['properties'] = [
-                            rtpma[f'p_{dtu(p)}']
-                            for p in source_result['relation']['properties']
-                            if f'p_{dtu(p)}' in rtpma
-                        ]
+                        props = []
+                        for p in source_result['relation']['properties']:
+                            m = RE_SOURCE_PROP_INDEX.match(p)
+                            if m:
+                                p = f'p_{dtu(m.group("property"))}'
+                                if p in rtpma:
+                                    props.append(f'{rtpma[p]}[{m.group("index")}]')
+                            else:
+                                p = f'p_{dtu(p)}'
+                                if p in rtpm:
+                                    props.append(rtpma[p])
+                        source_result['relation']['properties'] = props
                     result['sources'].append(source_result)
 
                 results[entity_id].append(result)

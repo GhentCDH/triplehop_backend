@@ -9,6 +9,11 @@ RE_FIELD_CONVERSION = re.compile(
     r'[.]?[$](?:[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}|id|display_name)'
 )
 
+RE_SOURCE_PROP_INDEX = re.compile(
+    # uuid followed by a number between square brackets
+    r'^(?P<property>[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\[(?P<index>[0-9]*)\]$'
+)
+
 
 def dtu(string: str) -> str:
     '''Replace all dashes in a string with underscores.'''
