@@ -349,6 +349,7 @@ class DataRepository(BaseRepository):
         entity_ids: typing.List[int],
         relation_type_id: str,
         inverse: bool = False,
+        include_sources: bool = True,
     ) -> typing.Dict:
         '''
         Get relations and linked entity information starting from an entity type, entity ids and a relation type.
@@ -419,51 +420,52 @@ class DataRepository(BaseRepository):
                 'sources': [],
             }
 
-        # Retrieve source information
-        relation_ids = [rid for eid in results for rid in results[eid]]
-        query = (
-            f'SELECT di.id, e.properties as e_properties, n.id as n_id, n.properties as n_properties '
-            f'FROM "{self._project_id}".en_{dtu(relation_type_id)} d '
-            f'INNER JOIN "{self._project_id}"._i_en_{dtu(relation_type_id)} di '
-            f'ON d.id = di.nid '
-            f'INNER JOIN "{self._project_id}"._source_ e '
-            f'ON d.id = e.start_id '
-            f'INNER JOIN "{self._project_id}"._ag_label_vertex n '
-            f'ON e.end_id = n.id '
-            f'WHERE di.id = ANY(:relation_ids);'
-        )
-        try:
-            records = await self.fetch(
-                query,
-                {
-                    'relation_ids': relation_ids,
-                },
-                age=True,
+        if include_sources:
+            # Retrieve source information
+            relation_ids = [rid for eid in results for rid in results[eid]]
+            query = (
+                f'SELECT di.id, e.properties as e_properties, n.id as n_id, n.properties as n_properties '
+                f'FROM "{self._project_id}".en_{dtu(relation_type_id)} d '
+                f'INNER JOIN "{self._project_id}"._i_en_{dtu(relation_type_id)} di '
+                f'ON d.id = di.nid '
+                f'INNER JOIN "{self._project_id}"._source_ e '
+                f'ON d.id = e.start_id '
+                f'INNER JOIN "{self._project_id}"._ag_label_vertex n '
+                f'ON e.end_id = n.id '
+                f'WHERE di.id = ANY(:relation_ids);'
             )
-        # If no relations have been added, the relation table doesn't exist
-        except asyncpg.exceptions.UndefinedTableError:
-            records = []
+            try:
+                records = await self.fetch(
+                    query,
+                    {
+                        'relation_ids': relation_ids,
+                    },
+                    age=True,
+                )
+            # If no relations have been added, the relation table doesn't exist
+            except asyncpg.exceptions.UndefinedTableError:
+                records = []
 
-        for record in records:
-            rel_id = record['id']
-            source_relation_properties = json.loads(record['e_properties'])
-            source_entity_properties = json.loads(record['n_properties'])
-            etid = await self.get_entity_type_id_from_vertex_graph_id(record['n_id'])
+            for record in records:
+                rel_id = record['id']
+                source_relation_properties = json.loads(record['e_properties'])
+                source_entity_properties = json.loads(record['n_properties'])
+                etid = await self.get_entity_type_id_from_vertex_graph_id(record['n_id'])
 
-            found = False
-            for eid in results:
-                for rid in results[eid]:
-                    if rid == rel_id:
-                        results[eid][rid]['sources'].append({
-                            'r_props': source_relation_properties,
-                            'e_props': source_entity_properties,
-                            'entity_type_id': etid,
-                        })
+                found = False
+                for eid in results:
+                    for rid in results[eid]:
+                        if rid == rel_id:
+                            results[eid][rid]['sources'].append({
+                                'r_props': source_relation_properties,
+                                'e_props': source_entity_properties,
+                                'entity_type_id': etid,
+                            })
 
-                        found = True
+                            found = True
+                            break
+                    if found:
                         break
-                if found:
-                    break
 
         return results
 
@@ -535,7 +537,8 @@ class DataRepository(BaseRepository):
                 entity_type_id,
                 entity_ids,
                 relation_type_id.split('_')[1],
-                relation_type_id.split('_')[0] == 'ri'
+                relation_type_id.split('_')[0] == 'ri',
+                False
             )
             for entity_id, raw_result in raw_results.items():
                 if entity_id not in results:
