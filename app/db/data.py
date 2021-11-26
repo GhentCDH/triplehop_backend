@@ -209,7 +209,6 @@ class DataRepository(BaseRepository):
                     if 'properties' in result['relation']:
                         props = []
                         for p in result['relation']['properties']:
-                            print(p)
                             m = RE_SOURCE_PROP_INDEX.match(p)
                             if m:
                                 p = f'p_{dtu(m.group("property"))}'
