@@ -1,8 +1,8 @@
-from pydantic import BaseModel
-from typing import Any
+import pydantic
+import typing
 
 
-class ElasticSearchBody(BaseModel):
+class ElasticSearchBody(pydantic.BaseModel):
     # TODO: add custom validator that allows all aggs possibilities?
     aggs: dict = None
     # from is a python keyword
@@ -11,7 +11,9 @@ class ElasticSearchBody(BaseModel):
     # TODO: add custom validator that allows all sort possibilities?
     # https://pydantic-docs.helpmanual.io/usage/validators/
     # https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-sort.html
-    sort: Any = None
+    sort: typing.Any = None
+    # track_total_hits can be a boolean or int valye
+    track_total_hits: typing.Union[bool, int] = None
     # TODO: add custom validator that allows all suggest possibilities?
     suggest: dict = None
     # TODO: add custom validator that allows all query possibilities?
