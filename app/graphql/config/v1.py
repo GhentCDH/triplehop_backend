@@ -173,6 +173,15 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
                         relation_field_lookup,
                     ),
                 }
+            if 'edit' in entity_config['config']:
+                config_item['edit'] = {
+                    'layout': _layout_field_converter(
+                        entity_config['config']['edit']['layout'],
+                        entity_field_lookup,
+                        relation_lookup,
+                        relation_field_lookup,
+                    ),
+                }
             if 'es_data' in entity_config['config']:
                 es_data_conf = {esd['system_name']: esd for esd in entity_config['config']['es_data']}
                 config_item['elasticsearch'] = {

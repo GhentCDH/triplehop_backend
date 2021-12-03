@@ -54,6 +54,17 @@ async def revoke_token(
     request: Request,
     Authorize: AuthJWT,
 ):
-    # TODO: check if it is an access token or refresh token; adopt expiration accordingly
+    # TODO: expire both access and refresh token
+    # TODO: use expiration time from token (created on the application server, so timestamp should be correct)
     auth_repo = get_repository_from_request(request, AuthRepository)
-    await auth_repo.denylist_add_token(Authorize.get_raw_jwt()['jti'], Authorize._access_token_expires.seconds)
+    raw_jwt = Authorize.get_raw_jwt()
+    print(Authorize)
+    print(raw_jwt)
+    if raw_jwt['type'] == 'access':
+        print('revoking access token')
+        await auth_repo.denylist_add_token(raw_jwt['jti'], Authorize._access_token_expires.seconds)
+    elif raw_jwt['type'] == 'refresh':
+        print('revoking refresh token')
+        await auth_repo.denylist_add_token(raw_jwt['jti'], Authorize._refresh_token_expires.seconds)
+    else:
+        raise Exception(f'Unkown token type: {raw_jwt["type"]}')

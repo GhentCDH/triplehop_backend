@@ -1,8 +1,9 @@
 from pydantic import BaseModel, UUID4
 
 
-class Token(BaseModel):
+class Tokens(BaseModel):
     access_token: str
+    refresh_token: str = None
 
 
 class FormUser(BaseModel):
