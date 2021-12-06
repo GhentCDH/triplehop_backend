@@ -5,7 +5,7 @@ import starlette
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
-from app.graphql.base import construct_type_def
+from app.graphql.base import construct_def
 from app.utils import RE_FIELD_CONVERSION
 
 
@@ -341,7 +341,7 @@ async def create_type_defs():
         ],
     }
 
-    type_defs_array = [construct_type_def(type.capitalize(), props) for type, props in type_defs_dict.items()]
+    type_defs_array = [construct_def('type', type.capitalize(), props) for type, props in type_defs_dict.items()]
 
     return ariadne.gql('\n\n'.join(type_defs_array))
 

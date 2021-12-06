@@ -7,7 +7,7 @@ from starlette.requests import Request
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
-from app.graphql.base import construct_type_def
+from app.graphql.base import construct_def, first_cap
 
 
 # TODO: only get the requested properties
@@ -84,13 +84,13 @@ def relation_resolver_wrapper(
         for db_result in db_results:
             result = db_result['relation']
             result['entity'] = db_result['entity']
-            result['entity']['__typename'] = db_result['entity_type_name'].capitalize()
+            result['entity']['__typename'] = first_cap(db_result['entity_type_name'])
 
             result['_source_'] = []
             for source in db_result['sources']:
                 source_result = source['relation']
                 source_result['entity'] = source['entity']
-                source_result['entity']['__typename'] = source['entity_type_name'].capitalize()
+                source_result['entity']['__typename'] = first_cap(source['entity_type_name'])
                 result['_source_'].append(source_result)
 
             results.append(result)
@@ -107,8 +107,18 @@ async def create_type_defs(
     # Main query
     # TODO provide possibility to hide some fields from config, based on permissions
     type_defs_dict = {
-        'query': [[f'{etn.capitalize()}(id: Int!)', etn.capitalize()] for etn in entity_types_config.keys()],
-        'geometry': [
+        'Query': [[f'get{first_cap(etn)}(id: Int!)', first_cap(etn)] for etn in entity_types_config.keys()],
+        'Mutation': [
+            [f'update{first_cap(etn)}(id: Int!, input: {first_cap(etn)}Input)', first_cap(etn)]
+            for etn in entity_types_config.keys()
+        ],
+        'Geometry': [
+            ['type', 'String!'],
+            ['coordinates', '[Float!]!'],
+        ],
+    }
+    input_defs_dict = {
+        'GeometryInput': [
             ['type', 'String!'],
             ['coordinates', '[Float!]!'],
         ],
@@ -132,7 +142,9 @@ async def create_type_defs(
         ['source_props', 'JSON']
     ]
     if source_entity_names:
-        unions_array.append(f'union Source_entity_types = {" | ".join([sen.capitalize() for sen in source_entity_names])}')
+        unions_array.append(
+            f'union Source_entity_types = {" | ".join([first_cap(sen) for sen in source_entity_names])}'
+        )
         type_defs_dict['Source_'].append(['entity', 'Source_entity_types'])
 
     # TODO: add props which can contain multiple, values (sorted or unsorted)
@@ -142,10 +154,19 @@ async def create_type_defs(
         if 'data' in entity_types_config[etn]['config']:
             for prop in entity_types_config[etn]['config']['data'].values():
                 props.append([prop["system_name"], prop["type"]])
-        type_defs_dict[etn] = props
+        type_defs_dict[first_cap(etn)] = props
+
+        input_props = []
+        if 'data' in entity_types_config[etn]['config']:
+            for prop in entity_types_config[etn]['config']['data'].values():
+                prop_type = prop["type"]
+                if prop_type in ['Geometry']:
+                    prop_type += 'Input'
+                input_props.append([prop["system_name"], prop_type])
+        input_defs_dict[f'{first_cap(etn)}Input'] = input_props
 
         # Entity sources
-        type_defs_dict[etn].append(['_source_', '[Source_!]!'])
+        type_defs_dict[first_cap(etn)].append(['_source_', '[Source_!]!'])
 
     # Relations
     # TODO: cardinality
@@ -153,29 +174,38 @@ async def create_type_defs(
     for rtn in relation_types_config:
         domain_names = relation_types_config[rtn]['domain_names']
         range_names = relation_types_config[rtn]['range_names']
-        unions_array.append(f'union Ri_{rtn}_domain = {" | ".join([dn.capitalize() for dn in domain_names])}')
-        unions_array.append(f'union R_{rtn}_range = {" | ".join([rn.capitalize() for rn in range_names])}')
+        unions_array.append(f'union Ri_{rtn}_domain = {" | ".join([first_cap(dn) for dn in domain_names])}')
+        unions_array.append(f'union R_{rtn}_range = {" | ".join([first_cap(rn) for rn in range_names])}')
 
         props = [['id', 'Int']]
         if 'data' in relation_types_config[rtn]['config']:
             for prop in relation_types_config[rtn]['config']['data'].values():
                 props.append([prop["system_name"], prop["type"]])
 
-        type_defs_dict[f'r_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
-        type_defs_dict[f'ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
+        type_defs_dict[f'R_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
+        type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
         # Relation sources
-        type_defs_dict[f'r_{rtn}'].append(['_source_', '[Source_!]!'])
-        type_defs_dict[f'ri_{rtn}'].append(['_source_', '[Source_!]!'])
+        type_defs_dict[f'R_{rtn}'].append(['_source_', '[Source_!]!'])
+        type_defs_dict[f'Ri_{rtn}'].append(['_source_', '[Source_!]!'])
 
         for domain_name in domain_names:
-            type_defs_dict[domain_name].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
+            type_defs_dict[first_cap(domain_name)].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
         for range_name in range_names:
-            type_defs_dict[range_name].append([f'ri_{rtn}_s', f'[Ri_{rtn}!]!'])
+            type_defs_dict[first_cap(range_name)].append([f'ri_{rtn}_s', f'[Ri_{rtn}!]!'])
 
-    type_defs_array = [construct_type_def(type.capitalize(), props) for type, props in type_defs_dict.items()]
+    type_defs_array = [construct_def('type', type, props) for type, props in type_defs_dict.items()]
+    input_defs_array = [construct_def('input', input, props) for input, props in input_defs_dict.items()]
 
-    return ariadne.gql('\n'.join(scalars_array) + '\n\n' + '\n'.join(unions_array) + '\n\n' + '\n\n'.join(type_defs_array))
+    return ariadne.gql(
+        '\n'.join(scalars_array)
+        + '\n\n'
+        + '\n'.join(unions_array)
+        + '\n\n'
+        + '\n\n'.join(input_defs_array)
+        + '\n\n'
+        + '\n\n'.join(type_defs_array)
+    )
 
 
 async def create_object_types(
@@ -189,25 +219,25 @@ async def create_object_types(
     # Entities
     for entity_type_name in entity_types_config:
         object_types['Query'].set_field(
-            entity_type_name.capitalize(),
+            f'get{first_cap(entity_type_name)}',
             entity_resolver_wrapper(request, project_name, entity_type_name),
         )
 
         # Entity sources
-        object_types[entity_type_name.capitalize()] = ariadne.ObjectType(entity_type_name.capitalize())
-        object_types[entity_type_name.capitalize()].set_field(
+        object_types[first_cap(entity_type_name)] = ariadne.ObjectType(first_cap(entity_type_name))
+        object_types[first_cap(entity_type_name)].set_field(
             '_source_',
             relation_resolver_wrapper(request, project_name, '_source_')
         )
 
     # Relations
     for relation_type_name in relation_types_config:
-        for domain_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['domain_names']]:
+        for domain_name in [first_cap(dn) for dn in relation_types_config[relation_type_name]['domain_names']]:
             object_types[domain_name].set_field(
                 f'r_{relation_type_name}_s',
                 relation_resolver_wrapper(request, project_name, relation_type_name)
             )
-        for range_name in [dn.capitalize() for dn in relation_types_config[relation_type_name]['range_names']]:
+        for range_name in [first_cap(dn) for dn in relation_types_config[relation_type_name]['range_names']]:
             object_types[range_name].set_field(
                 f'ri_{relation_type_name}_s',
                 relation_resolver_wrapper(request, project_name, relation_type_name, True)

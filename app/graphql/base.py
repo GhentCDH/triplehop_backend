@@ -1,12 +1,16 @@
-from typing import List
+import typing
 
 
-def construct_type_def(type_name: str, props: List) -> str:
-    type_def_array = [f'type {type_name} {{']
+def construct_def(type: str, type_name: str, props: typing.List) -> str:
+    def_array = [f'{type} {type_name} {{']
 
     for prop in props:
-        type_def_array.append(f'    {prop[0]}: {prop[1]}')
+        def_array.append(f'    {prop[0]}: {prop[1]}')
 
-    type_def_array.append('}')
+    def_array.append('}')
 
-    return '\n'.join(type_def_array)
+    return '\n'.join(def_array)
+
+
+def first_cap(input: str) -> str:
+    return input[0].upper() + input[1:]
