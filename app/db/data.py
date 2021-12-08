@@ -125,6 +125,7 @@ class DataRepository(BaseRepository):
     #     except asyncpg.exceptions.FeatureNotSupportedError as e:
     #         if RE_LABEL_DOES_NOT_EXIST.match(e.message):
     #             return None
+    #         raise e
 
     #     properties = json.loads(record['n'][:-8])['properties']
     #     return {'e_props': properties}
@@ -162,6 +163,60 @@ class DataRepository(BaseRepository):
             for record in records
         }
         return results
+
+    async def update_entity_raw(
+        self,
+        entity_type_id: str,
+        entity_id: int,
+        input: typing.Dict
+    ) -> typing.Dict:
+        # TODO: set _project_id on init
+        if not self._project_id:
+            self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{self._project_id}\', '
+            f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
+            f'return n.id$$, :params'
+            f') as (id agtype);'
+        )
+        try:
+            record = await self.fetchrow(
+                query,
+                {
+                    'params': json.dumps({
+                        'entity_id': entity_id
+                    })
+                },
+                age=True
+            )
+        # If no items have been added, the label does not exist
+        except asyncpg.exceptions.FeatureNotSupportedError as e:
+            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+                return None
+            raise e
+
+        if record is None:
+            return None
+
+        return record['id']
+
+    async def update_entity_graphql(
+        self,
+        entity_type_name: str,
+        entity_id: int,
+        input: typing.Dict
+    ) -> typing.Dict:
+        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        result_id = self.update_entity_raw(entity_type_id, entity_id, input)
+
+        if result_id is None:
+            return None
+
+        return {
+            'id': result_id,
+        }
 
     async def get_relations_graphql(
         self,
