@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException
 from fastapi_jwt_auth import AuthJWT
+from fastapi_jwt_auth.exceptions import MissingTokenError
 from passlib.context import CryptContext
 from starlette.requests import Request
 
@@ -32,7 +33,10 @@ async def get_current_active_user_with_permissions(
     request: Request,
     Authorize: AuthJWT = Depends(),
 ):
-    Authorize.jwt_required()
+    try:
+        Authorize.jwt_required()
+    except MissingTokenError:
+        return None
 
     auth_repo = get_repository_from_request(request, AuthRepository)
 
