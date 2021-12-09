@@ -8,6 +8,7 @@ from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.graphql.base import construct_def, first_cap
+from app.models.auth import UserWithPermissions
 
 
 # TODO: only get the requested properties
@@ -249,7 +250,9 @@ async def create_object_types(
 # TODO: cache per project_name (app always hangs after 6 requests when using cache)
 async def create_schema(
     request: Request,
+    user: UserWithPermissions,
 ):
+    print(user.permissions)
     config_repo = get_repository_from_request(request, ConfigRepository)
     entity_types_config = await config_repo.get_entity_types_config(request.path_params['project_name'])
     relation_types_config = await config_repo.get_relation_types_config(request.path_params['project_name'])
