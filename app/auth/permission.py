@@ -39,18 +39,19 @@ def require_entity_permission(
     _raise_unauthorized_exception()
 
 
-def get_permission_entities_and_properties(
+def _permission_usage_helper(
     user: UserWithPermissions,
     project_name: str,
-    entity_types_config: typing.Dict,
+    type_config: typing.Dict,
     permission: str,
+    entities_or_relations: str,
 ) -> typing.Dict[str, typing.List[str]]:
     if user is None or user.disabled:
         return []
 
     permissions = user.permissions
 
-    entities_and_props = {}
+    usage = {}
 
     # __all__ on entity level => return all entities and props
     for perm in [permission, '__all__']:
@@ -58,35 +59,65 @@ def get_permission_entities_and_properties(
             if (
                 perm in permissions
                 and proj in permissions[perm]
-                and '__all__' in permissions[perm][proj]['entities']
+                and '__all__' in permissions[perm][proj][entities_or_relations]
             ):
-                for etn, conf in entity_types_config.items():
+                for type_name, conf in type_config.items():
                     if 'data' in conf['config']:
                         props = [prop['system_name'] for prop in conf['config']['data'].values()]
                         # only global admins can update ids
                         if has_global_permission(user, permission):
                             props.append('id')
-                        entities_and_props[etn] = props
+                        usage[type_name] = props
                     else:
-                        entities_and_props[etn] = []
-                return entities_and_props
+                        usage[type_name] = []
+                return usage
 
     # individual entities
-    for etn, conf in entity_types_config.items():
+    for type_name, conf in type_config.items():
         if (
             permission in permissions
             and project_name in permissions[perm]
-            and etn in permissions[perm][proj]['entities']
+            and type_name in permissions[perm][proj][entities_or_relations]
         ):
-            if permissions[perm][proj]['entities'][etn] == '__all__':
+            if permissions[perm][proj][entities_or_relations][type_name] == '__all__':
                 if 'data' in conf['config']:
-                    entities_and_props[etn] = [prop['system_name'] for prop in conf['config']['data']]
+                    usage[type_name] = [prop['system_name'] for prop in conf['config']['data']]
                 else:
-                    entities_and_props[etn] = []
+                    usage[type_name] = []
             else:
-                entities_and_props[etn] = permissions[perm][proj]['entities'][etn]
+                usage[type_name] = permissions[perm][proj][entities_or_relations][type_name]
 
-    return entities_and_props
+    return usage
+
+
+def get_permission_entities_and_properties(
+    user: UserWithPermissions,
+    project_name: str,
+    entity_types_config: typing.Dict,
+    permission: str,
+) -> typing.Dict[str, typing.List[str]]:
+    return _permission_usage_helper(
+        user,
+        project_name,
+        entity_types_config,
+        permission,
+        'entities',
+    )
+
+
+def get_permission_relations_and_properties(
+    user: UserWithPermissions,
+    project_name: str,
+    relation_types_config: typing.Dict,
+    permission: str,
+) -> typing.Dict[str, typing.List[str]]:
+    return _permission_usage_helper(
+        user,
+        project_name,
+        relation_types_config,
+        permission,
+        'relations',
+    )
 
 
 def has_global_permission(

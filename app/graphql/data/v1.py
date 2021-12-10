@@ -4,7 +4,7 @@ import ariadne
 import typing
 
 from starlette.requests import Request
-from app.auth.permission import get_permission_entities_and_properties
+from app.auth.permission import get_permission_entities_and_properties, get_permission_relations_and_properties
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
@@ -122,25 +122,27 @@ def relation_resolver_wrapper(
 
 def calc_props(
     config: typing.Dict,
+    allowed_props: typing.List[str],
     type_defs_dict: typing.Dict,
     additional_type_defs_dict: typing.Dict,
 ):
-    # TODO provide possibility to hide properties from config, based on user permissions
     # TODO add properties which can contain multiple, values (sorted or unsorted)
     props = [['id', 'Int']]
     if 'data' in config:
         for prop in config['data'].values():
-            prop_type = prop['type']
-            props.append([prop['system_name'], prop_type])
-            if prop_type in additional_type_defs_dict and prop_type not in type_defs_dict:
-                type_defs_dict[prop_type] = additional_type_defs_dict[prop_type]
+            if prop['system_name'] in allowed_props:
+                prop_type = prop['type']
+                props.append([prop['system_name'], prop_type])
+                if prop_type in additional_type_defs_dict and prop_type not in type_defs_dict:
+                    type_defs_dict[prop_type] = additional_type_defs_dict[prop_type]
+    return props
 
 
 def add_get_source_schema_parts(
     type_defs_dict: typing.Dict,
-    query_dict: typing.Dict,
     unions: set,
     scalars: set,
+    user: UserWithPermissions,
     entity_types_config: typing.Dict,
 ):
     source_entity_names = [
@@ -175,8 +177,8 @@ def add_get_entity_schema_parts(
     user: UserWithPermissions,
     entity_types_config: typing.Dict,
 ):
-    for etn in entity_types_config:
-        # TODO provide possibility to hide entity types from config, based on user permissions
+    perms = get_permission_entities_and_properties(user, project_name, entity_types_config, 'get')
+    for etn, allowed_props in perms.items():
         type_defs_dict['Query'].append([f'get{first_cap(etn)}(id: Int!)', first_cap(etn)])
         query_dict['Query'].set_field(
             f'get{first_cap(etn)}',
@@ -187,11 +189,12 @@ def add_get_entity_schema_parts(
 
         type_defs_dict[first_cap(etn)] = calc_props(
             entity_types_config[etn]['config'],
+            allowed_props,
             type_defs_dict,
             additional_type_defs_dict,
         )
 
-        if '_Source' in type_defs_dict:
+        if 'Source_' in type_defs_dict:
             type_defs_dict[first_cap(etn)].append(['_source_', '[Source_!]!'])
             query_dict[first_cap(etn)].set_field(
                 '_source_',
@@ -211,7 +214,8 @@ def add_get_relation_schema_parts(
 ):
     # TODO: cardinality
     # TODO: bidirectional relations
-    for rtn in relation_types_config:
+    perms = get_permission_relations_and_properties(user, project_name, relation_types_config, 'get')
+    for rtn, allowed_props in perms.items():
         # TODO provide possibility to hide relations from config, based on user permissions
         domain_names = relation_types_config[rtn]['domain_names']
         range_names = relation_types_config[rtn]['range_names']
@@ -231,10 +235,11 @@ def add_get_relation_schema_parts(
 
         props = calc_props(
             relation_types_config[rtn]['config'],
+            allowed_props,
             type_defs_dict,
             additional_type_defs_dict,
         )
-        if '_Source' in type_defs_dict:
+        if 'Source_' in type_defs_dict:
             props.append(['_source_', '[Source_!]!'])
 
         unions.add(f'union Ri_{rtn}_domain = {" | ".join([first_cap(dn) for dn in domain_names])}')
@@ -439,9 +444,6 @@ async def create_object_types(
                 relation_resolver_wrapper(request, project_name, relation_type_name, True)
             )
 
-    print(object_types)
-    print(object_types.values())
-
     return object_types.values()
 
 
@@ -478,13 +480,13 @@ async def create_schema(
     # First add source parts: type_defs_dict['_Source'] is checked in other schema_pars adders
     add_get_source_schema_parts(
         type_defs_dict,
-        query_dict,
         unions,
         scalars,
         user,
         entity_types_config,
     )
 
+    # Then add entity parts: relations are later added to these
     add_get_entity_schema_parts(
         type_defs_dict,
         additional_type_defs_dict,
