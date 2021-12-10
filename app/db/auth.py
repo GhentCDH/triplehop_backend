@@ -59,13 +59,15 @@ class AuthRepository(BaseRepository):
                     'relations': {},
                 }
 
+            # TODO: convert entity property ids to entity property names
             if record['entity_name'] is not None:
                 permissions[record['system_name']][record['project_name']]['entities'][record['entity_name']] = \
-                    True if record['properties'] is None else record['properties']
+                    '__all__' if record['properties'] is None else record['properties']
 
+            # TODO: convert relation property ids to relation property names
             if record['relation_name'] is not None:
                 permissions[record['system_name']][record['project_name']]['relations'][record['relation_name']] = \
-                    True if record['properties'] is None else record['properties']
+                    '__all__' if record['properties'] is None else record['properties']
 
         return permissions
 
