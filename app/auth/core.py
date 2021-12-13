@@ -33,23 +33,25 @@ async def get_current_active_user_with_permissions(
     request: Request,
     Authorize: AuthJWT = Depends(),
 ):
+    auth_repo = get_repository_from_request(request, AuthRepository)
+    user = None
     try:
         Authorize.jwt_required()
     except MissingTokenError:
-        return None
+        user = await auth_repo.get_user(username='anonymous')
 
-    auth_repo = get_repository_from_request(request, AuthRepository)
+    if user is None:
+        # fastapi-jwt-auth deny list can't be used because of
+        # https://github.com/IndominusByte/fastapi-jwt-auth/issues/30
+        await auth_repo.denylist_purge_expired_tokens()
+        if not await auth_repo.denylist_check_token(Authorize.get_raw_jwt()['jti']):
+            raise HTTPException(status_code=401, detail='Inactive token')
 
-    # fastapi-jwt-auth deny list can't be used because of
-    # https://github.com/IndominusByte/fastapi-jwt-auth/issues/30
-    await auth_repo.denylist_purge_expired_tokens()
-    if not await auth_repo.denylist_check_token(Authorize.get_raw_jwt()['jti']):
-        raise HTTPException(status_code=401, detail='Inactive token')
+        user = await auth_repo.get_user(username=Authorize.get_jwt_subject())
+        if user.disabled:
+            raise HTTPException(status_code=401, detail='Inactive user')
 
-    user = await auth_repo.get_user(username=Authorize.get_jwt_subject())
-    if user.disabled:
-        raise HTTPException(status_code=401, detail='Inactive user')
-
+    # Anonymous users can have permissions
     permissions = await auth_repo.get_permissions(user=user)
     return UserWithPermissions(**user.dict(), permissions=permissions)
 

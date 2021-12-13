@@ -48,30 +48,6 @@ class AuthRepository(BaseRepository):
             }
         )
 
-        # Add permissions given to anonmymous users
-        records.extend(
-            await self.fetch(
-                '''
-                    SELECT
-                        permission.system_name,
-                        project.system_name as project_name,
-                        entity.system_name as entity_name,
-                        relation.system_name as relation_name,
-                        groups_permissions.properties
-                    FROM app.group
-                    INNER JOIN app.groups_permissions ON "group".id = groups_permissions.group_id
-                    INNER JOIN app.permission ON groups_permissions.permission_id = permission.id
-                    LEFT JOIN app.project ON groups_permissions.project_id = project.id
-                    LEFT JOIN app.entity ON groups_permissions.entity_id = entity.id
-                    LEFT JOIN app.relation ON groups_permissions.relation_id = relation.id
-                    WHERE "group".system_name = :group_name;
-                ''',
-                {
-                    'group_name': 'anonymous',
-                }
-            )
-        )
-
         permissions = {}
         for record in records:
             if record['system_name'] not in permissions:
