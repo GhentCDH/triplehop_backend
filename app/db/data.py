@@ -164,7 +164,7 @@ class DataRepository(BaseRepository):
         }
         return results
 
-    async def update_entity_raw(
+    async def put_entity_raw(
         self,
         entity_type_id: str,
         entity_id: int,
@@ -202,14 +202,14 @@ class DataRepository(BaseRepository):
 
         return record['id']
 
-    async def update_entity_graphql(
+    async def put_entity_graphql(
         self,
         entity_type_name: str,
         entity_id: int,
         input: typing.Dict
     ) -> typing.Dict:
         entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        result_id = self.update_entity_raw(entity_type_id, entity_id, input)
+        result_id = self.put_entity_raw(entity_type_id, entity_id, input)
 
         if result_id is None:
             return None

@@ -4,7 +4,11 @@ import ariadne
 import typing
 
 from starlette.requests import Request
-from app.auth.permission import get_permission_entities_and_properties, get_permission_relations_and_properties
+from app.auth.permission import (
+    get_permission_entities_and_properties,
+    get_permission_relations_and_properties,
+    has_global_permission,
+)
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
@@ -16,7 +20,7 @@ from app.models.auth import UserWithPermissions
 # TODO: only get the requested properties
 # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
 # dataloader to prevent N+1: https://github.com/mirumee/ariadne/discussions/508)#discussioncomment-525811
-def entity_resolver_wrapper(
+def get_entity_resolver_wrapper(
     request: Request,
     project_name: str,
     entity_type_name: str,
@@ -38,19 +42,37 @@ def entity_resolver_wrapper(
     return resolver
 
 
-def update_entity_resolver_wrapper(
+def post_entity_resolver_wrapper(
     request: Request,
     project_name: str,
     entity_type_name: str,
 ):
-    async def update_entity(entity_id: int, input: typing.Dict):
+    # TODO
+    async def post_entity(entity_id: int, input: typing.Dict):
+        print('post_entity')
+        print(request)
+        data_repo = get_repository_from_request(request, DataRepository, project_name)
+        return await data_repo.put_entity_graphql(entity_type_name, entity_id, input)
+
+    async def resolver(_, info, id, input):
+        return await post_entity(id, input)
+
+    return resolver
+
+
+def put_entity_resolver_wrapper(
+    request: Request,
+    project_name: str,
+    entity_type_name: str,
+):
+    async def put_entity(entity_id: int, input: typing.Dict):
         print('update_entity')
         print(request)
         data_repo = get_repository_from_request(request, DataRepository, project_name)
-        return await data_repo.update_entity_graphql(entity_type_name, entity_id, input)
+        return await data_repo.put_entity_graphql(entity_type_name, entity_id, input)
 
     async def resolver(_, info, id, input):
-        return await update_entity(id, input)
+        return await put_entity(id, input)
 
     return resolver
 
@@ -123,19 +145,29 @@ def relation_resolver_wrapper(
 def calc_props(
     config: typing.Dict,
     allowed_props: typing.List[str],
-    type_defs_dict: typing.Dict,
-    additional_type_defs_dict: typing.Dict,
+    add_id: bool = True,
 ):
     # TODO add properties which can contain multiple, values (sorted or unsorted)
-    props = [['id', 'Int']]
+    if add_id:
+        props = [['id', 'Int']]
+    else:
+        props = []
     if 'data' in config:
         for prop in config['data'].values():
             if prop['system_name'] in allowed_props:
                 prop_type = prop['type']
                 props.append([prop['system_name'], prop_type])
-                if prop_type in additional_type_defs_dict and prop_type not in type_defs_dict:
-                    type_defs_dict[prop_type] = additional_type_defs_dict[prop_type]
     return props
+
+
+def add_additional_props(
+    type_defs_dict: typing.Dict,
+    additional_type_defs_dict: typing.Dict,
+    props: typing.List[typing.List],
+):
+    for _, prop_type in props:
+        if prop_type in additional_type_defs_dict and prop_type not in type_defs_dict:
+            type_defs_dict[prop_type] = additional_type_defs_dict[prop_type]
 
 
 def add_get_source_schema_parts(
@@ -176,23 +208,27 @@ def add_get_entity_schema_parts(
     project_name: str,
     user: UserWithPermissions,
     entity_types_config: typing.Dict,
-):
-    perms = get_permission_entities_and_properties(user, project_name, entity_types_config, 'get')
-    for etn, allowed_props in perms.items():
+) -> None:
+    allowed = get_permission_entities_and_properties(user, project_name, entity_types_config, 'get')
+    for etn, allowed_props in allowed.items():
         type_defs_dict['Query'].append([f'get{first_cap(etn)}(id: Int!)', first_cap(etn)])
         query_dict['Query'].set_field(
             f'get{first_cap(etn)}',
-            entity_resolver_wrapper(request, project_name, etn),
+            get_entity_resolver_wrapper(request, project_name, etn),
         )
         # Needed for relation and source resolvers
         query_dict[first_cap(etn)] = ariadne.ObjectType(first_cap(etn))
 
-        type_defs_dict[first_cap(etn)] = calc_props(
+        props = calc_props(
             entity_types_config[etn]['config'],
             allowed_props,
+        )
+        add_additional_props(
             type_defs_dict,
             additional_type_defs_dict,
+            props,
         )
+        type_defs_dict[first_cap(etn)] = props
 
         if 'Source_' in type_defs_dict:
             type_defs_dict[first_cap(etn)].append(['_source_', '[Source_!]!'])
@@ -200,6 +236,67 @@ def add_get_entity_schema_parts(
                 '_source_',
                 relation_resolver_wrapper(request, project_name, '_source_')
             )
+
+
+def add_post_put_entity_schema_parts(
+    type_defs_dict: typing.Dict,
+    input_type_defs_dict: typing.Dict,
+    additional_input_type_defs_dict: typing.Dict,
+    query_dict: typing.Dict,
+    request: Request,
+    project_name: str,
+    user: UserWithPermissions,
+    entity_types_config: typing.Dict,
+) -> None:
+
+    alloweds = {
+        perm: get_permission_entities_and_properties(user, project_name, entity_types_config, perm)
+        for perm in ['post', 'put']
+    }
+
+    for perm, allowed in alloweds.items():
+        if len(allowed.keys()) != 0:
+            if 'Mutation' not in type_defs_dict:
+                type_defs_dict['Mutation'] = []
+            if 'Mutation' not in query_dict:
+                query_dict['Mutation'] = ariadne.MutationType()
+
+            for etn, allowed_props in allowed.items():
+                type_defs_dict['Mutation'].append(
+                    [
+                        f'{perm}{first_cap(etn)}(id: Int!, input: {first_cap(perm)}{first_cap(etn)}Input)',
+                        first_cap(etn),
+                    ]
+                )
+                if perm == 'post':
+                    query_dict['Mutation'].set_field(
+                        f'post{first_cap(etn)}',
+                        post_entity_resolver_wrapper(request, project_name, etn),
+                    )
+                else:
+                    query_dict['Mutation'].set_field(
+                        f'put{first_cap(etn)}',
+                        put_entity_resolver_wrapper(request, project_name, etn),
+                    )
+
+                props = []
+                for prop_name, prop_type in calc_props(
+                    entity_types_config[etn]['config'],
+                    allowed_props,
+                    # only global admins can update ids
+                    has_global_permission(user, perm),
+                ):
+                    # Input types might differ from query types
+                    if f'{prop_type}Input' in additional_input_type_defs_dict.keys():
+                        props.append([prop_name, f'{prop_type}Input'])
+                    else:
+                        props.append([prop_name, prop_type])
+                add_additional_props(
+                    input_type_defs_dict,
+                    additional_input_type_defs_dict,
+                    props,
+                )
+                input_type_defs_dict[f'{first_cap(perm)}{first_cap(etn)}Input'] = props
 
 
 def add_get_relation_schema_parts(
@@ -211,12 +308,11 @@ def add_get_relation_schema_parts(
     project_name: str,
     user: UserWithPermissions,
     relation_types_config: typing.Dict,
-):
+) -> None:
     # TODO: cardinality
     # TODO: bidirectional relations
-    perms = get_permission_relations_and_properties(user, project_name, relation_types_config, 'get')
-    for rtn, allowed_props in perms.items():
-        # TODO provide possibility to hide relations from config, based on user permissions
+    allowed = get_permission_relations_and_properties(user, project_name, relation_types_config, 'get')
+    for rtn, allowed_props in allowed.items():
         domain_names = relation_types_config[rtn]['domain_names']
         range_names = relation_types_config[rtn]['range_names']
 
@@ -236,8 +332,11 @@ def add_get_relation_schema_parts(
         props = calc_props(
             relation_types_config[rtn]['config'],
             allowed_props,
+        )
+        add_additional_props(
             type_defs_dict,
             additional_type_defs_dict,
+            props,
         )
         if 'Source_' in type_defs_dict:
             props.append(['_source_', '[Source_!]!'])
@@ -248,206 +347,8 @@ def add_get_relation_schema_parts(
         type_defs_dict[f'R_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
         type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
-        # TODO: check if relation source can be queried
 
-
-async def create_type_defs(
-    project_name: str,
-    entity_types_config: typing.Dict,
-    relation_types_config: typing.Dict,
-    user: UserWithPermissions,
-):
-    # Main query
-    # TODO provide possibility to hide some fields from config, based on permissions
-    additional_type_defs_dict = {
-        'Geometry': [
-            ['type', 'String!'],
-            ['coordinates', '[Float!]!'],
-        ],
-    }
-    additional_types = set()
-    additional_input_type_defs_dict = {
-        'GeometryInput': [
-            ['type', 'String!'],
-            ['coordinates', '[Float!]!'],
-        ],
-    }
-    additional_input_types = set()
-
-    type_defs_dict = {
-        'Query': [[f'get{first_cap(etn)}(id: Int!)', first_cap(etn)] for etn in entity_types_config.keys()],
-    }
-    input_type_defs_dict = {}
-    unions_array = []
-    scalars_array = []
-
-    # Sources
-    source_entity_names = [
-        etn
-        for etn in entity_types_config
-        if (
-            'source' in entity_types_config[etn]['config']
-            and entity_types_config[etn]['config']['source']
-        )
-    ]
-    if source_entity_names:
-        scalars_array.append('scalar JSON')
-        type_defs_dict['Source_'] = [
-            ['id', 'Int!'],
-            ['properties', '[String!]!'],
-            ['source_props', 'JSON']
-        ]
-        unions_array.append(
-            f'union Source_entity_types = {" | ".join([first_cap(sen) for sen in source_entity_names])}'
-        )
-        type_defs_dict['Source_'].append(['entity', 'Source_entity_types'])
-
-    # TODO: add props which can contain multiple, values (sorted or unsorted)
-    # Entities
-    for etn in entity_types_config:
-        props = [['id', 'Int']]
-        if 'data' in entity_types_config[etn]['config']:
-            for prop in entity_types_config[etn]['config']['data'].values():
-                prop_type = prop['type']
-                props.append([prop['system_name'], prop_type])
-                if prop_type in additional_type_defs_dict:
-                    additional_types.add(prop_type)
-        type_defs_dict[first_cap(etn)] = props
-
-        # Entity sources
-        if source_entity_names:
-            type_defs_dict[first_cap(etn)].append(['_source_', '[Source_!]!'])
-
-    for additional_type in additional_types:
-        type_defs_dict[additional_type] = additional_type_defs_dict[additional_type]
-
-    # Relations
-    # TODO: cardinality
-    # TODO: bidirectional relations
-    for rtn in relation_types_config:
-        domain_names = relation_types_config[rtn]['domain_names']
-        range_names = relation_types_config[rtn]['range_names']
-        unions_array.append(f'union Ri_{rtn}_domain = {" | ".join([first_cap(dn) for dn in domain_names])}')
-        unions_array.append(f'union R_{rtn}_range = {" | ".join([first_cap(rn) for rn in range_names])}')
-
-        props = [['id', 'Int']]
-        if 'data' in relation_types_config[rtn]['config']:
-            for prop in relation_types_config[rtn]['config']['data'].values():
-                props.append([prop["system_name"], prop["type"]])
-
-        type_defs_dict[f'R_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
-        type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
-
-        # Relation sources
-        type_defs_dict[f'R_{rtn}'].append(['_source_', '[Source_!]!'])
-        type_defs_dict[f'Ri_{rtn}'].append(['_source_', '[Source_!]!'])
-
-        for domain_name in domain_names:
-            type_defs_dict[first_cap(domain_name)].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
-        for range_name in range_names:
-            type_defs_dict[first_cap(range_name)].append([f'ri_{rtn}_s', f'[Ri_{rtn}!]!'])
-
-    entity_permissions = {
-        perm: get_permission_entities_and_properties(user, project_name, entity_types_config, perm)
-        for perm in ['update', 'create', 'delete']
-    }
-    if any(entity_permissions.values()):
-        type_defs_dict['Mutation'] = []
-        for perm in ['update', 'create']:
-            if entity_permissions[perm]:
-                for allowed_etn, allowed_props in entity_permissions[perm].items():
-                    if 'data' in entity_types_config[etn]['config']:
-                        type_defs_dict['Mutation'].append(
-                            [
-                                (
-                                    f'{perm}{first_cap(allowed_etn)}('
-                                    'id: Int!,'
-                                    f'input: {first_cap(perm)}{first_cap(allowed_etn)}Input'
-                                    ')'
-                                ),
-                                first_cap(etn),
-                            ]
-                        )
-                        input_props = []
-                        for prop in entity_types_config[allowed_etn]['config']['data'].values():
-                            if prop['system_name'] in allowed_props:
-                                prop_type = prop['type']
-                                if prop_type in additional_type_defs_dict:
-                                    prop_type += 'Input'
-                                    additional_input_types.add(prop_type)
-                                input_props.append([prop['system_name'], prop_type])
-                        input_type_defs_dict[f'{first_cap(perm)}{first_cap(allowed_etn)}Input'] = input_props
-
-        if entity_permissions['delete']:
-            for allowed_etn in entity_permissions['delete']:
-                type_defs_dict['Mutation'].append(
-                    [
-                        (
-                            f'delete{first_cap(allowed_etn)}(id: Int!)'
-                        ),
-                        'Int'
-                    ]
-                )
-
-        for additional_input_type in additional_input_types:
-            type_defs_dict[additional_input_type] = additional_input_type_defs_dict[additional_input_type]
-
-    type_defs_array = [construct_def('type', type, props) for type, props in type_defs_dict.items()]
-    input_defs_array = [construct_def('input', input, props) for input, props in input_type_defs_dict.items()]
-
-    return ariadne.gql(
-        '\n'.join(scalars_array)
-        + '\n\n'
-        + '\n'.join(unions_array)
-        + '\n\n'
-        + '\n\n'.join(input_defs_array)
-        + '\n\n'
-        + '\n\n'.join(type_defs_array)
-    )
-
-
-async def create_object_types(
-    request: Request,
-    project_name: str,
-    entity_types_config: typing.Dict,
-    relation_types_config: typing.Dict,
-    user: UserWithPermissions,
-):
-    object_types = {'Query': ariadne.QueryType()}
-
-    # Entities
-    for entity_type_name in entity_types_config:
-        object_types['Query'].set_field(
-            f'get{first_cap(entity_type_name)}',
-            entity_resolver_wrapper(request, project_name, entity_type_name),
-        )
-
-        # Entity sources
-        object_types[first_cap(entity_type_name)] = ariadne.ObjectType(first_cap(entity_type_name))
-        object_types[first_cap(entity_type_name)].set_field(
-            '_source_',
-            relation_resolver_wrapper(request, project_name, '_source_')
-        )
-
-        #
-
-    # Relations
-    for relation_type_name in relation_types_config:
-        for domain_name in [first_cap(dn) for dn in relation_types_config[relation_type_name]['domain_names']]:
-            object_types[domain_name].set_field(
-                f'r_{relation_type_name}_s',
-                relation_resolver_wrapper(request, project_name, relation_type_name)
-            )
-        for range_name in [first_cap(dn) for dn in relation_types_config[relation_type_name]['range_names']]:
-            object_types[range_name].set_field(
-                f'ri_{relation_type_name}_s',
-                relation_resolver_wrapper(request, project_name, relation_type_name, True)
-            )
-
-    return object_types.values()
-
-
-# TODO: cache per project_name (app always hangs after 6 requests when using cache)
+# TODO: cache per project_name and user_name (app always hangs after 6 requests when using cache)
 async def create_schema(
     request: Request,
     user: UserWithPermissions,
@@ -496,6 +397,16 @@ async def create_schema(
         user,
         entity_types_config,
     )
+    add_post_put_entity_schema_parts(
+        type_defs_dict,
+        input_type_defs_dict,
+        additional_input_type_defs_dict,
+        query_dict,
+        request,
+        project_name,
+        user,
+        entity_types_config,
+    )
 
     add_get_relation_schema_parts(
         type_defs_dict,
@@ -508,18 +419,6 @@ async def create_schema(
         relation_types_config,
     )
 
-    # type_defs = await create_type_defs(
-    #     request.path_params['project_name'],
-    #     entity_types_config,
-    #     relation_types_config,
-    #     user,
-    # )
-    # object_types = await create_object_types(
-    #     request,
-    #     request.path_params['project_name'],
-    #     entity_types_config,
-    #     relation_types_config,
-    # )
     type_defs_array = [construct_def('type', type, props) for type, props in type_defs_dict.items()]
     input_type_defs_array = [construct_def('input', type, props) for type, props in input_type_defs_dict.items()]
     type_defs = ariadne.gql(

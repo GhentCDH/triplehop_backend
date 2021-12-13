@@ -152,12 +152,14 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
                 'system_name': entity_system_name,
                 'display_name': entity_config['display_name'],
             }
+            # TODO: remove configs that cannot be used by users based on permissions
             if 'source' in entity_config['config']:
                 config_item['source'] = entity_config['config']['source']
             if 'data' in entity_config['config']:
                 data_conf = entity_config['config']['data']
                 config_item['data'] = list(data_conf.values())
             # TODO: add display_names from data to display, so data doesn't need to be exported
+            # TODO: figure out a way to add permissions for displaying layouts and fields
             if 'display' in entity_config['config']:
                 config_item['display'] = {
                     'title': _replace_field_ids_by_system_names(

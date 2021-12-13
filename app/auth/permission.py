@@ -64,11 +64,10 @@ def _permission_usage_helper(
                 for type_name, conf in type_config.items():
                     if 'data' in conf['config']:
                         props = [prop['system_name'] for prop in conf['config']['data'].values()]
-                        # only global admins can update ids
-                        if has_global_permission(user, permission):
-                            props.append('id')
                         usage[type_name] = props
                     else:
+                        # still usefull to add
+                        # properties and relations can be added in application code where necessary
                         usage[type_name] = []
                 return usage
 
@@ -83,6 +82,8 @@ def _permission_usage_helper(
                 if 'data' in conf['config']:
                     usage[type_name] = [prop['system_name'] for prop in conf['config']['data']]
                 else:
+                    # still usefull to add
+                    # properties and relations can be added in application code where necessary
                     usage[type_name] = []
             else:
                 usage[type_name] = permissions[perm][proj][entities_or_relations][type_name]
