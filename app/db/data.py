@@ -7,7 +7,7 @@ import json
 import re
 import typing
 
-from app.cache.core import key_builder
+from app.cache.core import self_project_name_key_builder, self_project_name_other_args_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, relation_label, utd, RE_SOURCE_PROP_INDEX
@@ -36,7 +36,7 @@ class DataRepository(BaseRepository):
         '''
         return await self.get_entity_type_id_by_label_id(int(vertex_graph_id) >> (32+16))
 
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=self_project_name_other_args_key_builder)
     async def get_entity_type_id_by_label_id(
         self,
         label_id: int,
@@ -56,7 +56,7 @@ class DataRepository(BaseRepository):
         )
         return utd(n_etid_with_underscores[2:])
 
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=self_project_name_key_builder)
     async def get_graph_id(
         self,
     ) -> str:
@@ -164,6 +164,22 @@ class DataRepository(BaseRepository):
         }
         return results
 
+    async def put_entity_graphql(
+        self,
+        entity_type_name: str,
+        entity_id: int,
+        input: typing.Dict
+    ) -> typing.Dict:
+        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        raw_result = await self.put_entity_raw(entity_type_id, entity_id, input)
+
+        if raw_result is None:
+            return None
+
+        etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
+
+        return {etpm[k]: v for k, v in raw_result.items() if k in etpm}
+
     async def put_entity_raw(
         self,
         entity_type_id: str,
@@ -178,8 +194,8 @@ class DataRepository(BaseRepository):
             f'SELECT * FROM cypher('
             f'\'{self._project_id}\', '
             f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
-            f'return n.id$$, :params'
-            f') as (id agtype);'
+            f'return n$$, :params'
+            f') as (n agtype);'
         )
         try:
             record = await self.fetchrow(
@@ -200,23 +216,8 @@ class DataRepository(BaseRepository):
         if record is None:
             return None
 
-        return record['id']
-
-    async def put_entity_graphql(
-        self,
-        entity_type_name: str,
-        entity_id: int,
-        input: typing.Dict
-    ) -> typing.Dict:
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        result_id = self.put_entity_raw(entity_type_id, entity_id, input)
-
-        if result_id is None:
-            return None
-
-        return {
-            'id': result_id,
-        }
+        # strip off ::vertex
+        return json.loads(record['n'][:-8])['properties']
 
     async def get_relations_graphql(
         self,

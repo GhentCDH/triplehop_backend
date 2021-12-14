@@ -3,14 +3,14 @@ import fastapi
 import json
 import typing
 
-from app.cache.core import key_builder
+from app.cache.core import no_arg_key_builder, skip_first_arg_key_builder
 from app.db.base import BaseRepository
 from app.utils import dtu
 
 
 class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=no_arg_key_builder)
     async def _get_projects_config(self) -> typing.Dict:
         records = await self.fetch(
             '''
@@ -33,7 +33,7 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on project config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
         project_config = await self._get_projects_config()
 
@@ -47,7 +47,7 @@ class ConfigRepository(BaseRepository):
             )
 
     # TODO: delete cache on project config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_project_config(self, project_name: str) -> int:
         project_config = await self._get_projects_config()
 
@@ -61,7 +61,7 @@ class ConfigRepository(BaseRepository):
             )
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_entity_types_config(self, project_name: str) -> typing.Dict:
         records = await self.fetch(
             '''
@@ -91,7 +91,7 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
         entity_types_config = await self.get_entity_types_config(project_name)
 
@@ -126,7 +126,7 @@ class ConfigRepository(BaseRepository):
         return {v: k for k, v in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()}
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> str:
         entity_types_config = await self.get_entity_types_config(project_name)
 
@@ -141,8 +141,8 @@ class ConfigRepository(BaseRepository):
 
     # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
-    @aiocache.cached(key_builder=key_builder)
-    async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: id) -> str:
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: str) -> str:
         entity_types_config = await self.get_entity_types_config(project_name)
 
         for entity_type_name in entity_types_config:
@@ -156,7 +156,7 @@ class ConfigRepository(BaseRepository):
         )
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_relation_types_config(self, project_name: str) -> typing.Dict:
         records = await self.fetch(
             '''
@@ -194,7 +194,7 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_relation_type_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
         # Special case: '_source_'
         if relation_type_name == '_source_':
@@ -237,7 +237,7 @@ class ConfigRepository(BaseRepository):
         return result
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_relation_type_id_by_name(self, project_name: str, relation_type_name: str) -> int:
         # Special case '_source__'
         if relation_type_name == '_source_':
