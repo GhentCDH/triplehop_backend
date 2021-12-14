@@ -19,7 +19,7 @@ def self_project_name_key_builder(func, self):
 
 
 def self_project_name_other_args_key_builder(func, self, *args):
-    str_args = [str(arg) for arg in args[1:]]
+    str_args = [str(arg) for arg in args]
     print(f'{func.__module__}|{func.__name__}|{self._project_name}|{"|".join(str_args)}')
     return f'{func.__module__}|{func.__name__}|{self._project_name}|{"|".join(str_args)}'
 
