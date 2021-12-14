@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from fastapi_jwt_auth import AuthJWT
-from fastapi_jwt_auth.exceptions import MissingTokenError
+from fastapi_jwt_auth.exceptions import JWTDecodeError, MissingTokenError
 from passlib.context import CryptContext
 from starlette.requests import Request
 
@@ -39,6 +39,8 @@ async def get_current_active_user_with_permissions(
         Authorize.jwt_required()
     except MissingTokenError:
         user = await auth_repo.get_user(username='anonymous')
+    except JWTDecodeError:
+        raise HTTPException(status_code=401, detail='Could not validate credentials')
 
     if user is None:
         # fastapi-jwt-auth deny list can't be used because of
