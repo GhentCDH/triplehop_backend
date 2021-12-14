@@ -1,4 +1,5 @@
 
+import aiocache
 import aiodataloader
 import ariadne
 import typing
@@ -9,6 +10,7 @@ from app.auth.permission import (
     get_permission_relations_and_properties,
     has_global_permission,
 )
+from app.cache.core import request_user_key_builder
 
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
@@ -348,7 +350,8 @@ def add_get_relation_schema_parts(
         type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
 
-# TODO: cache per project_name and user_name (app always hangs after 6 requests when using cache)
+# TODO: reset cache when project is updated or user permissions have been updated
+@aiocache.cached(key_builder=request_user_key_builder)
 async def create_schema(
     request: Request,
     user: UserWithPermissions,
@@ -431,4 +434,6 @@ async def create_schema(
         + '\n\n'.join(type_defs_array)
     )
 
-    return ariadne.make_executable_schema(type_defs, *query_dict.values())
+    schema = ariadne.make_executable_schema(type_defs, *query_dict.values())
+
+    return schema
