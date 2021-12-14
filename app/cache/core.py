@@ -1,7 +1,3 @@
-from starlette.requests import Request
-from app.models.auth import UserWithPermissions
-
-
 def no_arg_key_builder(func, *args):
     return f'{func.__module__}|{func.__name__}'
 
@@ -20,5 +16,5 @@ def self_project_name_other_args_key_builder(func, self, *args):
     return f'{func.__module__}|{func.__name__}|{self._project_name}|{"|".join(str_args)}'
 
 
-def request_user_key_builder(func, request: Request, user: UserWithPermissions):
-    return f'{func.__module__}|{func.__name__}|{request.path_params["project_name"]}|{user.id}'
+def create_schema_key_builder(func, self):
+    return f'{func.__module__}|{func.__name__}|{self._project_name}|{self._user.id}'

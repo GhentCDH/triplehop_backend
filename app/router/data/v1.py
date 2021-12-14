@@ -6,7 +6,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 
 
 from app.auth.core import get_current_active_user_with_permissions
-from app.graphql.data.v1 import create_schema
+from app.graphql.data.v1 import GraphQLDataBuilder
 
 from app.models.auth import UserWithPermissions
 
@@ -25,8 +25,6 @@ async def handle_graphql_request(
     request: Request,
     user: UserWithPermissions = Depends(get_current_active_user_with_permissions)
 ) -> JSONResponse:
-    context = {
-        'user': user,
-    }
-    graphql = GraphQL(await create_schema(request, user), context_value=context)
+    graphql_builder = GraphQLDataBuilder(request, user)
+    graphql = GraphQL(await graphql_builder.create_schema())
     return await graphql.graphql_http_server(request)
