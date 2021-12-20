@@ -1,6 +1,5 @@
 import asyncpg
 import buildpg
-import functools
 import typing
 from contextlib import asynccontextmanager
 
@@ -23,28 +22,14 @@ class BaseRepository:
         query = query.replace('\\:', ':')
         return [query, args]
 
-    # @asynccontextmanager
-    # async def connection(self) -> None:
-    #     try:
-    #         self._connection = await self._pool.acquire()
-    #         self._connection_acquired = True
-    #         yield self._connection
-    #     finally:
-    #         await self._pool.release(self._connection)
-    #         self._connection_acquired = False
-
     @asynccontextmanager
     async def transaction(self) -> None:
         try:
             if not self._connection_acquired:
-                print('Acquiring connection')
                 self._connection = await self._pool.acquire()
                 self._connection_acquired = True
-                print('Connection acquired')
-            print('Getting transaction')
             transaction = self._connection.transaction()
             await transaction.start()
-            print('Yielding transaction')
             yield transaction
         except:
             await transaction.rollback()
@@ -56,24 +41,6 @@ class BaseRepository:
                 await self._pool.release(self._connection)
                 self._connection_acquired = False
                 self._age_initialized = False
-
-    # def transaction(
-    #     self,
-    #     func,
-    # ):
-    #     def wrapper():
-    #         @functools.wraps(func)
-    #         async def wrapped(*args):
-    #             # nested transaction
-    #             if self._connection is not None:
-    #                 async with self._connection.transaction():
-    #                     return await func(*args)
-    #             async with self._pool.acquire() as connection:
-    #                 self._connection = connection
-    #                 async with self._connection.transaction():
-    #                     return await func(*args)
-    #         return wrapped
-    #     return wrapper
 
     # Make sure apache Age queries can be executed
     @staticmethod
@@ -109,21 +76,15 @@ class BaseRepository:
         params: typing.Dict[str, typing.Any] = None,
         age: bool = False,
     ):
-        print('Start fetch')
         async with self._pool.acquire() as conn:
-            print(conn)
             query, args = self.__class__._render(query_template, params)
             if age:
                 async with conn.transaction():
                     await self.__class__._init_age(conn)
                     result = await conn.fetch(query, *args)
-                    print('Stop fetch')
-                    print(conn)
                     return result
                     # return await conn.fetch(query, *args)
             result = await conn.fetch(query, *args)
-            print('Stop fetch')
-            print(conn)
             return result
             # return await conn.fetch(query, *args)
 
