@@ -1,6 +1,8 @@
 import asyncpg
 import buildpg
+import functools
 import typing
+from contextlib import asynccontextmanager
 
 RENDERER = buildpg.main.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)', sep='__')
 
@@ -8,6 +10,9 @@ RENDERER = buildpg.main.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)', sep='
 class BaseRepository:
     def __init__(self, pool: asyncpg.pool.Pool) -> None:
         self._pool = pool
+        self._connection = None
+        self._connection_acquired = False
+        self._age_initialized = False
 
     @staticmethod
     def _render(query_template: str, params: typing.Dict[str, typing.Any] = None):
@@ -17,6 +22,58 @@ class BaseRepository:
             query, args = RENDERER(query_template, **params)
         query = query.replace('\\:', ':')
         return [query, args]
+
+    # @asynccontextmanager
+    # async def connection(self) -> None:
+    #     try:
+    #         self._connection = await self._pool.acquire()
+    #         self._connection_acquired = True
+    #         yield self._connection
+    #     finally:
+    #         await self._pool.release(self._connection)
+    #         self._connection_acquired = False
+
+    @asynccontextmanager
+    async def transaction(self) -> None:
+        try:
+            if not self._connection_acquired:
+                print('Acquiring connection')
+                self._connection = await self._pool.acquire()
+                self._connection_acquired = True
+                print('Connection acquired')
+            print('Getting transaction')
+            transaction = self._connection.transaction()
+            await transaction.start()
+            print('Yielding transaction')
+            yield transaction
+        except:
+            await transaction.rollback()
+            raise
+        else:
+            await transaction.commit()
+        finally:
+            if not self._connection.is_in_transaction():
+                await self._pool.release(self._connection)
+                self._connection_acquired = False
+                self._age_initialized = False
+
+    # def transaction(
+    #     self,
+    #     func,
+    # ):
+    #     def wrapper():
+    #         @functools.wraps(func)
+    #         async def wrapped(*args):
+    #             # nested transaction
+    #             if self._connection is not None:
+    #                 async with self._connection.transaction():
+    #                     return await func(*args)
+    #             async with self._pool.acquire() as connection:
+    #                 self._connection = connection
+    #                 async with self._connection.transaction():
+    #                     return await func(*args)
+    #         return wrapped
+    #     return wrapper
 
     # Make sure apache Age queries can be executed
     @staticmethod
@@ -52,13 +109,23 @@ class BaseRepository:
         params: typing.Dict[str, typing.Any] = None,
         age: bool = False,
     ):
+        print('Start fetch')
         async with self._pool.acquire() as conn:
+            print(conn)
             query, args = self.__class__._render(query_template, params)
             if age:
                 async with conn.transaction():
                     await self.__class__._init_age(conn)
-                    return await conn.fetch(query, *args)
-            return await conn.fetch(query, *args)
+                    result = await conn.fetch(query, *args)
+                    print('Stop fetch')
+                    print(conn)
+                    return result
+                    # return await conn.fetch(query, *args)
+            result = await conn.fetch(query, *args)
+            print('Stop fetch')
+            print(conn)
+            return result
+            # return await conn.fetch(query, *args)
 
     async def fetchrow(
         self,
@@ -66,8 +133,15 @@ class BaseRepository:
         params: typing.Dict[str, typing.Any] = None,
         age: bool = False,
     ):
+        query, args = self.__class__._render(query_template, params)
+        if self._connection is not None:
+            if age:
+                async with self._connection.transaction():
+                    await self.__class__._init_age(self._connection)
+                    return await self._connection.fetchrow(query, *args)
+            return await self._connection.fetchrow(query, *args)
+
         async with self._pool.acquire() as conn:
-            query, args = self.__class__._render(query_template, params)
             if age:
                 async with conn.transaction():
                     await self.__class__._init_age(conn)

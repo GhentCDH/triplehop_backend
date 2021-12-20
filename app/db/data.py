@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import aiocache
-# import asyncio
 import asyncpg
 import json
 import re
@@ -164,23 +163,7 @@ class DataRepository(BaseRepository):
         }
         return results
 
-    async def put_entity_graphql(
-        self,
-        entity_type_name: str,
-        entity_id: int,
-        input: typing.Dict
-    ) -> typing.Dict:
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        raw_result = await self.put_entity_raw(entity_type_id, entity_id, input)
-
-        if raw_result is None:
-            return None
-
-        etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
-
-        return {etpm[k]: v for k, v in raw_result.items() if k in etpm}
-
-    async def put_entity_raw(
+    async def put_entity(
         self,
         entity_type_id: str,
         entity_id: int,
@@ -190,10 +173,15 @@ class DataRepository(BaseRepository):
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
 
+        # TODO: log revision
+
+        set_clause = ', '.join([f'n.{k} = ${k}' for k in input.keys()])
+
         query = (
             f'SELECT * FROM cypher('
             f'\'{self._project_id}\', '
             f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
+            f'SET {set_clause} '
             f'return n$$, :params'
             f') as (n agtype);'
         )
@@ -202,7 +190,8 @@ class DataRepository(BaseRepository):
                 query,
                 {
                     'params': json.dumps({
-                        'entity_id': entity_id
+                        'entity_id': entity_id,
+                        **input,
                     })
                 },
                 age=True
@@ -215,6 +204,8 @@ class DataRepository(BaseRepository):
 
         if record is None:
             return None
+
+        print(record)
 
         # strip off ::vertex
         return json.loads(record['n'][:-8])['properties']

@@ -3,7 +3,6 @@ import aiocache
 import aiodataloader
 import ariadne
 import typing
-from fastapi.exceptions import HTTPException
 
 from starlette.requests import Request
 from app.auth.permission import (
@@ -17,6 +16,7 @@ from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.graphql.base import construct_def, first_cap
+from app.mgmt.data import DataManager
 from app.models.auth import UserWithPermissions
 
 
@@ -26,10 +26,11 @@ class GraphQLDataBuilder:
         request: Request,
         user: UserWithPermissions
     ) -> None:
-        self._user = user
         self._project_name = request.path_params['project_name']
         self._config_repo = get_repository_from_request(request, ConfigRepository)
         self._data_repo = get_repository_from_request(request, DataRepository, self._project_name)
+        self._user = user
+        self._data_manager = DataManager(self._project_name, self._config_repo, self._data_repo, self._user)
 
     # TODO: only get the requested properties
     # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
@@ -72,34 +73,8 @@ class GraphQLDataBuilder:
         self,
         entity_type_name: str,
     ):
-        # TODO: set _entity_types_config on init
-        if self._entity_types_config is None:
-            self._entity_types_config = self._config_repo.get_entity_types_config(self._project_name)
-        # Data validation preparation
-        allowed = get_permission_entities_and_properties(
-            self._user,
-            self._project_name,
-            self._entity_types_config,
-            'put'
-        )
-        if entity_type_name not in allowed:
-            raise HTTPException(status_code=403, detail="Forbidden")
-        allowed_props = allowed[entity_type_name]
-        data_config = self._entity_types_config[entity_type_name]['config']['data']
-
         async def put_entity(entity_id: int, input: typing.Dict):
-            print(allowed_props)
-            print(data_config)
-            print(input)
-            # Data permission validation
-            for prop_name, prop_value in input.items():
-                if prop_name not in allowed_props:
-                    raise HTTPException(status_code=403, detail="Forbidden")
-
-            # Data validation
-            # etipm = config_repo.get_entity_type_i_property_mapping(project_name, )
-            #     prop_type = data_config
-            return await self._data_repo.put_entity_graphql(entity_type_name, entity_id, input)
+            return await self._data_manager.put_entity(entity_type_name, entity_id, input)
 
         async def resolver(_, info, id, input):
             return await put_entity(id, input)
