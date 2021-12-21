@@ -74,25 +74,6 @@ class DataRepository(BaseRepository):
             age=True,
         )
 
-    async def get_entities_graphql(
-        self,
-        entity_type_name: str,
-        entity_ids: typing.List[int],
-    ) -> typing.Dict:
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-
-        raw_results = await self.get_entities_raw(entity_type_id, entity_ids)
-
-        if not raw_results:
-            return raw_results
-
-        etpm = await self._conf_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
-
-        return {
-            entity_id: {etpm[k]: v for k, v in raw_result['e_props'].items() if k in etpm}
-            for entity_id, raw_result in raw_results.items()
-        }
-
     # async def get_entity_raw(
     #     self,
     #     entity_type_id: str,
@@ -129,7 +110,7 @@ class DataRepository(BaseRepository):
     #     properties = json.loads(record['n'][:-8])['properties']
     #     return {'e_props': properties}
 
-    async def get_entities_raw(
+    async def get_entities(
         self,
         entity_type_id: str,
         entity_ids: typing.List[int],

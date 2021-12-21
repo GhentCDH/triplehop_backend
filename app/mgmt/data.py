@@ -24,7 +24,7 @@ class DataManager:
 
     @staticmethod
     def valid_prop_value(prop_type: str, prop_value: typing.Any) -> bool:
-        '''Check if a property value is of the correct type.'''
+        """Check if a property value is of the correct type."""
         if prop_type == 'String':
             return isinstance(prop_value, str)
 
@@ -69,6 +69,28 @@ class DataManager:
             if not self.__class__.valid_prop_value(prop_type, prop_value):
                 raise HTTPException(status_code=422, detail="Invalid value")
 
+    async def get_entities(
+        self,
+        entity_type_name: str,
+        entity_ids: typing.List[int],
+    ) -> typing.Dict:
+        # TODO: check permission for requested properties
+        await self._check_permission('get', entity_type_name, {})
+
+        entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+
+        db_results = await self._data_repo.get_entities(entity_type_id, entity_ids)
+
+        if len(db_results) == 0:
+            return []
+
+        etpm = await self._config_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
+
+        return {
+            entity_id: {etpm[k]: v for k, v in raw_result['e_props'].items() if k in etpm}
+            for entity_id, raw_result in db_results.items()
+        }
+
     async def put_entity(
         self,
         entity_type_name: str,
@@ -86,12 +108,6 @@ class DataManager:
             etipm[k]: v
             for k, v in input.items()
         }
-
-        # @self._data_repo.transaction
-        # async def transaction():
-        #     return await self._data_repo.put_entity(entity_type_id, entity_id, db_input)
-
-        # db_result = await (transaction())()
 
         async with self._data_repo.connection() as connection:
             async with connection.transaction():

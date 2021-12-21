@@ -40,7 +40,7 @@ class GraphQLDataBuilder:
         entity_type_name: str,
     ):
         async def get_entities(entity_ids: typing.List[int]):
-            data = await self._data_repo.get_entities_graphql(entity_type_name, entity_ids)
+            data = await self._data_manager.get_entities(entity_type_name, entity_ids)
             # dataloader expects sequence of objects or None following order of ids in ids
             return [data.get(id) for id in entity_ids]
 
@@ -62,7 +62,7 @@ class GraphQLDataBuilder:
         async def post_entity(entity_id: int, input: typing.Dict):
             print('post_entity')
             print(self._request)
-            return await self._data_repo.put_entity_graphql(entity_type_name, entity_id, input)
+            return await self._data_manager.put_entity(entity_type_name, entity_id, input)
 
         async def resolver(_, info, id, input):
             return await post_entity(id, input)
