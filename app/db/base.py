@@ -13,7 +13,10 @@ class BaseRepository:
         self._pool = pool
 
     @staticmethod
-    def _render(query_template: str, params: typing.Dict[str, typing.Any] = None) -> typing.List[str, typing.List]:
+    def _render(
+        query_template: str,
+        params: typing.Dict[str, typing.Any] = None,
+    ) -> typing.List[typing.Union[str, typing.List]]:
         """Convert named placeholders to native PostgreSQL syntax for query arguments (used by asyncpg).
 
         Args:
