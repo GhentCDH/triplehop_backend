@@ -22,8 +22,6 @@ class ConfigRepository(BaseRepository):
             ''',
         )
 
-        print(records)
-
         result = {}
         for record in records:
             result[record['system_name']] = {
