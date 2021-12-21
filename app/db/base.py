@@ -9,8 +9,6 @@ RENDERER = buildpg.main.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)', sep='
 class BaseRepository:
     def __init__(self, pool: asyncpg.pool.Pool) -> None:
         self._pool = pool
-        self._connection = None
-        self._num_connection_required = 0
 
     @staticmethod
     def _render(query_template: str, params: typing.Dict[str, typing.Any] = None):
@@ -24,46 +22,10 @@ class BaseRepository:
     @asynccontextmanager
     async def connection(self) -> None:
         try:
-            print('connection context try')
-            if self._num_connection_required == 0:
-                self._connection = await self._pool.acquire()
-            self._num_connection_required += 1
-            print(self._num_connection_required)
-            yield self._connection
+            connection = await self._pool.acquire()
+            yield connection
         finally:
-            print('connection context finally')
-            self._num_connection_required -= 1
-            print(self._num_connection_required)
-            if self._num_connection_required == 0:
-                print('connection context connection released')
-                await self._pool.release(self._connection)
-
-    @asynccontextmanager
-    async def transaction(self) -> None:
-        try:
-            print('transaction context try')
-            if self._num_connection_required == 0:
-                self._connection = await self._pool.acquire()
-            self._num_connection_required += 1
-            print(self._num_connection_required)
-            transaction = self._connection.transaction()
-            print('transaction initialized')
-            await transaction.start()
-            print('transaction started')
-            yield transaction
-        except Exception as e:
-            print(e)
-            await transaction.rollback()
-            raise
-        else:
-            await transaction.commit()
-        finally:
-            print('transaction context finally')
-            self._num_connection_required -= 1
-            print(self._num_connection_required)
-            if self._num_connection_required == 0:
-                print('transaction context connection released')
-                await self._pool.release(self._connection)
+            await self._pool.release(connection)
 
     # Make sure apache Age queries can be executed
     @staticmethod
@@ -97,25 +59,21 @@ class BaseRepository:
         query_template: str,
         params: typing.Dict[str, typing.Any] = None,
         age: bool = False,
+        connection: asyncpg.connection.Connection = None,
     ):
-        print(method)
-        print(query_template)
-        print(params)
         query, args = self.__class__._render(query_template, params)
-        if age:
-            async with self.transaction():
-                # TODO: try to use ag_catalog explicitly where needed
-                await self._connection.execute(
-                    '''
-                        SET search_path = ag_catalog, "$user", public;
-                    '''
-                )
-                await self._connection.execute(
-                    '''
-                        LOAD '$libdir/plugins/age';
-                    '''
-                )
-                return await getattr(self._connection, method)(query, *args)
+        if connection is None:
+            async with self._pool.acquire() as connection:
+                if age:
+                    async with connection.transaction():
+                        await self.__class__._init_age(connection)
+                        return await getattr(connection, method)(query, *args)
+                else:
+                    return await getattr(connection, method)(query, *args)
         else:
-            async with self.connection():
-                return await getattr(self._connection, method)(query, *args)
+            if age:
+                async with connection.transaction():
+                    await self.__class__._init_age(connection)
+                    return await getattr(connection, method)(query, *args)
+            else:
+                return await getattr(connection, method)(query, *args)

@@ -93,8 +93,9 @@ class DataManager:
 
         # db_result = await (transaction())()
 
-        async with self._data_repo.transaction():
-            db_result = await self._data_repo.put_entity(entity_type_id, entity_id, db_input)
+        async with self._data_repo.connection() as connection:
+            async with connection.transaction():
+                db_result = await self._data_repo.put_entity(entity_type_id, entity_id, db_input, connection)
 
         print(db_result)
 

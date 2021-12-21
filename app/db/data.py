@@ -167,7 +167,8 @@ class DataRepository(BaseRepository):
         self,
         entity_type_id: str,
         entity_id: int,
-        input: typing.Dict
+        input: typing.Dict,
+        connection: asyncpg.connection.Connection = None,
     ) -> typing.Dict:
         # TODO: set _project_id on init
         if not self._project_id:
@@ -194,7 +195,8 @@ class DataRepository(BaseRepository):
                         **input,
                     })
                 },
-                age=True
+                age=True,
+                connection=connection,
             )
         # If no items have been added, the label does not exist
         except asyncpg.exceptions.FeatureNotSupportedError as e:
