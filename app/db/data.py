@@ -456,11 +456,11 @@ class DataRepository(BaseRepository):
         if first_iteration:
             # check if entity props are requested
             if crdb_query['e_props']:
-                results = await self.get_entities_raw(entity_type_id, entity_ids)
+                results = await self.get_entities(entity_type_id, entity_ids)
 
         for relation_type_id in crdb_query['relations']:
             # get relation data
-            raw_results = await self.get_relations_raw(
+            raw_results = await self.get_relations(
                 entity_type_id,
                 entity_ids,
                 relation_type_id.split('_')[1],
