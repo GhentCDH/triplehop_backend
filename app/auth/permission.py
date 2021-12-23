@@ -53,7 +53,7 @@ def _permission_usage_helper(
 
     usage = {}
 
-    # __all__ on entity level => return all entities and props
+    # __all__ on entity or relation level => return all entities and props
     for perm in [permission, '__all__']:
         for proj in [project_name, '__all__']:
             if (
@@ -69,9 +69,13 @@ def _permission_usage_helper(
                         # still usefull to add
                         # properties and relations can be added in application code where necessary
                         usage[type_name] = []
+                # source
+                # TODO: allow permission configuration
+                if entities_or_relations == 'relations':
+                    usage['_source_'] = ['properties', 'source_props']
                 return usage
 
-    # individual entities
+    # individual entities and relations
     for type_name, conf in type_config.items():
         if (
             permission in permissions
@@ -80,7 +84,7 @@ def _permission_usage_helper(
         ):
             if permissions[perm][proj][entities_or_relations][type_name] == '__all__':
                 if 'data' in conf['config']:
-                    usage[type_name] = [prop['system_name'] for prop in conf['config']['data']]
+                    usage[type_name] = [prop['system_name'] for prop in conf['config']['data'].values()]
                 else:
                     # still usefull to add
                     # properties and relations can be added in application code where necessary

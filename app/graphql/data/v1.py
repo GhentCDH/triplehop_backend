@@ -284,6 +284,9 @@ class GraphQLDataBuilder:
         # TODO: bidirectional relations
         allowed = self._get_permission_relations_and_properties('get')
         for rtn, allowed_props in allowed.items():
+            # Source
+            if rtn == '_source_':
+                continue
             domain_names = self._relation_types_config[rtn]['domain_names']
             range_names = self._relation_types_config[rtn]['range_names']
 
