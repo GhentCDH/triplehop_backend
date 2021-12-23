@@ -71,9 +71,6 @@ class DataManager:
             permission,
         )
 
-        print(relation_type_name)
-        print(relation_type_name in allowed)
-
         if relation_type_name not in allowed:
             raise HTTPException(status_code=403, detail="Forbidden")
 
