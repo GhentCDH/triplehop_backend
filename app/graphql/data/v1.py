@@ -15,9 +15,10 @@ from app.cache.core import create_schema_key_builder
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
-from app.graphql.base import construct_def, first_cap
+from app.graphql.base import construct_def
 from app.mgmt.data import DataManager
 from app.models.auth import UserWithPermissions
+from app.utils import first_cap
 
 
 class GraphQLDataBuilder:
@@ -95,7 +96,7 @@ class GraphQLDataBuilder:
                 grouped_ids[entity_type_name].append(int(entity_id__str))
             grouped_data = {}
             for entity_type_name, entity_ids in grouped_ids.items():
-                grouped_data[entity_type_name] = await self._data_repo.get_relations_graphql(
+                grouped_data[entity_type_name] = await self._data_manager.get_relations(
                     entity_type_name,
                     entity_ids,
                     relation_type_name,
@@ -105,7 +106,7 @@ class GraphQLDataBuilder:
             results = []
             for key in keys:
                 (entity_type_name, entity_id__str) = key.split('|')
-                results.append(grouped_data.get(entity_type_name).get(int(entity_id__str)))
+                results.append(grouped_data.get(entity_type_name).get(int(entity_id__str), []))
 
             return results
 
@@ -116,30 +117,10 @@ class GraphQLDataBuilder:
             return await info.context[loader_key].load(f'{entity_type_name}|{id}')
 
         async def resolver(parent, info, **_):
-            entity_id = parent['id']
             entity_type_name = info.parent_type.name.lower()
+            entity_id = parent['id']
 
-            db_results = await load_relation(info, entity_type_name, entity_id)
-
-            if not db_results:
-                return []
-
-            results = []
-            for db_result in db_results:
-                result = db_result['relation']
-                result['entity'] = db_result['entity']
-                result['entity']['__typename'] = first_cap(db_result['entity_type_name'])
-
-                result['_source_'] = []
-                for source in db_result['sources']:
-                    source_result = source['relation']
-                    source_result['entity'] = source['entity']
-                    source_result['entity']['__typename'] = first_cap(source['entity_type_name'])
-                    result['_source_'].append(source_result)
-
-                results.append(result)
-
-            return results
+            return await load_relation(info, entity_type_name, entity_id)
 
         return resolver
 

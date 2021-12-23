@@ -5,7 +5,7 @@ from app.auth.permission import get_permission_entities_and_properties
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.models.auth import UserWithPermissions
-from app.utils import utd
+from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
 
 class DataManager:
@@ -21,6 +21,7 @@ class DataManager:
         self._data_repo = data_repo
         self._user = user
         self._entity_types_config = None
+        self._project_id = None
 
     @staticmethod
     def valid_prop_value(prop_type: str, prop_value: typing.Any) -> bool:
@@ -87,8 +88,8 @@ class DataManager:
         etpm = await self._config_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
         return {
-            entity_id: {etpm[k]: v for k, v in raw_result['e_props'].items() if k in etpm}
-            for entity_id, raw_result in db_results.items()
+            entity_id: {etpm[k]: v for k, v in db_result['e_props'].items() if k in etpm}
+            for entity_id, db_result in db_results.items()
         }
 
     async def put_entity(
@@ -113,8 +114,6 @@ class DataManager:
             async with connection.transaction():
                 db_result = await self._data_repo.put_entity(entity_type_id, entity_id, db_input, connection)
 
-        print(db_result)
-
         if db_result is None:
             return None
 
@@ -123,3 +122,101 @@ class DataManager:
         return {etpm[k]: v for k, v in db_result.items() if k in etpm}
 
         # # Update elasticsearch
+
+    async def get_relations(
+        self,
+        entity_type_name: str,
+        entity_ids: typing.List[int],
+        relation_type_name: str,
+        inverse: bool = False,
+    ) -> typing.Dict:
+        entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        relation_type_id = await self._config_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
+
+        db_results = await self._data_repo.get_relations(entity_type_id, entity_ids, relation_type_id, inverse)
+
+        results = {}
+        rtpm = await self._config_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
+        etpma = await self._config_repo.get_entity_type_property_mapping(self._project_name, '__all__')
+        rtpma = await self._config_repo.get_relation_type_property_mapping(self._project_name, '__all__')
+        etd = {}
+        for entity_id, db_result in db_results.items():
+            results[entity_id] = []
+            for db_relation_result in db_result.values():
+                etid = db_relation_result['entity_type_id']
+                if etid not in etd:
+                    etn = await self._config_repo.get_entity_type_name_by_id(self._project_name, etid)
+                    etd[etid] = {
+                        'etn': etn,
+                        'etpm': await self._config_repo.get_entity_type_property_mapping(self._project_name, etn)
+                    }
+                etpm = etd[etid]['etpm']
+
+                result = {
+                    rtpm[k]: v
+                    for k, v in db_relation_result['r_props'].items()
+                    if k in rtpm
+                }
+                result['entity'] = {
+                    etpm[k]: v
+                    for k, v in db_relation_result['e_props'].items()
+                    if k in etpm
+                }
+                result['entity']['__typename'] = first_cap(etd[etid]['etn'])
+                result['_source_'] = []
+                if relation_type_id == '_source_':
+                    if 'properties' in result:
+                        props = []
+                        for p in result['properties']:
+                            m = RE_SOURCE_PROP_INDEX.match(p)
+                            if m:
+                                p = f'p_{dtu(m.group("property"))}'
+                                if p in etpma:
+                                    props.append(f'{etpma[p]}[{m.group("index")}]')
+                            else:
+                                p = f'p_{dtu(p)}'
+                                if p in etpma:
+                                    props.append(etpma[p])
+                        result['properties'] = props
+
+                # Source information
+                srtpm = await self._config_repo.get_relation_type_property_mapping(self._project_name, '_source_')
+                for source in db_relation_result['sources']:
+                    setid = source['entity_type_id']
+                    if setid not in etd:
+                        etn = await self._config_repo.get_entity_type_name_by_id(self._project_name, setid)
+                        etd[setid] = {
+                            'etn': etn,
+                            'etpm': await self._config_repo.get_entity_type_property_mapping(self._project_name, etn)
+                        }
+                    setpm = etd[setid]['etpm']
+
+                    source_result = {
+                        srtpm[k]: v
+                        for k, v in source['r_props'].items()
+                        if k in srtpm
+                    }
+                    source_result['entity'] = {
+                        setpm[k]: v
+                        for k, v in source['e_props'].items()
+                        if k in setpm
+                    }
+                    source_result['entity']['__typename'] = first_cap(etd[setid]['etn'])
+                    if 'properties' in source_result:
+                        props = []
+                        for p in source_result['properties']:
+                            m = RE_SOURCE_PROP_INDEX.match(p)
+                            if m:
+                                p = f'p_{dtu(m.group("property"))}'
+                                if p in rtpma:
+                                    props.append(f'{rtpma[p]}[{m.group("index")}]')
+                            else:
+                                p = f'p_{dtu(p)}'
+                                if p in rtpm:
+                                    props.append(rtpma[p])
+                        source_result['properties'] = props
+                    result['_source_'].append(source_result)
+
+                results[entity_id].append(result)
+
+        return results

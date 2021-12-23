@@ -188,191 +188,10 @@ class DataRepository(BaseRepository):
         if record is None:
             return None
 
-        print(record)
-
         # strip off ::vertex
         return json.loads(record['n'][:-8])['properties']
 
-    async def get_relations_graphql(
-        self,
-        entity_type_name: str,
-        entity_ids: typing.List[int],
-        relation_type_name: str,
-        inverse: bool = False,
-    ) -> typing.Dict:
-        entity_type_id = await self._conf_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        relation_type_id = await self._conf_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
-
-        raw_results = await self.get_relations_raw(entity_type_id, entity_ids, relation_type_id, inverse)
-
-        results = {}
-        rtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
-        etpma = await self._conf_repo.get_entity_type_property_mapping(self._project_name, '__all__')
-        rtpma = await self._conf_repo.get_relation_type_property_mapping(self._project_name, '__all__')
-        etd = {}
-        for entity_id, raw_result in raw_results.items():
-            results[entity_id] = []
-            for raw_relation_result in raw_result.values():
-                etid = raw_relation_result['entity_type_id']
-                if etid not in etd:
-                    etn = await self._conf_repo.get_entity_type_name_by_id(self._project_name, etid)
-                    etd[etid] = {
-                        'etn': etn,
-                        'etpm': await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
-                    }
-                etpm = etd[etid]['etpm']
-                result = {
-                    'relation': {
-                        rtpm[k]: v
-                        for k, v in raw_relation_result['r_props'].items()
-                        if k in rtpm
-                    },
-                    'entity': {
-                        etpm[k]: v
-                        for k, v in raw_relation_result['e_props'].items()
-                        if k in etpm
-                    },
-                    'entity_type_name': etd[etid]['etn'],
-                    'sources': [],
-                }
-                if relation_type_id == '_source_':
-                    if 'properties' in result['relation']:
-                        props = []
-                        for p in result['relation']['properties']:
-                            m = RE_SOURCE_PROP_INDEX.match(p)
-                            if m:
-                                p = f'p_{dtu(m.group("property"))}'
-                                if p in etpma:
-                                    props.append(f'{etpma[p]}[{m.group("index")}]')
-                            else:
-                                p = f'p_{dtu(p)}'
-                                if p in etpma:
-                                    props.append(etpma[p])
-                        result['relation']['properties'] = props
-
-                # Source information
-                srtpm = await self._conf_repo.get_relation_type_property_mapping(self._project_name, '_source_')
-                for source in raw_relation_result['sources']:
-                    setid = source['entity_type_id']
-                    if setid not in etd:
-                        etn = await self._conf_repo.get_entity_type_name_by_id(self._project_name, setid)
-                        etd[setid] = {
-                            'etn': etn,
-                            'etpm': await self._conf_repo.get_entity_type_property_mapping(self._project_name, etn)
-                        }
-                    setpm = etd[setid]['etpm']
-                    source_result = {
-                        'relation': {
-                            srtpm[k]: v
-                            for k, v in source['r_props'].items()
-                            if k in srtpm
-                        },
-                        'entity': {
-                            setpm[k]: v
-                            for k, v in source['e_props'].items()
-                            if k in setpm
-                        },
-                        'entity_type_name': etd[setid]['etn'],
-                    }
-                    if 'properties' in source_result['relation']:
-                        props = []
-                        for p in source_result['relation']['properties']:
-                            m = RE_SOURCE_PROP_INDEX.match(p)
-                            if m:
-                                p = f'p_{dtu(m.group("property"))}'
-                                if p in rtpma:
-                                    props.append(f'{rtpma[p]}[{m.group("index")}]')
-                            else:
-                                p = f'p_{dtu(p)}'
-                                if p in rtpm:
-                                    props.append(rtpma[p])
-                        source_result['relation']['properties'] = props
-                    result['sources'].append(source_result)
-
-                results[entity_id].append(result)
-
-        return results
-
-    # async def get_relation_raw(
-    #     self,
-    #     entity_type_id: str,
-    #     entity_id: int,
-    #     relation_type_id: str,
-    #     inverse: bool = False,
-    # ) -> typing.Dict:
-    #     '''
-    #     Get relations and linked entity information starting from an entity type, entity id and a relation type.
-
-    #     Return: Dict = {
-    #         relation_id: {
-    #             r_props: Dict, # relation properties
-    #             e_props: Dict, # linked entity properties
-    #             entity_type_id: str, # linked entity type
-    #         }
-    #     }
-    #     '''
-    #     # TODO: set _project_id on init
-    #     # TODO: only retrieve requested properties
-    #     if not self._project_id:
-    #         self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
-
-    #     if inverse:
-    #         query = (
-    #             f'SELECT * FROM cypher('
-    #             f'\'{self._project_id}\', '
-    #             f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
-    #             f'WHERE r.id = $entity_id '
-    #             f'return e, n$$, :params'
-    #             f') as (e agtype, n agtype);'
-    #         )
-    #     else:
-    #         query = (
-    #             f'SELECT * FROM cypher('
-    #             f'\'{self._project_id}\', '
-    #             f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (n) '
-    #             f'WHERE d.id = $entity_id '
-    #             f'return e, n$$, :params'
-    #             f') as (e agtype, n agtype);'
-    #         )
-    #     try:
-    #         records = await self.fetch(
-    #             query,
-    #             {
-    #                 'params': json.dumps({
-    #                     'entity_id': entity_id
-    #                 })
-    #             },
-    #             age=True
-    #         )
-    #     # If no items have been added, the label does not exist
-    #     except asyncpg.exceptions.FeatureNotSupportedError as e:
-    #         if RE_LABEL_DOES_NOT_EXIST.match(e.message):
-    #             return {}
-
-    #     results = {}
-
-    #     for record in records:
-    #         # relation properties
-    #         # strip ::edge from record data
-    #         relation_properties = json.loads(record['e'][:-6])['properties']
-
-    #         # entity properties
-    #         # strip ::vertex from record data
-    #         entity_properties = json.loads(record['n'][:-8])['properties']
-
-    #         label = json.loads(record['n'][:-8])['label']
-    #         # strip n_ from label, convert underscores to dashes
-    #         etid = utd(label[2:])
-
-    #         results[relation_properties['id']] = {
-    #             'r_props': relation_properties,
-    #             'e_props': entity_properties,
-    #             'entity_type_id': etid
-    #         }
-
-    #     return results
-
-    async def get_relations_raw(
+    async def get_relations(
         self,
         entity_type_id: str,
         entity_ids: typing.List[int],
@@ -394,8 +213,8 @@ class DataRepository(BaseRepository):
         }
         '''
         # TODO: set _project_id on init
-        if not self._project_id:
-            self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+        if self._project_id is None:
+            self._project_id = await self._config_repo.get_project_id_by_name(self._project_name)
         if inverse:
             query = (
                 f'SELECT ri.id, e.properties as e_properties, n.id as n_id, n.properties as n_properties '
@@ -497,6 +316,85 @@ class DataRepository(BaseRepository):
                         break
 
         return results
+
+    # async def get_relation_raw(
+    #     self,
+    #     entity_type_id: str,
+    #     entity_id: int,
+    #     relation_type_id: str,
+    #     inverse: bool = False,
+    # ) -> typing.Dict:
+    #     '''
+    #     Get relations and linked entity information starting from an entity type, entity id and a relation type.
+
+    #     Return: Dict = {
+    #         relation_id: {
+    #             r_props: Dict, # relation properties
+    #             e_props: Dict, # linked entity properties
+    #             entity_type_id: str, # linked entity type
+    #         }
+    #     }
+    #     '''
+    #     # TODO: set _project_id on init
+    #     # TODO: only retrieve requested properties
+    #     if not self._project_id:
+    #         self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
+
+    #     if inverse:
+    #         query = (
+    #             f'SELECT * FROM cypher('
+    #             f'\'{self._project_id}\', '
+    #             f'$$MATCH (n) -[e:e_{dtu(relation_type_id)}] -> (r:n_{dtu(entity_type_id)}) '
+    #             f'WHERE r.id = $entity_id '
+    #             f'return e, n$$, :params'
+    #             f') as (e agtype, n agtype);'
+    #         )
+    #     else:
+    #         query = (
+    #             f'SELECT * FROM cypher('
+    #             f'\'{self._project_id}\', '
+    #             f'$$MATCH (d:n_{dtu(entity_type_id)}) -[e:e_{dtu(relation_type_id)}] -> (n) '
+    #             f'WHERE d.id = $entity_id '
+    #             f'return e, n$$, :params'
+    #             f') as (e agtype, n agtype);'
+    #         )
+    #     try:
+    #         records = await self.fetch(
+    #             query,
+    #             {
+    #                 'params': json.dumps({
+    #                     'entity_id': entity_id
+    #                 })
+    #             },
+    #             age=True
+    #         )
+    #     # If no items have been added, the label does not exist
+    #     except asyncpg.exceptions.FeatureNotSupportedError as e:
+    #         if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+    #             return {}
+
+    #     results = {}
+
+    #     for record in records:
+    #         # relation properties
+    #         # strip ::edge from record data
+    #         relation_properties = json.loads(record['e'][:-6])['properties']
+
+    #         # entity properties
+    #         # strip ::vertex from record data
+    #         entity_properties = json.loads(record['n'][:-8])['properties']
+
+    #         label = json.loads(record['n'][:-8])['label']
+    #         # strip n_ from label, convert underscores to dashes
+    #         etid = utd(label[2:])
+
+    #         results[relation_properties['id']] = {
+    #             'r_props': relation_properties,
+    #             'e_props': entity_properties,
+    #             'entity_type_id': etid
+    #         }
+
+    #     return results
 
     async def get_entity_ids_by_type_name(
         self,

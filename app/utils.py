@@ -31,3 +31,8 @@ def relation_label(relation_type_id: str) -> str:
     if relation_type_id == '_source_':
         return '_source_'
     return f'e_{dtu(relation_type_id)}'
+
+
+def first_cap(input: str) -> str:
+    '''Capitalize the first letter of a text string.'''
+    return input[0].upper() + input[1:]

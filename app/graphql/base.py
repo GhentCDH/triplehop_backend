@@ -10,7 +10,3 @@ def construct_def(type: str, type_name: str, props: typing.List) -> str:
     def_array.append('}')
 
     return '\n'.join(def_array)
-
-
-def first_cap(input: str) -> str:
-    return input[0].upper() + input[1:]
