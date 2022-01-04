@@ -1,10 +1,17 @@
 from typing import Dict
 
 from app.db.base import BaseRepository
+from app.db.config import ConfigRepository
 from app.models.auth import User, UserInDB
 
 
 class AuthRepository(BaseRepository):
+    def __init__(
+        self,
+        config_repo: ConfigRepository,
+    ):
+        self._config_repo = config_repo
+
     async def get_user(self, username: str) -> UserInDB:
         record = await self.fetchrow(
             '''
@@ -25,22 +32,12 @@ class AuthRepository(BaseRepository):
             return UserInDB(**dict(record))
         return None
 
-    async def get_permissions(self, user: User) -> Dict:
-        records = await self.fetch(
+    async def get_groups(self, user: User) -> Dict:
+        return self.fetch(
             '''
                 SELECT
-                    permission.system_name,
-                    project.system_name as project_name,
-                    entity.system_name as entity_name,
-                    relation.system_name as relation_name,
-                    groups_permissions.properties
-                FROM app.user
-                INNER JOIN app.users_groups ON "user".id = users_groups.user_id
-                INNER JOIN app.groups_permissions ON users_groups.group_id = groups_permissions.group_id
-                INNER JOIN app.permission ON groups_permissions.permission_id = permission.id
-                LEFT JOIN app.project ON groups_permissions.project_id = project.id
-                LEFT JOIN app.entity ON groups_permissions.entity_id = entity.id
-                LEFT JOIN app.relation ON groups_permissions.relation_id = relation.id
+                    group_id
+                FROM app.users_groups
                 WHERE "user".id = :user_id;
             ''',
             {
@@ -48,28 +45,39 @@ class AuthRepository(BaseRepository):
             }
         )
 
+    # TODO: cache?
+    async def get_permissions(self, user: User) -> Dict:
+        user_groups = self.get_groups(user)
+        projects = self._config_repo.get_projects_config()
+
         permissions = {}
-        for record in records:
-            if record['system_name'] not in permissions:
-                permissions[record['system_name']] = {}
+        for project_name in projects:
+            if project_name == '__all__':
+                continue
 
-            if record['project_name'] not in permissions[record['system_name']]:
-                permissions[record['system_name']][record['project_name']] = {
-                    'entities': {},
-                    'relations': {},
-                }
+            entity_types_config = self._config_repo.get_entity_types_config(project_name)
+            for etn, et in entity_types_config.items():
+                # data
+                if 'data' in et['config'] and 'permissions' in et['config']['data']:
+                    for permission, groups in et['config']['data']['permissions'].items():
+                        permissions[etn]['data']['permissions'] = {}
+                        for group in groups:
+                            if group in user_groups:
+                                if etn not in permissions:
+                                    permissions[etn] = {}
+                                if 'data' not in permissions[etn]:
+                                    permissions[etn]['data'] = {}
+                                permissions[etn]['data'][permission] = []
+                                if 'fields' in et['config']['data']:
+                                    for field in et['config']['data']['fields'].values():
+                                        if (
+                                            'permissions' in field
+                                            and permission in field['permissions']
+                                            and group in field['permissions'][permission]
+                                        ) :
+                                            permissions[etn]['data'][permission].append(field['system_name'])
+        # TODO: check and use
 
-            # TODO: convert entity property ids to entity property names
-            if record['entity_name'] is not None:
-                permissions[record['system_name']][record['project_name']]['entities'][record['entity_name']] = \
-                    '__all__' if record['properties'] is None else record['properties']
-
-            # TODO: convert relation property ids to relation property names
-            if record['relation_name'] is not None:
-                permissions[record['system_name']][record['project_name']]['relations'][record['relation_name']] = \
-                    '__all__' if record['properties'] is None else record['properties']
-
-        return permissions
 
     async def denylist_add_token(self, token, expiration_time) -> None:
         await self.execute(

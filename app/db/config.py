@@ -11,7 +11,7 @@ from app.utils import dtu
 class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
     @aiocache.cached(key_builder=no_arg_key_builder)
-    async def _get_projects_config(self) -> typing.Dict:
+    async def get_projects_config(self) -> typing.Dict:
         records = await self.fetch(
             '''
                 SELECT
@@ -35,7 +35,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
-        project_config = await self._get_projects_config()
+        project_config = await self.get_projects_config()
 
         try:
             return project_config[project_name]['id']
@@ -49,7 +49,7 @@ class ConfigRepository(BaseRepository):
     # TODO: delete cache on project config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_project_config(self, project_name: str) -> int:
-        project_config = await self._get_projects_config()
+        project_config = await self.get_projects_config()
 
         try:
             return project_config[project_name]

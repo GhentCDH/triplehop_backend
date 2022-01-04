@@ -2,6 +2,7 @@
 import aiocache
 import aiodataloader
 import ariadne
+import graphql
 import typing
 
 from starlette.requests import Request
@@ -33,6 +34,18 @@ class GraphQLDataBuilder:
         self._user = user
         self._data_manager = DataManager(self._project_name, self._config_repo, self._data_repo, self._user)
 
+    @staticmethod
+    def _get_requested_entity_props(info: graphql.GraphQLResolveInfo):
+        return sorted(list(set([
+            selection.name.value
+            for selection in info.field_nodes[0].selection_set.selections
+            if (
+                selection.name.value[0] != '_'
+                and selection.name.value[0:2] != 'r_'
+                and selection.name.value[0:3] != 'ri_'
+            )
+        ])))
+
     # TODO: only get the requested properties
     # TODO: get all required information (entity -> relation -> entity -> ...) in a single request
     # dataloader to prevent N+1: https://github.com/mirumee/ariadne/discussions/508)#discussioncomment-525811
@@ -40,18 +53,25 @@ class GraphQLDataBuilder:
         self,
         entity_type_name: str,
     ):
-        async def get_entities(entity_ids: typing.List[int]):
-            data = await self._data_manager.get_entities(entity_type_name, entity_ids)
-            # dataloader expects sequence of objects or None following order of ids in ids
-            return [data.get(id) for id in entity_ids]
+        def get_entities_wrapper(props: typing.List[str]):
+            async def get_entities(entity_ids: typing.List[int]):
+                data = await self._data_manager.get_entities(entity_type_name, props, entity_ids)
+                # dataloader expects sequence of objects or None following order of ids in ids
+                return [data.get(id) for id in entity_ids]
+            return get_entities
 
-        async def load_entity(info, id: int) -> typing.Optional[typing.Dict]:
-            if '__entity_loader' not in info.context:
-                info.context['__entity_loader'] = aiodataloader.DataLoader(get_entities)
-            return await info.context['__entity_loader'].load(id)
+        async def load_entity(info, id: int, props: typing.List[str]) -> typing.Optional[typing.Dict]:
+            loader_key = f'__entity_loader_{self._project_name}_{entity_type_name}_{"|".join(props)}'
+            # TODO: if only the requested props are requested at the database:
+            # use different loaders for different combinations of requested props
+            if loader_key not in info.context:
+                info.context[loader_key] = aiodataloader.DataLoader(get_entities_wrapper(props))
+            return await info.context[loader_key].load(id)
 
-        async def resolver(parent, info, **_):
-            return await load_entity(info, _['id'])
+        async def resolver(parent, info, **kwargs):
+            entity_id = kwargs['id']
+            props = self.__class__._get_requested_entity_props(info)
+            return await load_entity(info, entity_id, props)
 
         return resolver
 
@@ -349,6 +369,7 @@ class GraphQLDataBuilder:
 
         # Then add entity parts: relations are later added to these
         self._add_get_entity_schema_parts()
+
         self._add_post_put_entity_schema_parts()
 
         self._add_get_relation_schema_parts()
