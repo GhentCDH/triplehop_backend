@@ -42,7 +42,6 @@ def require_entity_permission(
 def _permission_usage_helper(
     user: UserWithPermissions,
     project_name: str,
-    type_config: typing.Dict,
     permission: str,
     entities_or_relations: str,
 ) -> typing.Dict[str, typing.List[str]]:

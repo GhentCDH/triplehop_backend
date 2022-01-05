@@ -34,7 +34,7 @@ class DataManager:
         self,
         permission: str,
         entity_type_name: str,
-        input: typing.Dict,
+        props: typing.List,
     ) -> None:
         # TODO: set _entity_types_config on init
         if self._entity_types_config is None:
@@ -50,15 +50,15 @@ class DataManager:
             raise HTTPException(status_code=403, detail="Forbidden")
 
         allowed_props = allowed[entity_type_name]
-        for prop_name in input:
-            if prop_name not in allowed_props:
+        for prop in props:
+            if prop not in allowed_props:
                 raise HTTPException(status_code=403, detail="Forbidden")
 
     async def _check_relation_permission(
         self,
         permission: str,
         relation_type_name: str,
-        input: typing.Dict,
+        props: typing.Dict,
     ) -> None:
         # TODO: set _entity_types_config on init
         if self._relation_types_config is None:
@@ -75,8 +75,8 @@ class DataManager:
             raise HTTPException(status_code=403, detail="Forbidden")
 
         allowed_props = allowed[relation_type_name]
-        for prop_name in input:
-            if prop_name not in allowed_props:
+        for prop in props:
+            if prop not in allowed_props:
                 raise HTTPException(status_code=403, detail="Forbidden")
 
     async def _validate_input(
@@ -99,10 +99,10 @@ class DataManager:
     async def get_entities(
         self,
         entity_type_name: str,
+        props: typing.List[str],
         entity_ids: typing.List[int],
     ) -> typing.Dict:
-        # TODO: check permission for requested properties
-        await self._check_entity_permission('get', entity_type_name, {})
+        await self._check_entity_permission('get', entity_type_name, props)
 
         entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
@@ -124,7 +124,7 @@ class DataManager:
         entity_id: int,
         input: typing.Dict,
     ):
-        await self._check_entity_permission('put', entity_type_name, input)
+        await self._check_entity_permission('put', entity_type_name, input.keys())
 
         await self._validate_input(entity_type_name, input)
 

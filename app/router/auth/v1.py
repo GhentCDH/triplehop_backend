@@ -1,20 +1,18 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi_jwt_auth import AuthJWT
 from starlette.requests import Request
 
-from app.auth.core import authenticate_user, get_current_active_user_with_permissions, revoke_token
-from app.models.auth import FormUser, Tokens, UserWithPermissions, UserWithPermissionsResponse
+from app.mgmt.auth import AuthManager
+from app.models.auth import FormUser, Tokens, UserWithPermissionsResponse
 
 router = APIRouter()
 
 
 @router.post('/login', response_model=Tokens)
 async def login(request: Request, user: FormUser, Authorize: AuthJWT = Depends()):
-    user = await authenticate_user(request, user.username, user.password)
-    if not user:
-        raise HTTPException(status_code=400, detail='Incorrect username or password')
-
+    auth_manager = AuthManager(request)
+    user = await auth_manager.authenticate_user(user.username, user.password)
     # TODO: save tokens in app.user
 
     return {
@@ -34,7 +32,8 @@ async def refresh(Authorize: AuthJWT = Depends()):
     }
 
     # Create new refresh token if almost expired
-    if (datetime.datetime.fromtimestamp(Authorize.get_raw_jwt()['exp']) - datetime.datetime.now() < 10 * Authorize._access_token_expires):
+    untill_expiration = datetime.datetime.fromtimestamp(Authorize.get_raw_jwt()['exp']) - datetime.datetime.now()
+    if untill_expiration < 10 * Authorize._access_token_expires:
         tokens['refresh_token'] = Authorize.create_refresh_token(subject=Authorize.get_jwt_subject())
 
     return tokens
@@ -48,15 +47,17 @@ async def logout(request: Request, Authorize: AuthJWT = Depends()):
     # TODO: add these tokens to denylist
     # TODO: delete tokens from app.user
 
-    await revoke_token(request, Authorize)
+    auth_manager = AuthManager(request)
+    await auth_manager.revoke_token(Authorize)
 
     return
 
 
 @router.get('/user', response_model=UserWithPermissionsResponse)
-async def user(user_with_permissions: UserWithPermissions = Depends(get_current_active_user_with_permissions)):
+async def user(request: Request, Authorize: AuthJWT = Depends()):
+    auth_manager = AuthManager(request)
     return {
-        'user': user_with_permissions,
+        'user': await auth_manager.get_current_active_user_with_permissions(Authorize)
     }
 
 # TODO: password recovery via e-mail
