@@ -6,7 +6,20 @@ import starlette
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.graphql.base import construct_def
+from app.models.auth import UserWithPermissions
 from app.utils import RE_FIELD_CONVERSION
+
+
+class GraphQLConfigBuilder:
+    def __init__(
+        self,
+        request: starlette.requests.Request,
+        user: UserWithPermissions
+    ) -> None:
+        self._project_name = request.path_params['project_name']
+        self._config_repo = get_repository_from_request(request, ConfigRepository)
+        self._user = user
+        self._config_manager = ConfigManager(self._project_name, self._config_repo, self._data_repo, self._user)
 
 
 def _replace_field_ids_by_system_names(

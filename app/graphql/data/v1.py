@@ -3,12 +3,11 @@ import aiocache
 import aiodataloader
 import ariadne
 import graphql
+import starlette
 import typing
 
-from starlette.requests import Request
 from app.auth.permission import has_global_permission
 from app.cache.core import create_schema_key_builder
-
 from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
@@ -22,7 +21,7 @@ from app.utils import first_cap
 class GraphQLDataBuilder:
     def __init__(
         self,
-        request: Request,
+        request: starlette.requests.Request,
         user: UserWithPermissions
     ) -> None:
         self._project_name = request.path_params['project_name']

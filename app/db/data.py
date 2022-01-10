@@ -59,7 +59,7 @@ class DataRepository(BaseRepository):
     async def get_graph_id(
         self,
     ) -> str:
-        # TODO: set _project_id on init
+        # TODO: get project_id as parameter
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
         return await self.fetchval(
@@ -115,7 +115,7 @@ class DataRepository(BaseRepository):
         entity_type_id: str,
         entity_ids: typing.List[int],
     ) -> typing.Dict:
-        # TODO: set _project_id on init
+        # TODO: get project_id as parameter
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
         query = (
@@ -151,7 +151,7 @@ class DataRepository(BaseRepository):
         input: typing.Dict,
         connection: asyncpg.connection.Connection = None,
     ) -> typing.Dict:
-        # TODO: set _project_id on init
+        # TODO: get project_id as parameter
         if not self._project_id:
             self._project_id = await self._conf_repo.get_project_id_by_name(self._project_name)
 
@@ -212,7 +212,7 @@ class DataRepository(BaseRepository):
             }
         }
         '''
-        # TODO: set _project_id on init
+        # TODO: get project_id as parameter
         if self._project_id is None:
             self._project_id = await self._config_repo.get_project_id_by_name(self._project_name)
         if inverse:

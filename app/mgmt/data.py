@@ -4,6 +4,7 @@ from fastapi.exceptions import HTTPException
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
+from app.mgmt.config import ConfigManager
 from app.models.auth import UserWithPermissions
 from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
@@ -17,7 +18,7 @@ class DataManager:
         user: UserWithPermissions,
     ):
         self._project_name = project_name
-        self._config_repo = config_repo
+        self._config_manager = ConfigManager(config_repo)
         self._data_repo = data_repo
         self._user = user
         self._entity_types_config = None
@@ -70,11 +71,11 @@ class DataManager:
     ) -> None:
         # TODO: set _entity_types_config on init
         if self._entity_types_config is None:
-            self._entity_types_config = await self._config_repo.get_entity_types_config(self._project_name)
+            self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
 
         data_config = self._entity_types_config[entity_type_name]['config']['data']
         for prop_name, prop_value in input.items():
-            etipm = await self._config_repo.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
+            etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
             # Strip p_ from prop id
             prop_type = data_config[utd(etipm[prop_name][2:])]['type']
             if not self.__class__.valid_prop_value(prop_type, prop_value):
@@ -88,14 +89,14 @@ class DataManager:
     ) -> typing.Dict:
         await self._check_permission('get', 'entities', entity_type_name, props)
 
-        entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
         db_results = await self._data_repo.get_entities(entity_type_id, entity_ids)
 
         if len(db_results) == 0:
             return []
 
-        etpm = await self._config_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
+        etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
         return {
             entity_id: {etpm[k]: v for k, v in db_result['e_props'].items() if k in etpm}
@@ -113,8 +114,8 @@ class DataManager:
         await self._validate_input(entity_type_name, input)
 
         # Insert in database
-        entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        etipm = await self._config_repo.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
+        entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
         db_input = {
             etipm[k]: v
             for k, v in input.items()
@@ -127,7 +128,7 @@ class DataManager:
         if db_result is None:
             return None
 
-        etpm = await self._config_repo.get_entity_type_property_mapping(self._project_name, entity_type_name)
+        etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
         return {etpm[k]: v for k, v in db_result.items() if k in etpm}
 
@@ -143,25 +144,25 @@ class DataManager:
         # TODO: check permission for requested properties
         await self._check_permission('get', 'relations', relation_type_name, {})
 
-        entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        relation_type_id = await self._config_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
+        entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        relation_type_id = await self._config_manager.get_relation_type_id_by_name(self._project_name, relation_type_name)
 
         db_results = await self._data_repo.get_relations(entity_type_id, entity_ids, relation_type_id, inverse)
 
         results = {}
-        rtpm = await self._config_repo.get_relation_type_property_mapping(self._project_name, relation_type_name)
-        etpma = await self._config_repo.get_entity_type_property_mapping(self._project_name, '__all__')
-        rtpma = await self._config_repo.get_relation_type_property_mapping(self._project_name, '__all__')
+        rtpm = await self._config_manager.get_relation_type_property_mapping(self._project_name, relation_type_name)
+        etpma = await self._config_manager.get_entity_type_property_mapping(self._project_name, '__all__')
+        rtpma = await self._config_manager.get_relation_type_property_mapping(self._project_name, '__all__')
         etd = {}
         for entity_id, db_result in db_results.items():
             results[entity_id] = []
             for db_relation_result in db_result.values():
                 etid = db_relation_result['entity_type_id']
                 if etid not in etd:
-                    etn = await self._config_repo.get_entity_type_name_by_id(self._project_name, etid)
+                    etn = await self._config_manager.get_entity_type_name_by_id(self._project_name, etid)
                     etd[etid] = {
                         'etn': etn,
-                        'etpm': await self._config_repo.get_entity_type_property_mapping(self._project_name, etn)
+                        'etpm': await self._config_manager.get_entity_type_property_mapping(self._project_name, etn)
                     }
                 etpm = etd[etid]['etpm']
 
@@ -193,14 +194,14 @@ class DataManager:
                         result['properties'] = props
 
                 # Source information
-                srtpm = await self._config_repo.get_relation_type_property_mapping(self._project_name, '_source_')
+                srtpm = await self._config_manager.get_relation_type_property_mapping(self._project_name, '_source_')
                 for source in db_relation_result['sources']:
                     setid = source['entity_type_id']
                     if setid not in etd:
-                        etn = await self._config_repo.get_entity_type_name_by_id(self._project_name, setid)
+                        etn = await self._config_manager.get_entity_type_name_by_id(self._project_name, setid)
                         etd[setid] = {
                             'etn': etn,
-                            'etpm': await self._config_repo.get_entity_type_property_mapping(self._project_name, etn)
+                            'etpm': await self._config_manager.get_entity_type_property_mapping(self._project_name, etn)
                         }
                     setpm = etd[setid]['etpm']
 
