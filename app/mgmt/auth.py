@@ -1,7 +1,6 @@
 import aiocache
 import fastapi
 import starlette
-import typing
 
 from fastapi.exceptions import HTTPException
 from fastapi_jwt_auth.auth_jwt import AuthJWT
@@ -28,7 +27,7 @@ class AuthManager:
         username: str,
         password: str,
     ):
-        user = await self._auth_repo.get_user(username=username.lower())
+        user = await self._auth_repo.get_user_with_hashed_password(username=username.lower())
 
         if user is None:
             raise HTTPException(status_code=400, detail='Incorrect username or password')

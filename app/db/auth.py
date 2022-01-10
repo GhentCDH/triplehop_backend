@@ -1,14 +1,32 @@
-import asyncpg
 import typing
 
-from pydantic.types import UUID4
-
 from app.db.base import BaseRepository
-from app.models.auth import User
+from app.models.auth import User, UserWithHashedPassword
 
 
 class AuthRepository(BaseRepository):
     async def get_user(self, username: str) -> typing.Optional[User]:
+        record = await self.fetchrow(
+            '''
+                SELECT
+                    "user".id,
+                    "user".username,
+                    "user".display_name,
+                    "user".disabled
+                FROM app.user
+                WHERE "user".username = :username;
+            ''',
+            {
+                'username': username,
+            }
+        )
+
+        if record is None:
+            return None
+
+        return User(**record)
+
+    async def get_user_with_hashed_password(self, username: str) -> typing.Optional[UserWithHashedPassword]:
         record = await self.fetchrow(
             '''
                 SELECT
@@ -28,7 +46,7 @@ class AuthRepository(BaseRepository):
         if record is None:
             return None
 
-        return User(**record)
+        return UserWithHashedPassword(**record)
 
     async def get_groups(self, user: User) -> typing.List[str]:
         records = await self.fetch(
