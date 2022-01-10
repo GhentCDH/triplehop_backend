@@ -133,16 +133,16 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
 
         entity_field_lookup = {}
         for entity_config in entity_types_config.values():
-            if 'data' in entity_config['config']:
-                for id_, config in entity_config['config']['data'].items():
+            if 'data' in entity_config['config'] and 'fields' in entity_config['config']['data']:
+                for id_, config in entity_config['config']['data']['fields'].items():
                     entity_field_lookup[id_] = config['system_name']
 
         relation_lookup = {}
         relation_field_lookup = {}
         for relation_system_name, relation_config in relation_types_config.items():
             relation_lookup[relation_config['id']] = relation_system_name
-            if 'data' in relation_config['config']:
-                for id_, config in relation_config['config']['data'].items():
+            if 'data' in relation_config['config'] and 'fields' in relation_config['config']['data']:
+                for id_, config in relation_config['config']['data']['fields'].items():
                     relation_field_lookup[id_] = config['system_name']
 
         results = []
@@ -155,8 +155,8 @@ def entity_configs_resolver_wrapper(request: starlette.requests.Request, project
             # TODO: remove configs that cannot be used by users based on permissions
             if 'source' in entity_config['config']:
                 config_item['source'] = entity_config['config']['source']
-            if 'data' in entity_config['config']:
-                data_conf = entity_config['config']['data']
+            if 'data' in entity_config['config'] and 'fields' in entity_config['config']['data']:
+                data_conf = entity_config['config']['data']['fields']
                 config_item['data'] = list(data_conf.values())
             # TODO: add display_names from data to display, so data doesn't need to be exported
             # TODO: figure out a way to add permissions for displaying layouts and fields
@@ -214,8 +214,8 @@ def relation_configs_resolver_wrapper(request: starlette.requests.Request, proje
         relation_field_lookup = {}
         for relation_system_name, relation_config in relation_types_config.items():
             relation_lookup[relation_config['id']] = relation_system_name
-            if 'data' in relation_config['config']:
-                for id_, config in relation_config['config']['data'].items():
+            if 'data' in relation_config['config'] and 'fields' in relation_config['config']['data']:
+                for id_, config in relation_config['config']['data']['fields'].items():
                     relation_field_lookup[id_] = config['system_name']
 
         results = []
@@ -226,8 +226,8 @@ def relation_configs_resolver_wrapper(request: starlette.requests.Request, proje
                 'domain_names': relation_config['domain_names'],
                 'range_names': relation_config['range_names'],
             }
-            if 'data' in relation_config['config']:
-                data_conf = relation_config['config']['data']
+            if 'data' in relation_config['config'] and 'fields' in relation_config['config']['data']:
+                data_conf = relation_config['config']['data']['fields']
                 config_item['data'] = list(data_conf.values())
             if 'display' in relation_config['config']:
                 config_item['display'] = {}
