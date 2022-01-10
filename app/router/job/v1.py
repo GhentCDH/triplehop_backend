@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends
 from pydantic import UUID4
 from starlette.requests import Request
 
-from app.auth.core import get_current_active_user_with_permissions as get_user
 from app.auth.permission import require_entity_permission, require_project_permission
 from app.db.core import get_repository_from_request
 from app.db.job import JobRepository
+from app.mgmt.auth import get_current_active_user_with_permissions
 from app.models.auth import UserWithPermissions
 from app.models.job import JobToDisplay
 
@@ -17,7 +17,7 @@ async def get_by_project(
     id: UUID4,
     project_name: str,
     request: Request,
-    user: UserWithPermissions = Depends(get_user),
+    user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
 ):
     job_repository = get_repository_from_request(request, JobRepository)
     job_to_display = await job_repository.get_by_project(id, project_name)

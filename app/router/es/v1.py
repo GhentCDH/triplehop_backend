@@ -1,7 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 from starlette.requests import Request
 
-from app.auth.core import get_current_active_user_with_permissions as get_user
 from app.auth.permission import require_entity_permission
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
@@ -9,6 +8,7 @@ from app.db.job import JobRepository
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
 from app.es.job import reindex as reindex_job
+from app.mgmt.auth import get_current_active_user_with_permissions
 from app.models.auth import UserWithPermissions
 from app.models.es import ElasticSearchBody
 from app.models.job import JobId
@@ -35,7 +35,7 @@ async def reindex(
     entity_type_name: str,
     background_tasks: BackgroundTasks,
     request: Request,
-    user: UserWithPermissions = Depends(get_user),
+    user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
 ):
     require_entity_permission(
         user,

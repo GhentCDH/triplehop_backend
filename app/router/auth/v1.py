@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from fastapi_jwt_auth import AuthJWT
 from starlette.requests import Request
 
-from app.mgmt.auth import AuthManager
-from app.models.auth import FormUser, Tokens, UserWithPermissionsResponse
+from app.mgmt.auth import AuthManager, get_current_active_user_with_permissions
+from app.models.auth import FormUser, Tokens, UserWithPermissions, UserWithPermissionsResponse
 
 router = APIRouter()
 
@@ -54,10 +54,9 @@ async def logout(request: Request, Authorize: AuthJWT = Depends()):
 
 
 @router.get('/user', response_model=UserWithPermissionsResponse)
-async def user(request: Request, Authorize: AuthJWT = Depends()):
-    auth_manager = AuthManager(request)
+async def user(user_with_permissions: UserWithPermissions = Depends(get_current_active_user_with_permissions)):
     return {
-        'user': await auth_manager.get_current_active_user_with_permissions(Authorize)
+        'user': user_with_permissions,
     }
 
 # TODO: password recovery via e-mail

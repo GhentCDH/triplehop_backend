@@ -110,8 +110,11 @@ class ConfigRepository(BaseRepository):
                 detail=f'Entity type "{entity_type_name}" of project "{project_name}" not found',
             )
 
-        if 'data' in entity_type_config['config']:
-            properties_config = entity_type_config['config']['data']
+        if (
+            'data' in entity_type_config['config']
+            and 'fields' in entity_type_config['config']['data']
+        ):
+            properties_config = entity_type_config['config']['data']['fields']
         else:
             properties_config = {}
 
@@ -224,8 +227,11 @@ class ConfigRepository(BaseRepository):
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
 
-        if 'data' in relation_type_config['config']:
-            properties_config = relation_type_config['config']['data']
+        if (
+            'data' in relation_type_config['config']
+            and 'fields' in relation_type_config['config']['data']
+        ):
+            properties_config = relation_type_config['config']['data']['fields']
         else:
             properties_config = {}
 

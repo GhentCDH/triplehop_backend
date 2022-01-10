@@ -7,7 +7,6 @@ import typing
 
 from starlette.requests import Request
 from app.auth.permission import (
-    get_permission_entities_and_properties,
     get_permission_relations_and_properties,
     has_global_permission,
 )
@@ -17,6 +16,7 @@ from app.db.core import get_repository_from_request
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.graphql.base import construct_def
+from app.mgmt.auth import allowed_entities_or_relations_and_properties
 from app.mgmt.data import DataManager
 from app.models.auth import UserWithPermissions
 from app.utils import first_cap
@@ -163,15 +163,19 @@ class GraphQLDataBuilder:
             props = []
 
         # TODO add properties which can contain multiple, values (sorted or unsorted)
-        if 'data' in config:
-            for prop in config['data'].values():
-                if prop['system_name'] in allowed_props:
-                    prop_type = prop['type']
-                    # Input types might differ from query types
-                    if input and f'{prop_type}Input' in self._additional_input_type_defs_dict.keys():
-                        props.append([prop['system_name'], f'{prop_type}Input'])
-                    else:
-                        props.append([prop['system_name'], prop_type])
+        if 'data' not in config:
+            return props
+        if 'fields' not in config['data']:
+            return props
+
+        for prop in config['data']['fields'].values():
+            if prop['system_name'] in allowed_props:
+                prop_type = prop['type']
+                # Input types might differ from query types
+                if input and f'{prop_type}Input' in self._additional_input_type_defs_dict.keys():
+                    props.append([prop['system_name'], f'{prop_type}Input'])
+                else:
+                    props.append([prop['system_name'], prop_type])
         return props
 
     def _add_additional_props(
@@ -188,22 +192,6 @@ class GraphQLDataBuilder:
         for _, prop_type in props:
             if prop_type in additonal_type_defs_dict and prop_type not in type_defs_dict:
                 type_defs_dict[prop_type] = additonal_type_defs_dict[prop_type]
-
-    def _get_permission_entities_and_properties(self, permission):
-        return get_permission_entities_and_properties(
-            self._user,
-            self._project_name,
-            self._entity_types_config,
-            permission,
-        )
-
-    def _get_permission_relations_and_properties(self, permission):
-        return get_permission_relations_and_properties(
-            self._user,
-            self._project_name,
-            self._relation_types_config,
-            permission,
-        )
 
     def _add_get_source_schema_parts(self):
         source_entity_names = [
@@ -229,7 +217,13 @@ class GraphQLDataBuilder:
         ]
 
     def _add_get_entity_schema_parts(self) -> None:
-        allowed = self._get_permission_entities_and_properties('get')
+        allowed = allowed_entities_or_relations_and_properties(
+            self._user,
+            self._project_name,
+            'entities',
+            'data',
+            'get',
+        )
         for etn, allowed_props in allowed.items():
             self._type_defs_dict['Query'].append([f'get{first_cap(etn)}(id: Int!)', first_cap(etn)])
             self._query_dict['Query'].set_field(
@@ -259,7 +253,13 @@ class GraphQLDataBuilder:
     def _add_post_put_entity_schema_parts(self) -> None:
 
         alloweds = {
-            perm: self._get_permission_entities_and_properties(perm)
+            perm: allowed_entities_or_relations_and_properties(
+                self._user,
+                self._project_name,
+                'entities',
+                'data',
+                perm,
+            )
             for perm in ['post', 'put']
         }
 
@@ -302,7 +302,13 @@ class GraphQLDataBuilder:
     def _add_get_relation_schema_parts(self) -> None:
         # TODO: cardinality
         # TODO: bidirectional relations
-        allowed = self._get_permission_relations_and_properties('get')
+        allowed = allowed_entities_or_relations_and_properties(
+            self._user,
+            self._project_name,
+            'relations',
+            'data',
+            'get',
+        )
         for rtn, allowed_props in allowed.items():
             # Source
             if rtn == '_source_':
@@ -365,7 +371,7 @@ class GraphQLDataBuilder:
         }
 
         # First add source parts: type_defs_dict['_Source'] is checked in other schema_pars adders
-        self._add_get_source_schema_parts()
+        # self._add_get_source_schema_parts()
 
         # Then add entity parts: relations are later added to these
         self._add_get_entity_schema_parts()
@@ -391,6 +397,8 @@ class GraphQLDataBuilder:
             + '\n\n'
             + '\n\n'.join(type_defs_array)
         )
+
+        print(type_defs)
 
         schema = ariadne.make_executable_schema(type_defs, *self._query_dict.values())
 

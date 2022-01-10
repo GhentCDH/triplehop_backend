@@ -44,7 +44,7 @@ class JobRepository(BaseRepository):
             }
         )
         if record:
-            return JobToDisplay(**dict(record))
+            return JobToDisplay(**record)
         return None
 
     async def create(self, user: User, type: str, project_name: str = None, entity_type_name: str = None) -> uuid.UUID:

@@ -4,11 +4,12 @@ import typing
 from pydantic.types import UUID4
 
 from app.db.base import BaseRepository
+from app.models.auth import User
 
 
 class AuthRepository(BaseRepository):
-    async def get_user(self, username: str) -> typing.Optional[asyncpg.Record]:
-        return await self.fetchrow(
+    async def get_user(self, username: str) -> typing.Optional[User]:
+        record = await self.fetchrow(
             '''
                 SELECT
                     "user".id,
@@ -24,8 +25,13 @@ class AuthRepository(BaseRepository):
             }
         )
 
-    async def get_groups(self, user_id: UUID4) -> typing.List[asyncpg.Record]:
-        return await self.fetch(
+        if record is None:
+            return None
+
+        return User(**record)
+
+    async def get_groups(self, user: User) -> typing.List[str]:
+        records = await self.fetch(
             '''
                 SELECT
                     group_id
@@ -33,9 +39,11 @@ class AuthRepository(BaseRepository):
                 WHERE users_groups.user_id = :user_id;
             ''',
             {
-                'user_id': str(user_id),
+                'user_id': str(user.id),
             }
         )
+
+        return [str(record['group_id']) for record in records]
 
     async def denylist_add_token(self, token, expiration_time) -> None:
         await self.execute(

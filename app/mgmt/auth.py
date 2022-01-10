@@ -1,9 +1,14 @@
+import aiocache
+import fastapi
+import starlette
+import typing
+
 from fastapi.exceptions import HTTPException
 from fastapi_jwt_auth.auth_jwt import AuthJWT
 from fastapi_jwt_auth.exceptions import JWTDecodeError, MissingTokenError
 from passlib.context import CryptContext
-from starlette.requests import Request
 
+from app.cache.core import get_permissions_key_builder
 from app.db.auth import AuthRepository
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
@@ -13,7 +18,7 @@ from app.models.auth import User, UserWithPermissions
 class AuthManager:
     def __init__(
         self,
-        request: Request,
+        request: starlette.requests.Request,
     ):
         self._auth_repo = get_repository_from_request(request, AuthRepository)
         self._config_repo = get_repository_from_request(request, ConfigRepository)
@@ -32,7 +37,63 @@ class AuthManager:
         if not pwd_context.verify(password, user.hashed_password):
             raise HTTPException(status_code=400, detail='Incorrect username or password')
 
-        return User(**user.dict())
+        return user
+
+    # TODO: clear cache if user permissions are modified
+    @aiocache.cached(key_builder=get_permissions_key_builder)
+    async def _get_permissions(
+        self,
+        user: User,
+    ):
+        user_groups = await self._auth_repo.get_groups(user)
+        projects = await self._config_repo.get_projects_config()
+
+        permissions = {}
+        for project_name in projects:
+            if project_name == '__all__':
+                continue
+
+            for er, config in {
+                'entities': await self._config_repo.get_entity_types_config(project_name),
+                'relations': await self._config_repo.get_relation_types_config(project_name),
+            }.items():
+                for tn, tc in config.items():
+                    # data
+                    if 'data' not in tc['config']:
+                        continue
+                    if 'permissions' not in tc['config']['data']:
+                        continue
+
+                    for permission, groups in tc['config']['data']['permissions'].items():
+                        for group in groups:
+                            if group not in user_groups:
+                                continue
+
+                            # Entity permissions
+                            if project_name not in permissions:
+                                permissions[project_name] = {}
+                            if er not in permissions[project_name]:
+                                permissions[project_name][er] = {}
+                            if tn not in permissions[project_name][er]:
+                                permissions[project_name][er][tn] = {}
+                            if 'data' not in permissions[project_name][er][tn]:
+                                permissions[project_name][er][tn]['data'] = {}
+                            permissions[project_name][er][tn]['data'][permission] = []
+
+                            # Field permissions
+                            if 'fields' not in tc['config']['data']:
+                                continue
+
+                            for field in tc['config']['data']['fields'].values():
+                                if (
+                                    'permissions' in field
+                                    and permission in field['permissions']
+                                    and group in field['permissions'][permission]
+                                ):
+                                    permissions[project_name][er][tn]['data'][permission].append(
+                                        field['system_name']
+                                    )
+        return permissions
 
     async def get_current_active_user_with_permissions(
         self,
@@ -42,6 +103,7 @@ class AuthManager:
 
         # Validate user credentials
         # If token is missing, load anonymous user
+        # Anonymous users can have permissions
         try:
             Authorize.jwt_required()
         except MissingTokenError:
@@ -60,51 +122,14 @@ class AuthManager:
 
             # Load user
             user = await self._auth_repo.get_user(username=Authorize.get_jwt_subject())
-            if user.disabled:
-                raise HTTPException(status_code=401, detail='Inactive user')
 
-        # Anonymous users can have permissions
+        if user.disabled:
+            raise HTTPException(status_code=401, detail='Inactive user')
 
-        permissions = await self._auth_repo.get_permissions(user=user)
-        # # TODO: cache?
-        # async def get_permissions(self, user: User) -> typing.Dict:
-        #     user_groups = await self.get_groups(user)
-        #     projects = await self._config_repo.get_projects_config()
-
-        #     permissions = {
-        #         'entities': {},
-        #         'relations': {},
-        #     }
-        #     for project_name in projects:
-        #         if project_name == '__all__':
-        #             continue
-
-        #         entity_types_config = await self._config_repo.get_entity_types_config(project_name)
-        #         for etn, et in entity_types_config.items():
-        #             # data
-        #             if 'data' in et['config'] and 'permissions' in et['config']['data']:
-        #                 for permission, groups in et['config']['data']['permissions'].items():
-        #                     permissions['entities'][etn]['data']['permissions'] = {}
-        #                     for group in groups:
-        #                         if group in user_groups:
-        #                             if etn not in permissions:
-        #                                 permissions['entities'][etn] = {}
-        #                             if 'data' not in permissions['entities'][etn]:
-        #                                 permissions['entities'][etn]['data'] = {}
-        #                             permissions['entities'][etn]['data'][permission] = []
-        #                             if 'fields' in et['config']['data']:
-        #                                 for field in et['config']['data']['fields'].values():
-        #                                     if (
-        #                                         'permissions' in field
-        #                                         and permission in field['permissions']
-        #                                         and group in field['permissions'][permission]
-        #                                     ):
-        #                                         permissions['entities'][etn]['data'][permission].append(field['system_name'])
-        #     # TODO: check and use
-        #     # TODO: relations
-        #     print(permissions)
-        #     return permissions
-        return UserWithPermissions(**user.dict(), permissions=permissions)
+        return UserWithPermissions(
+            **user.dict(),
+            permissions=await self._get_permissions(user)
+        )
 
     async def revoke_token(
         self,
@@ -121,3 +146,31 @@ class AuthManager:
             await self._auth_repo.denylist_add_token(raw_jwt['jti'], Authorize._refresh_token_expires.seconds)
         else:
             raise Exception(f'Unkown token type: {raw_jwt["type"]}')
+
+
+async def get_current_active_user_with_permissions(
+    request: starlette.requests.Request,
+    Authorize: AuthJWT = fastapi.Depends(),
+) -> UserWithPermissions:
+    auth_manager = AuthManager(request)
+    return await auth_manager.get_current_active_user_with_permissions(Authorize)
+
+
+def allowed_entities_or_relations_and_properties(
+    user: UserWithPermissions,
+    project_name: str,
+    entities_or_relations: str,
+    section: str,
+    permission: str,
+):
+    if project_name not in user.permissions:
+        return {}
+
+    if entities_or_relations not in user.permissions[project_name]:
+        return {}
+
+    return {
+        etn: perms[section][permission]
+        for etn, perms in user.permissions[project_name][entities_or_relations].items()
+        if section in perms and permission in perms[section]
+    }

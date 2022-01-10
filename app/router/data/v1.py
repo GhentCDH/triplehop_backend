@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 
-from app.auth.core import get_current_active_user_with_permissions
+from app.mgmt.auth import get_current_active_user_with_permissions
 from app.graphql.data.v1 import GraphQLDataBuilder
 
 from app.models.auth import UserWithPermissions

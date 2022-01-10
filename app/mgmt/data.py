@@ -4,6 +4,7 @@ from fastapi.exceptions import HTTPException
 from app.auth.permission import get_permission_entities_and_properties, get_permission_relations_and_properties
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
+from app.mgmt.auth import allowed_entities_or_relations_and_properties
 from app.models.auth import UserWithPermissions
 from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
@@ -30,51 +31,24 @@ class DataManager:
         if prop_type == 'String':
             return isinstance(prop_value, str)
 
-    async def _check_entity_permission(
+    async def _check_permission(
         self,
         permission: str,
-        entity_type_name: str,
+        entities_or_relations: str,
+        type_name: str,
         props: typing.List,
-    ) -> None:
-        # TODO: set _entity_types_config on init
-        if self._entity_types_config is None:
-            self._entity_types_config = await self._config_repo.get_entity_types_config(self._project_name)
-
-        allowed = get_permission_entities_and_properties(
+    ):
+        allowed = allowed_entities_or_relations_and_properties(
             self._user,
             self._project_name,
-            self._entity_types_config,
+            entities_or_relations,
+            'data',
             permission,
         )
-        if entity_type_name not in allowed:
+        if type_name not in allowed:
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        allowed_props = allowed[entity_type_name]
-        for prop in props:
-            if prop not in allowed_props:
-                raise HTTPException(status_code=403, detail="Forbidden")
-
-    async def _check_relation_permission(
-        self,
-        permission: str,
-        relation_type_name: str,
-        props: typing.Dict,
-    ) -> None:
-        # TODO: set _entity_types_config on init
-        if self._relation_types_config is None:
-            self._relation_types_config = await self._config_repo.get_relation_types_config(self._project_name)
-
-        allowed = get_permission_relations_and_properties(
-            self._user,
-            self._project_name,
-            self._relation_types_config,
-            permission,
-        )
-
-        if relation_type_name not in allowed:
-            raise HTTPException(status_code=403, detail="Forbidden")
-
-        allowed_props = allowed[relation_type_name]
+        allowed_props = allowed[type_name]
         for prop in props:
             if prop not in allowed_props:
                 raise HTTPException(status_code=403, detail="Forbidden")
@@ -102,7 +76,7 @@ class DataManager:
         props: typing.List[str],
         entity_ids: typing.List[int],
     ) -> typing.Dict:
-        await self._check_entity_permission('get', entity_type_name, props)
+        await self._check_permission('get', 'entities', entity_type_name, props)
 
         entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
 
@@ -124,7 +98,7 @@ class DataManager:
         entity_id: int,
         input: typing.Dict,
     ):
-        await self._check_entity_permission('put', entity_type_name, input.keys())
+        await self._check_permission('put', 'entities', entity_type_name, input.keys())
 
         await self._validate_input(entity_type_name, input)
 
@@ -157,7 +131,7 @@ class DataManager:
         inverse: bool = False,
     ) -> typing.Dict:
         # TODO: check permission for requested properties
-        await self._check_relation_permission('get', relation_type_name, {})
+        await self._check_permission('get', 'relations', relation_type_name, {})
 
         entity_type_id = await self._config_repo.get_entity_type_id_by_name(self._project_name, entity_type_name)
         relation_type_id = await self._config_repo.get_relation_type_id_by_name(self._project_name, relation_type_name)
