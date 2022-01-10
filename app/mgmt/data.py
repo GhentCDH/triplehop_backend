@@ -1,7 +1,6 @@
 import typing
 from fastapi.exceptions import HTTPException
 
-from app.auth.permission import get_permission_entities_and_properties, get_permission_relations_and_properties
 from app.db.config import ConfigRepository
 from app.db.data import DataRepository
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
@@ -37,7 +36,18 @@ class DataManager:
         entities_or_relations: str,
         type_name: str,
         props: typing.List,
-    ):
+    ) -> None:
+        # TODO: check source permissions using config
+        if (
+            entities_or_relations == 'relations'
+            and type_name == '_source_'
+            and permission == 'get'
+        ):
+            for prop in props:
+                if prop not in ['id', 'properties', 'source_props']:
+                    raise HTTPException(status_code=403, detail="Forbidden")
+            return
+
         allowed = allowed_entities_or_relations_and_properties(
             self._user,
             self._project_name,

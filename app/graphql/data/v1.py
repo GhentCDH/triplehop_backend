@@ -6,10 +6,7 @@ import graphql
 import typing
 
 from starlette.requests import Request
-from app.auth.permission import (
-    get_permission_relations_and_properties,
-    has_global_permission,
-)
+from app.auth.permission import has_global_permission
 from app.cache.core import create_schema_key_builder
 
 from app.db.core import get_repository_from_request
@@ -194,6 +191,7 @@ class GraphQLDataBuilder:
                 type_defs_dict[prop_type] = additonal_type_defs_dict[prop_type]
 
     def _add_get_source_schema_parts(self):
+        # TODO: check source permissions using config
         source_entity_names = [
             etn
             for etn in self._entity_types_config
@@ -371,7 +369,7 @@ class GraphQLDataBuilder:
         }
 
         # First add source parts: type_defs_dict['_Source'] is checked in other schema_pars adders
-        # self._add_get_source_schema_parts()
+        self._add_get_source_schema_parts()
 
         # Then add entity parts: relations are later added to these
         self._add_get_entity_schema_parts()
@@ -397,8 +395,6 @@ class GraphQLDataBuilder:
             + '\n\n'
             + '\n\n'.join(type_defs_array)
         )
-
-        print(type_defs)
 
         schema = ariadne.make_executable_schema(type_defs, *self._query_dict.values())
 
