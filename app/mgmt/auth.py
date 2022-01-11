@@ -11,6 +11,7 @@ from app.cache.core import get_permissions_key_builder
 from app.db.auth import AuthRepository
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
+from app.mgmt.config import ConfigManager
 from app.models.auth import User, UserWithPermissions
 
 
@@ -20,7 +21,7 @@ class AuthManager:
         request: starlette.requests.Request,
     ):
         self._auth_repo = get_repository_from_request(request, AuthRepository)
-        self._config_repo = get_repository_from_request(request, ConfigRepository)
+        self._config_manager = ConfigManager(request)
 
     async def authenticate_user(
         self,
@@ -45,7 +46,7 @@ class AuthManager:
         user: User,
     ):
         user_groups = await self._auth_repo.get_groups(user)
-        projects = await self._config_repo.get_projects_config()
+        projects = await self._config_manager.get_projects_config()
 
         permissions = {}
         for project_name in projects:
@@ -53,8 +54,8 @@ class AuthManager:
                 continue
 
             for er, config in {
-                'entities': await self._config_repo.get_entity_types_config(project_name),
-                'relations': await self._config_repo.get_relation_types_config(project_name),
+                'entities': await self._config_manager.get_entity_types_config(project_name),
+                'relations': await self._config_manager.get_relation_types_config(project_name),
             }.items():
                 for tn, tc in config.items():
                     # data

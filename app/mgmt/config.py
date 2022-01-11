@@ -1,19 +1,24 @@
 import aiocache
 import fastapi
 import json
+import starlette
 import typing
 
 from app.cache.core import no_arg_key_builder, skip_first_arg_key_builder
 from app.db.config import ConfigRepository
+from app.db.core import get_repository_from_request
+from app.models.auth import UserWithPermissions
 from app.utils import dtu
 
 
 class ConfigManager:
     def __init__(
         self,
-        config_repo: ConfigRepository,
+        request: starlette.requests.Request,
+        user: UserWithPermissions = None,
     ):
-        self._config_repo = config_repo
+        self._user = user
+        self._config_repo = get_repository_from_request(request, ConfigRepository)
 
     # TODO: delete cache on project config update
     @aiocache.cached(key_builder=no_arg_key_builder)

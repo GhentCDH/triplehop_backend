@@ -8,11 +8,9 @@ import typing
 
 from app.auth.permission import has_global_permission
 from app.cache.core import create_schema_key_builder
-from app.db.core import get_repository_from_request
-from app.db.config import ConfigRepository
-from app.db.data import DataRepository
 from app.graphql.base import construct_def
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
+from app.mgmt.config import ConfigManager
 from app.mgmt.data import DataManager
 from app.models.auth import UserWithPermissions
 from app.utils import first_cap
@@ -25,10 +23,9 @@ class GraphQLDataBuilder:
         user: UserWithPermissions
     ) -> None:
         self._project_name = request.path_params['project_name']
-        self._config_repo = get_repository_from_request(request, ConfigRepository)
-        self._data_repo = get_repository_from_request(request, DataRepository, self._project_name)
         self._user = user
-        self._data_manager = DataManager(self._project_name, self._config_repo, self._data_repo, self._user)
+        self._data_manager = DataManager(request, self._user)
+        self._config_manager = ConfigManager(request, self._user)
 
     @staticmethod
     def _get_requested_entity_props(info: graphql.GraphQLResolveInfo):
@@ -344,8 +341,8 @@ class GraphQLDataBuilder:
     # TODO: reset cache when project is updated or user permissions have been updated
     @aiocache.cached(key_builder=create_schema_key_builder)
     async def create_schema(self):
-        self._entity_types_config = await self._config_repo.get_entity_types_config(self._project_name)
-        self._relation_types_config = await self._config_repo.get_relation_types_config(self._project_name)
+        self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
+        self._relation_types_config = await self._config_manager.get_relation_types_config(self._project_name)
 
         self._type_defs_dict = {'Query': []}
         self._input_type_defs_dict = {}
