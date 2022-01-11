@@ -66,7 +66,7 @@ class ConfigManager:
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_entity_types_config(self, project_name: str) -> typing.Dict:
-        records = await self.get_entity_types_config(project_name)
+        records = await self._config_repo.get_entity_types_config(project_name)
 
         result = {}
         for record in records:

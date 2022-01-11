@@ -27,7 +27,7 @@ class DataManager:
 
     async def _get_project_id(self):
         if self._project_id is None:
-            self._project_id = self._config_manager.get_project_id_by_name(self._project_name)
+            self._project_id = await self._config_manager.get_project_id_by_name(self._project_name)
         return self._project_id
 
     @staticmethod
@@ -122,19 +122,19 @@ class DataManager:
     ) -> typing.Dict:
         await self._check_permission('get', 'entities', entity_type_name, props)
 
-        crdb_results = await self._get_entities_crdb(entity_type_name, entity_ids)
+        crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name)
         if len(crdb_results) == 0:
-            return []
+            return {}
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
         return {
             entity_id: {
                 etpm[k]: v
-                for k, v in db_result['e_props'].items()
+                for k, v in crdb_result['e_props'].items()
                 if k in etpm
             }
-            for entity_id, db_result in crdb_results.items()
+            for entity_id, crdb_result in crdb_results.items()
         }
 
     async def put_entity(
@@ -216,7 +216,7 @@ class DataManager:
         # build temporary dict so json only needs to be loaded once
         results = {}
         for record in records:
-            entity_id = records['id']
+            entity_id = record['id']
             relation_properties = json.loads(record['e_properties'])
             entity_properties = json.loads(record['n_properties'])
             etid = await self._data_repo.get_entity_type_id_from_vertex_graph_id(
@@ -245,7 +245,10 @@ class DataManager:
         # TODO: check permission for requested properties
         await self._check_permission('get', 'relations', relation_type_name, {})
 
-        crdb_results = await self._get_relations_crdb(entity_type_name, entity_ids, relation_type_name, inverse)
+        crdb_results = await self._get_relations_crdb(entity_ids, relation_type_name, inverse, entity_type_name)
+
+        if len(crdb_results) == 0:
+            return {}
 
         relation_ids = [rid for eid in crdb_results for rid in crdb_results[eid]]
         relation_type_id = await self._config_manager.get_relation_type_id_by_name(
@@ -323,8 +326,8 @@ class DataManager:
                         result['properties'] = props
 
                 # Source information on relations
-                elif rel_id in source_results:
-                    result['_source_'] = []
+                result['_source_'] = []
+                if rel_id in source_results:
                     for source in source_results[rel_id]:
                         setid = source['entity_type_id']
                         if setid not in etd:

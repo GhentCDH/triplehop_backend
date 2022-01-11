@@ -392,6 +392,4 @@ class GraphQLDataBuilder:
             + '\n\n'.join(type_defs_array)
         )
 
-        schema = ariadne.make_executable_schema(type_defs, *self._query_dict.values())
-
-        return schema
+        return ariadne.make_executable_schema(type_defs, *self._query_dict.values())

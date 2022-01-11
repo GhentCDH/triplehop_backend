@@ -9,7 +9,6 @@ from passlib.context import CryptContext
 
 from app.cache.core import get_permissions_key_builder
 from app.db.auth import AuthRepository
-from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
 from app.mgmt.config import ConfigManager
 from app.models.auth import User, UserWithPermissions

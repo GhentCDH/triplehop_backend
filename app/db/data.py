@@ -6,7 +6,7 @@ import json
 import re
 import typing
 
-from app.cache.core import self_project_name_key_builder, self_project_name_other_args_key_builder
+from app.cache.core import self_project_name_key_builder, skip_first_arg_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, relation_label, utd
@@ -40,7 +40,7 @@ class DataRepository(BaseRepository):
             int(vertex_graph_id) >> (32+16),
         )
 
-    @aiocache.cached(key_builder=self_project_name_other_args_key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def _get_entity_type_id_by_label_id(
         self,
         project_id: str,
@@ -61,7 +61,7 @@ class DataRepository(BaseRepository):
         )
         return utd(n_etid_with_underscores[2:])
 
-    @aiocache.cached(key_builder=self_project_name_key_builder)
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def _get_graph_id(
         self,
         project_id: str,
