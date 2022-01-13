@@ -2,18 +2,11 @@ import asyncpg
 import uuid
 
 from app.db.base import BaseRepository
-from app.db.config import ConfigRepository
-from app.models.auth import User
-from app.models.job import JobToDisplay
 
 
 class JobRepository(BaseRepository):
-    def __init__(self, pool: asyncpg.pool.Pool) -> None:
-        super().__init__(pool)
-        self._conf_repo = ConfigRepository(pool)
-
-    async def get_by_project(self, id: uuid.UUID, project_name: str) -> JobToDisplay:
-        record = await self.fetchrow(
+    async def get_by_project(self, id: str, project_name: str) -> asyncpg.Record:
+        return await self.fetchrow(
             '''
                 SELECT
                     job.id,
@@ -43,25 +36,15 @@ class JobRepository(BaseRepository):
                 'project_name': project_name,
             }
         )
-        if record:
-            return JobToDisplay(**record)
-        return None
 
-    async def create(self, user: User, type: str, project_name: str = None, entity_type_name: str = None) -> uuid.UUID:
-        project_id = None
-        entity_type_id = None
-        if project_name is not None:
-            project_id = await self._conf_repo.get_project_id_by_name(project_name)
-        if entity_type_name is not None:
-            entity_type_id = await self._conf_repo.get_entity_type_id_by_name(project_name, entity_type_name)
-
-        job_id = await self.fetchval(
+    async def create(self, type: str, user_id: str, project_id: str = None, entity_type_id: str = None) -> uuid.UUID:
+        return await self.fetchval(
             '''
                 INSERT INTO app.job(user_id, project_id, entity_id, type, status)
                 VALUES (:user_id, :project_id, :entity_id, :type, :status)
                 RETURNING id
             ''', {
-                'user_id': user.id,
+                'user_id': user_id,
                 'project_id': project_id,
                 'entity_id': entity_type_id,
                 'type': type,
@@ -69,10 +52,8 @@ class JobRepository(BaseRepository):
             }
         )
 
-        return job_id
-
-    async def start(self, id: uuid.UUID, total: int = None) -> None:
-        await self.execute(
+    async def start(self, id: uuid.UUID, total: int = None) -> str:
+        return await self.execute(
             '''
                 UPDATE app.job
                 SET status = :status,
@@ -87,8 +68,8 @@ class JobRepository(BaseRepository):
             }
         )
 
-    async def update_counter(self, id: uuid.UUID, counter: int = None) -> None:
-        await self.execute(
+    async def update_counter(self, id: uuid.UUID, counter: int = None) -> str:
+        return await self.execute(
             '''
                 UPDATE app.job
                 SET counter = :counter
@@ -99,8 +80,8 @@ class JobRepository(BaseRepository):
             }
         )
 
-    async def end_with_success(self, id: uuid.UUID) -> None:
-        await self.execute(
+    async def end_with_success(self, id: uuid.UUID) -> str:
+        return await self.execute(
             '''
                 UPDATE app.job
                 SET status = :status,
@@ -113,8 +94,8 @@ class JobRepository(BaseRepository):
             }
         )
 
-    async def end_with_error(self, id: uuid.UUID) -> None:
-        await self.execute(
+    async def end_with_error(self, id: uuid.UUID) -> str:
+        return await self.execute(
             '''
                 UPDATE app.job
                 SET status = :status,

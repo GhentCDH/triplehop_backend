@@ -1,14 +1,13 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 from starlette.requests import Request
 
-from app.auth.permission import require_entity_permission
+from app.auth.permission import require_entity_type_permission
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
-from app.db.job import JobRepository
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
-from app.es.job import reindex as reindex_job
 from app.mgmt.auth import get_current_active_user_with_permissions
+from app.mgmt.job import JobManager
 from app.models.auth import UserWithPermissions
 from app.models.es import ElasticSearchBody
 from app.models.job import JobId
@@ -37,13 +36,14 @@ async def reindex(
     request: Request,
     user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
 ):
-    require_entity_permission(
+    require_entity_type_permission(
         user,
         project_name,
         entity_type_name,
-        'es_index',
+        'es_data',
+        'index',
     )
-    job_repository = get_repository_from_request(request, JobRepository)
-    job_id = await job_repository.create(user, 'es_index', project_name, entity_type_name)
-    background_tasks.add_task(reindex_job, job_id, project_name, entity_type_name, request)
+    job_manager = JobManager(request, user)
+    job_id = await job_manager.create('es_index', project_name, entity_type_name)
+    background_tasks.add_task(job_manager.es_index, job_id, project_name, entity_type_name)
     return JobId(id=job_id)

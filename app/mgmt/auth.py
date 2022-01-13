@@ -58,40 +58,55 @@ class AuthManager:
             }.items():
                 for tn, tc in config.items():
                     # data
-                    if 'data' not in tc['config']:
-                        continue
-                    if 'permissions' not in tc['config']['data']:
-                        continue
+                    if 'data' in tc['config'] and 'permissions' in tc['config']['data']:
+                        for permission, groups in tc['config']['data']['permissions'].items():
+                            for group in groups:
+                                if group not in user_groups:
+                                    continue
 
-                    for permission, groups in tc['config']['data']['permissions'].items():
-                        for group in groups:
-                            if group not in user_groups:
-                                continue
+                                # Entity permissions
+                                if project_name not in permissions:
+                                    permissions[project_name] = {}
+                                if er not in permissions[project_name]:
+                                    permissions[project_name][er] = {}
+                                if tn not in permissions[project_name][er]:
+                                    permissions[project_name][er][tn] = {}
+                                if 'data' not in permissions[project_name][er][tn]:
+                                    permissions[project_name][er][tn]['data'] = {}
+                                permissions[project_name][er][tn]['data'][permission] = []
 
-                            # Entity permissions
-                            if project_name not in permissions:
-                                permissions[project_name] = {}
-                            if er not in permissions[project_name]:
-                                permissions[project_name][er] = {}
-                            if tn not in permissions[project_name][er]:
-                                permissions[project_name][er][tn] = {}
-                            if 'data' not in permissions[project_name][er][tn]:
-                                permissions[project_name][er][tn]['data'] = {}
-                            permissions[project_name][er][tn]['data'][permission] = []
+                                # Field permissions
+                                if 'fields' not in tc['config']['data']:
+                                    continue
 
-                            # Field permissions
-                            if 'fields' not in tc['config']['data']:
-                                continue
+                                for field in tc['config']['data']['fields'].values():
+                                    if (
+                                        'permissions' in field
+                                        and permission in field['permissions']
+                                        and group in field['permissions'][permission]
+                                    ):
+                                        permissions[project_name][er][tn]['data'][permission].append(
+                                            field['system_name']
+                                        )
 
-                            for field in tc['config']['data']['fields'].values():
-                                if (
-                                    'permissions' in field
-                                    and permission in field['permissions']
-                                    and group in field['permissions'][permission]
-                                ):
-                                    permissions[project_name][er][tn]['data'][permission].append(
-                                        field['system_name']
-                                    )
+                    # es_data
+                    if 'es_data' in tc['config'] and 'permissions' in tc['config']['es_data']:
+                        for permission, groups in tc['config']['es_data']['permissions'].items():
+                            for group in groups:
+                                if group not in user_groups:
+                                    continue
+
+                                # Entity permissions
+                                if project_name not in permissions:
+                                    permissions[project_name] = {}
+                                if er not in permissions[project_name]:
+                                    permissions[project_name][er] = {}
+                                if tn not in permissions[project_name][er]:
+                                    permissions[project_name][er][tn] = {}
+                                if 'es_data' not in permissions[project_name][er][tn]:
+                                    permissions[project_name][er][tn]['es_data'] = {}
+                                permissions[project_name][er][tn]['es_data'][permission] = []
+
         return permissions
 
     async def get_current_active_user_with_permissions(

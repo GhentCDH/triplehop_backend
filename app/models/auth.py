@@ -1,3 +1,4 @@
+import typing
 from pydantic import BaseModel, UUID4
 
 

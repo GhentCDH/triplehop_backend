@@ -36,3 +36,13 @@ def relation_label(relation_type_id: str) -> str:
 def first_cap(input: str) -> str:
     '''Capitalize the first letter of a text string.'''
     return input[0].upper() + input[1:]
+
+
+def nested_key_exists(dictionary, *keys):
+    '''Check if a nested key exists in a dictionary.'''
+    for key in keys:
+        if key in dictionary:
+            dictionary = dictionary[key]
+        else:
+            return False
+    return True

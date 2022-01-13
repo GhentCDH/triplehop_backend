@@ -188,8 +188,8 @@ class GraphQLConfigBuilder:
                             relation_field_lookup,
                         ),
                     }
-                if 'es_data' in entity_config['config']:
-                    es_data_conf = {esd['system_name']: esd for esd in entity_config['config']['es_data']}
+                if 'es_data' in entity_config['config'] and 'fields' in entity_config['config']['es_data']:
+                    es_data_conf = {esd['system_name']: esd for esd in entity_config['config']['es_data']['fields']}
                     config_item['elasticsearch'] = {
                         'title': entity_config['config']['es_display']['title'],
                         'columns': self.__class__._es_columns_converter(

@@ -15,7 +15,7 @@ class DataManager:
     def __init__(
         self,
         request: starlette.requests.Request,
-        user: UserWithPermissions,
+        user: UserWithPermissions = None,
     ):
         self._project_name = request.path_params['project_name']
         self._config_manager = ConfigManager(request, user)
@@ -42,6 +42,13 @@ class DataManager:
             raise Exception('Only one keyword argument is required: entity_type_name or entity_type_id')
         if entity_type_name is None and entity_type_id is None:
             raise Exception('One keyword argument is required: entity_type_name or entity_type_id')
+
+    @staticmethod
+    def _require_relation_type_name_or_entity_type_id(relation_type_name, relation_type_id) -> None:
+        if relation_type_name is not None and relation_type_id is not None:
+            raise Exception('Only one keyword argument is required: relation_type_name or relation_type_id')
+        if relation_type_name is None and relation_type_id is None:
+            raise Exception('One keyword argument is required: relation_type_name or relation_type_id')
 
     async def _check_permission(
         self,
@@ -122,7 +129,7 @@ class DataManager:
     ) -> typing.Dict:
         await self._check_permission('get', 'entities', entity_type_name, props)
 
-        crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name)
+        crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name=entity_type_name)
         if len(crdb_results) == 0:
             return {}
 
@@ -177,10 +184,11 @@ class DataManager:
     async def _get_relations_crdb(
         self,
         entity_ids: typing.List[int],
-        relation_type_name: str,
         inverse: bool = False,
         entity_type_name: typing.Optional[str] = None,
         entity_type_id: typing.Optional[str] = None,
+        relation_type_name: typing.Optional[str] = None,
+        relation_type_id: typing.Optional[str] = None,
     ) -> typing.Dict:
         '''
         Get relations and linked entity information starting from an entity type, entity ids and a relation type.
@@ -196,14 +204,19 @@ class DataManager:
         }
         '''
         self.__class__._require_entity_type_name_or_entity_type_id(entity_type_name, entity_type_id)
+        self.__class__._require_relation_type_name_or_entity_type_id(relation_type_name, relation_type_id)
 
         if entity_type_id is None:
-            entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+            entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+                self._project_name,
+                entity_type_name,
+            )
 
-        relation_type_id = await self._config_manager.get_relation_type_id_by_name(
-            self._project_name,
-            relation_type_name,
-        )
+        if relation_type_id is None:
+            relation_type_id = await self._config_manager.get_relation_type_id_by_name(
+                self._project_name,
+                relation_type_name,
+            )
 
         records = await self._data_repo.get_relations(
             await self._get_project_id(),
@@ -245,7 +258,12 @@ class DataManager:
         # TODO: check permission for requested properties
         await self._check_permission('get', 'relations', relation_type_name, {})
 
-        crdb_results = await self._get_relations_crdb(entity_ids, relation_type_name, inverse, entity_type_name)
+        crdb_results = await self._get_relations_crdb(
+            entity_ids,
+            inverse,
+            entity_type_name=entity_type_name,
+            relation_type_name=relation_type_name
+        )
 
         if len(crdb_results) == 0:
             return {}
@@ -370,6 +388,15 @@ class DataManager:
             results[entity_id].append(result)
         return results
 
+    async def get_entity_ids_by_type_name(
+        self,
+        entity_type_name: str,
+    ):
+        return await self._data_repo.get_entity_ids(
+            await self._get_project_id(),
+            await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+        )
+
     async def get_entity_data(
         self,
         entity_ids: typing.List[int],
@@ -403,10 +430,9 @@ class DataManager:
             # get relation data
             raw_results = await self._get_relations_crdb(
                 entity_ids,
-                relation_type_id.split('_')[1],
                 relation_type_id.split('_')[0] == 'ri',
-                False,
                 **entity_type_name_or_id,
+                relation_type_id=relation_type_id.split('_')[1],
             )
             for entity_id, raw_result in raw_results.items():
                 if entity_id not in results:

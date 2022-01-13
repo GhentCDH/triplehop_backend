@@ -6,7 +6,7 @@ import json
 import re
 import typing
 
-from app.cache.core import self_project_name_key_builder, skip_first_arg_key_builder
+from app.cache.core import skip_first_arg_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, relation_label, utd
@@ -235,7 +235,8 @@ class DataRepository(BaseRepository):
         self,
         project_id: str,
         entity_type_id: str,
-    ) -> typing.List:
+    ) -> typing.List[int]:
+        # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '

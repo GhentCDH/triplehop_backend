@@ -6,7 +6,6 @@ import graphql
 import starlette
 import typing
 
-from app.auth.permission import has_global_permission
 from app.cache.core import create_schema_key_builder
 from app.graphql.base import construct_def
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
@@ -142,7 +141,7 @@ class GraphQLDataBuilder:
         entity_or_relation: str,
         type_name: str,
         allowed_props: typing.List[str],
-        add_id: bool = True,
+        add_id: bool = False,
         input: bool = False,
     ):
         if entity_or_relation == 'entity':
@@ -231,6 +230,7 @@ class GraphQLDataBuilder:
                 'entity',
                 etn,
                 allowed_props,
+                True,
             )
             self._add_additional_props(
                 props,
@@ -286,9 +286,8 @@ class GraphQLDataBuilder:
                         'entity',
                         etn,
                         allowed_props,
-                        # only global admins can update ids
-                        has_global_permission(self._user, perm),
-                        True
+                        False,
+                        True,
                     )
                     self._add_additional_props(props, True)
                     self._input_type_defs_dict[f'{first_cap(perm)}{first_cap(etn)}Input'] = props
@@ -327,6 +326,7 @@ class GraphQLDataBuilder:
                 'relation',
                 rtn,
                 allowed_props,
+                True,
             )
             self._add_additional_props(props)
             if 'Source_' in self._type_defs_dict:
