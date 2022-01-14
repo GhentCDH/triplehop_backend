@@ -92,7 +92,7 @@ class DataManager:
         if self._entity_types_config is None:
             self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
 
-        data_config = self._entity_types_config[entity_type_name]['config']['data']
+        data_config = self._entity_types_config[entity_type_name]['config']['data']['fields']
         for prop_name, prop_value in input.items():
             etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
             # Strip p_ from prop id
