@@ -2,8 +2,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from starlette.requests import Request
 
 from app.auth.permission import require_entity_type_permission
-from app.db.config import ConfigRepository
-from app.db.core import get_repository_from_request
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
 from app.mgmt.auth import get_current_active_user_with_permissions
