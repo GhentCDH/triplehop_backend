@@ -7,6 +7,7 @@ from app.db.core import get_repository_from_request
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
 from app.mgmt.auth import get_current_active_user_with_permissions
+from app.mgmt.config import ConfigManager
 from app.mgmt.job import JobManager
 from app.models.auth import UserWithPermissions
 from app.models.es import ElasticSearchBody
@@ -22,8 +23,8 @@ async def search(
     es_body: ElasticSearchBody,
     request: Request,
 ):
-    config_repo = get_repository_from_request(request, ConfigRepository)
-    entity_type_id = await config_repo.get_entity_type_id_by_name(project_name, entity_type_name)
+    config_manager = ConfigManager(request)
+    entity_type_id = await config_manager.get_entity_type_id_by_name(project_name, entity_type_name)
     es = get_es_from_request(request, BaseElasticsearch)
     return await es.search(entity_type_id, es_body.dict())
 
