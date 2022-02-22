@@ -66,7 +66,7 @@ class RevisionManager:
                     self._project_name,
                     entity_type_name,
                 )
-                entity_type_id = await self._config_manager.get_entity_type_name_by_id(
+                entity_type_id = await self._config_manager.get_entity_type_id_by_name(
                     self._project_name,
                     entity_type_name,
                 )
@@ -87,7 +87,7 @@ class RevisionManager:
                 connection,
             )
             if raw_entities:
-                self._revision_repo.post_revision(
+                await self._revision_repo.post_entities_revision(
                     project_id,
                     [
                         {
@@ -100,5 +100,6 @@ class RevisionManager:
                             'new_value': raw_entity[4],
                         }
                         for raw_entity in raw_entities
-                    ]
+                    ],
+                    connection,
                 )

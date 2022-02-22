@@ -7,6 +7,7 @@ from app.db.core import get_repository_from_request
 from app.db.data import DataRepository
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
 from app.mgmt.config import ConfigManager
+from app.mgmt.revision import RevisionManager
 from app.models.auth import UserWithPermissions
 from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
@@ -19,6 +20,7 @@ class DataManager:
     ):
         self._project_name = request.path_params['project_name']
         self._config_manager = ConfigManager(request, user)
+        self._revision_manager = RevisionManager(request, user)
         self._data_repo = get_repository_from_request(request, DataRepository)
         self._user = user
         self._entity_types_config = None
@@ -185,9 +187,19 @@ class DataManager:
                 # strip off ::vertex
                 new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
 
-                print(old_entity)
-                print(new_entity)
-                # TODO: log change
+                await self._revision_manager.post_revision(
+                    {
+                        'entities': {
+                            entity_type_name: {
+                                entity_id: [
+                                    old_entity,
+                                    new_entity,
+                                ]
+                            }
+                        }
+                    },
+                    connection,
+                )
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 

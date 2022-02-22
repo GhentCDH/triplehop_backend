@@ -79,7 +79,7 @@ class BaseRepository:
         self,
         method: str,
         query_template: str,
-        params: typing.Dict[str, typing.Any] = None,
+        params: typing.Union[typing.Dict[str, typing.Any], typing.List[typing.Dict[str, typing.Any]]] = None,
         age: bool = False,
         connection: asyncpg.connection.Connection = None,
     ):
@@ -92,7 +92,13 @@ class BaseRepository:
             age (bool, optional): Indicates whether Apache AGE is used in the query.
             connection (asyncpg.connection.Connection, optional):
         """
-        query, args = self.__class__._render(query_template, params)
+        if method == 'executemany':
+            print(params[0])
+            query, _ = self.__class__._render(query_template, params[0])
+            print(query)
+            args = [self.__class__._render(query_template, p)[1] for p in params]
+        else:
+            query, args = self.__class__._render(query_template, params)
 
         if connection is None:
             async with self._pool.acquire() as connection:
