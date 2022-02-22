@@ -34,6 +34,20 @@ class ConfigRepository(BaseRepository):
             }
         )
 
+    async def get_current_entity_type_revision_id(self, entity_type_id: str) -> str:
+        return await self.fetchval(
+            '''
+                SELECT id
+                FROM app.entity_revision
+                WHERE entity_id = :entity_type_id
+                ORDER BY created DESC
+                LIMIT 1;
+            ''',
+            {
+                'entity_type_id': entity_type_id,
+            }
+        )
+
     async def get_relation_types_config(self, project_name: str) -> typing.List[asyncpg.Record]:
         return await self.fetch(
             '''

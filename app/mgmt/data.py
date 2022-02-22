@@ -164,22 +164,36 @@ class DataManager:
 
         async with self._data_repo.connection() as connection:
             async with connection.transaction():
-                db_result = await self._data_repo.put_entity(
+                old_raw_entities = await self._data_repo.get_entities(
+                    await self._get_project_id(),
+                    entity_type_id,
+                    [entity_id],
+                    connection
+                )
+                if len(old_raw_entities) != 1 or old_raw_entities[0]['id'] != entity_id:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
+                old_entity = json.loads(old_raw_entities[0]['properties'])
+                new_raw_entity = await self._data_repo.put_entity(
                     await self._get_project_id(),
                     entity_type_id,
                     entity_id,
                     db_input,
                     connection
                 )
+                if new_raw_entity is None:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
+                # strip off ::vertex
+                new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
 
-        if db_result is None:
-            return None
+                print(old_entity)
+                print(new_entity)
+                # TODO: log change
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
-        return {etpm[k]: v for k, v in db_result.items() if k in etpm}
+        return {etpm[k]: v for k, v in new_entity.items() if k in etpm}
 
-        # # Update elasticsearch
+        # # Update elasticsearch (directly and inderectly)
 
     async def _get_relations_crdb(
         self,

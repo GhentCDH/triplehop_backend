@@ -131,6 +131,13 @@ class ConfigManager:
             )
 
     # TODO: delete cache on entity config update
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    async def get_current_entity_type_revision_id_by_name(self, project_name: str, entity_type_name: str) -> str:
+        entity_type_id = await self.get_entity_type_id_by_name(project_name, entity_type_name)
+
+        return self._config_repo.get_current_entity_type_revision_id(entity_type_id)
+
+    # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: str) -> str:

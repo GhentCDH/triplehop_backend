@@ -63,6 +63,9 @@ class BaseRepository:
     async def execute(self, *args, **kwargs):
         return await self._db_call('execute', *args, **kwargs)
 
+    async def executemany(self, *args, **kwargs):
+        return await self._db_call('executemany', *args, **kwargs)
+
     async def fetch(self, *args, **kwargs):
         return await self._db_call('fetch', *args, **kwargs)
 

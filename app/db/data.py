@@ -83,6 +83,7 @@ class DataRepository(BaseRepository):
         project_id: str,
         entity_type_id: str,
         entity_ids: typing.List[int],
+        connection: asyncpg.connection.Connection = None,
     ) -> typing.List[asyncpg.Record]:
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         query = (
@@ -99,6 +100,7 @@ class DataRepository(BaseRepository):
                     'entity_ids': entity_ids,
                 },
                 age=True,
+                connection=connection,
             )
 
         # If no entities have been added, the entity table doesn't exist
@@ -146,11 +148,7 @@ class DataRepository(BaseRepository):
                 return None
             raise e
 
-        if record is None:
-            return None
-
-        # strip off ::vertex
-        return json.loads(record['n'][:-8])['properties']
+        return record
 
     async def get_relations(
         self,
