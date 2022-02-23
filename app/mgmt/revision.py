@@ -1,4 +1,5 @@
 import asyncpg
+import json
 import typing
 import starlette
 
@@ -82,7 +83,7 @@ class RevisionManager:
         # Connection is required
         # There should already be a transaction on the connection, a nested one is created here
         async with connection.transaction():
-            revision_id = self._revision_repo.get_new_revision_count(
+            revision_id = await self._revision_repo.get_new_revision_count(
                 project_id,
                 connection,
             )
@@ -92,12 +93,12 @@ class RevisionManager:
                     [
                         {
                             'revision_id': revision_id,
-                            'user_id': self._user.id,
+                            'user_id': str(self._user.id),
                             'entity_type_revision_id': raw_entity[0],
                             'entity_type_id': raw_entity[1],
                             'entity_id': raw_entity[2],
-                            'old_value': raw_entity[3],
-                            'new_value': raw_entity[4],
+                            'old_value': json.dumps(raw_entity[3]),
+                            'new_value': json.dumps(raw_entity[4]),
                         }
                         for raw_entity in raw_entities
                     ],

@@ -37,7 +37,7 @@ class ConfigRepository(BaseRepository):
     async def get_current_entity_type_revision_id(self, entity_type_id: str) -> str:
         return await self.fetchval(
             '''
-                SELECT id
+                SELECT id::text
                 FROM app.entity_revision
                 WHERE entity_id = :entity_type_id
                 ORDER BY created DESC

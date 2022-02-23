@@ -12,21 +12,12 @@ class RevisionRepository(BaseRepository):
         project_id: str,
         connection: asyncpg.connection.Connection,
     ) -> typing.Dict:
-        await self.execute(
+        return await self.fetchval(
             (
                 'UPDATE revision.count '
                 'SET current_id = current_id + 1 '
-                'WHERE project_id = :project_id;'
-            ),
-            {
-                'project_id': project_id,
-            },
-            connection=connection,
-        )
-        return await self.fetchval(
-            (
-                'SELECT revison.count '
-                'WHERE project_id = :project_id;'
+                'WHERE project_id = :project_id '
+                'RETURNING current_id;'
             ),
             {
                 'project_id': project_id,
@@ -43,9 +34,9 @@ class RevisionRepository(BaseRepository):
         await self.executemany(
             (
                 f'INSERT INTO revision."{project_id}_entities" '
-                f'(revision_id, user_id, entity_type_revision_id, entity_id, old_value, new_value) '
+                f'(revision_id, user_id, entity_type_revision_id, entity_type_id, entity_id, old_value, new_value) '
                 f'VALUES '
-                f'(:revision_id, :user_id, :entity_type_id, :entity_id, :old_Value, :new_value)'
+                f'(:revision_id, :user_id, :entity_type_revision_id, :entity_type_id, :entity_id, :old_value, :new_value)'
             ),
             data,
             connection=connection,

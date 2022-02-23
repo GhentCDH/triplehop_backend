@@ -201,11 +201,11 @@ class DataManager:
                     connection,
                 )
 
+        # Update elasticsearch (directly and inderectly)
+
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
         return {etpm[k]: v for k, v in new_entity.items() if k in etpm}
-
-        # # Update elasticsearch (directly and inderectly)
 
     async def _get_relations_crdb(
         self,

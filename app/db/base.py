@@ -88,15 +88,18 @@ class BaseRepository:
         Args:
             method (str): Asyncpg method to be called on a connection.
             query_template (str): Query with named placeholders.
-            params (typing.Dict[str, typing.Any]): Query parameters.
+            params (typing.Union[typing.Dict[str, typing.Any], typing.List[typing.Dict[str, typing.Any]]]):
+                Query parameters.
+                A list of dicts for executemany, dict for other methods.
             age (bool, optional): Indicates whether Apache AGE is used in the query.
             connection (asyncpg.connection.Connection, optional):
         """
         if method == 'executemany':
-            print(params[0])
             query, _ = self.__class__._render(query_template, params[0])
-            print(query)
-            args = [self.__class__._render(query_template, p)[1] for p in params]
+            # Additional list to allow unpack operation when calling the corresponding asyncpg method
+            args = [
+                [self.__class__._render(query_template, p)[1] for p in params]
+            ]
         else:
             query, args = self.__class__._render(query_template, params)
 
