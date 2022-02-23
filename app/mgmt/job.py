@@ -70,7 +70,7 @@ class JobManager:
                     batch_entities
                 )
 
-                await self._es.add_bulk(new_index_name, entity_type_name, batch_docs)
+                await self._es.add_bulk(new_index_name, batch_docs)
 
                 if (batch_counter + 1) * BATCH_SIZE + 1 > len(entity_ids):
                     break

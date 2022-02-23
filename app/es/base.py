@@ -723,7 +723,7 @@ class BaseElasticsearch:
 
         raise Exception(response['error']['root_cause'])
 
-    async def add_bulk(self, index_name: str, entity_type_name: str, data: typing.Dict) -> None:
+    async def add_bulk(self, index_name: str, data: typing.Dict) -> None:
         actions = [
             {
                 '_index': index_name,
