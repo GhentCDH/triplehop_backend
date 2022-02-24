@@ -6,7 +6,7 @@ bcrypt
 buildpg
 dictdiffer
 edtf
-elasticsearch[async]
+elasticsearch[async]==7.*
 fastapi
 fastapi-jwt-auth
 flake8
