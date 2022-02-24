@@ -1,3 +1,5 @@
+from lib2to3.pytree import Base
+import dictdiffer
 import fastapi
 import json
 import typing
@@ -5,12 +7,16 @@ import starlette
 
 from app.db.core import get_repository_from_request
 from app.db.data import DataRepository
+from app.es.base import BaseElasticsearch
+from app.es.core import get_es_from_request
+from app.exceptions import ReindexRunningException
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
 from app.mgmt.config import ConfigManager
 from app.mgmt.revision import RevisionManager
 from app.models.auth import UserWithPermissions
 from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
+import app.mgmt.job
 
 class DataManager:
     def __init__(
@@ -18,10 +24,12 @@ class DataManager:
         request: starlette.requests.Request,
         user: UserWithPermissions = None,
     ):
+        self._request = request
         self._project_name = request.path_params['project_name']
         self._config_manager = ConfigManager(request, user)
         self._revision_manager = RevisionManager(request, user)
         self._data_repo = get_repository_from_request(request, DataRepository)
+        self._es = get_es_from_request(request, BaseElasticsearch)
         self._user = user
         self._entity_types_config = None
         self._relation_types_config = None
@@ -201,7 +209,11 @@ class DataManager:
                     connection,
                 )
 
-        # Update elasticsearch (directly and inderectly)
+                await self.update_es(
+                    entity_type_name,
+                    entity_id,
+                    dictdiffer.diff(old_entity, new_entity)
+                )
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
@@ -509,3 +521,57 @@ class DataManager:
                                     raw_rel_results_per_entity_type_id[rel_entity_type_id][rel_entity_id]['relations']
 
         return results
+
+    async def update_es(self, entity_type_name: str, entity_id: int, diff_gen: typing.Generator) -> None:
+        # TODO: set _entity_types_config on init
+        if self._entity_types_config is None:
+            self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
+
+        # docs = BaseElasticsearch.construct_update_docs_from_diff(
+        #     self._entity_types_config,
+        #     diff_gen,
+        # )
+
+        diff_field_ids = []
+        for diff in diff_gen:
+            diff_field_ids.append(f'${utd(diff[1][2:])}')
+
+        print(diff_field_ids)
+
+        # fields_to_update = {}
+        for etn, etd in self._entity_types_config.items():
+            if 'config' in etd and 'es_data' in etd['config']:
+                for field_def in etd['config']['es_data']['fields']:
+                    if field_def['type'] == 'nested':
+                        for part in field_def['parts'].values():
+                            for diff_field_id in diff_field_ids:
+                                if diff_field_id in part['selector_value']:
+                                    print(part['selector_value'])
+                                    # if etn not in fields_to_update:
+                                    #     fields_to_update[etn] = {}
+                    elif field_def['type'] == 'edtf_interval':
+                        for diff_field_id in diff_field_ids:
+                            if diff_field_id in field_def['start']:
+                                print(field_def['start'])
+                            if diff_field_id in field_def['end']:
+                                print(field_def['end'])
+                    else:
+                        for diff_field_id in diff_field_ids:
+                            if diff_field_id in field_def['selector_value']:
+                                self.find_entities_to_update(etn, entity_id, field_def['selector_value'], diff_field_id)
+                                print(field_def['selector_value'])
+
+        # # check if there is a re-index job running for relevant entity_types
+        # job_manager = app.mgmt.job.JobManager(self._request, self._user)
+        # if await job_manager.reindex_running(self._project_name, entity_type_name):
+        #     raise ReindexRunningException
+
+    async def find_entities_to_update(self, entity_type_name, entity_id, selector_value, diff_field_id) ->typing.Dict[typing.List]:
+        entities = ''
+        for selector_part in selector_value.split(' $||$ '):
+            if diff_field_id == selector_part:
+                entities[entity_type_name] = [entity_id]
+                continue
+            path = selector_part.split('->')
+        return entities
+

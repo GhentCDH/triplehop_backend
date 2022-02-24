@@ -10,6 +10,7 @@ import uuid
 from app.config import ELASTICSEARCH
 from app.utils import dtu, RE_FIELD_CONVERSION
 
+
 MAX_RESULT_WINDOW = 10000
 DEFAULT_FROM = 0
 DEFAULT_SIZE = 10
@@ -521,7 +522,7 @@ class BaseElasticsearch:
             docs[entity_id] = doc
         return docs
 
-    async def create_new_index(self, entity_type_name: str, es_data_config: typing.List) -> str:
+    async def create_new_index(self, es_data_config: typing.List) -> str:
         new_index_name = f'{ELASTICSEARCH["prefix"]}_{dtu(str(uuid.uuid4()))}'
         body = {
             'mappings': {
@@ -727,6 +728,24 @@ class BaseElasticsearch:
         actions = [
             {
                 '_index': index_name,
+                '_id': i,
+                '_source': v,
+            }
+            for i, v in data.items()
+        ]
+        await async_bulk(self._es, actions)
+
+    async def op_bulk(self, entity_type_id: str, data: typing.Dict, operation: str = None) -> None:
+        alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
+        common = {
+            '_index': alias_name,
+        }
+        if operation:
+            common['_op_type'] = operation
+
+        actions = [
+            {
+                **common,
                 '_id': i,
                 '_source': v,
             }

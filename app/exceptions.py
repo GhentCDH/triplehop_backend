@@ -1,0 +1,2 @@
+class ReindexRunningException(Exception):
+    pass

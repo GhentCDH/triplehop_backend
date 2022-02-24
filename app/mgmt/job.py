@@ -6,9 +6,10 @@ from app.db.job import JobRepository
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
 from app.mgmt.config import ConfigManager
-from app.mgmt.data import DataManager
 from app.models.auth import UserWithPermissions
 from app.models.job import JobToDisplay
+
+import app.mgmt.data
 
 BATCH_SIZE = 500
 
@@ -19,8 +20,8 @@ class JobManager:
         request: starlette.requests.Request,
         user: UserWithPermissions,
     ):
+        self._request = request
         self._project_name = request.path_params['project_name']
-        self._data_manager = DataManager(request, user)
         self._config_manager = ConfigManager(request, user)
         self._job_repo = get_repository_from_request(request, JobRepository)
         self._es = get_es_from_request(request, BaseElasticsearch)
@@ -43,7 +44,8 @@ class JobManager:
         return await self._job_repo.create(type, self._user.id, project_id, entity_type_id)
 
     async def es_index(self, job_id: uuid.UUID, project_name: str, entity_type_name: str):
-        entity_ids = await self._data_manager.get_entity_ids_by_type_name(entity_type_name)
+        data_manager = app.mgmt.data.DataManager(self._request, self._user)
+        entity_ids = await data_manager.get_entity_ids_by_type_name(entity_type_name)
 
         await self._job_repo.start(job_id, len(entity_ids))
 
@@ -53,12 +55,12 @@ class JobManager:
             entity_type_config = entity_types_config[entity_type_name]
             es_data_config = entity_type_config['config']['es_data']['fields']
             crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
-            new_index_name = await self._es.create_new_index(entity_type_name, es_data_config)
+            new_index_name = await self._es.create_new_index(es_data_config)
 
             batch_counter = 0
             while True:
                 batch_ids = entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
-                batch_entities = await self._data_manager.get_entity_data(
+                batch_entities = await app.mgmt.data.data_manager.get_entity_data(
                     batch_ids,
                     crdb_query,
                     entity_type_name=entity_type_name,
@@ -84,3 +86,8 @@ class JobManager:
             await self._job_repo.end_with_error(job_id)
             # TODO: log error
             raise e
+
+    async def reindex_running(self, project_name: str, entity_type_name: str):
+        return await self._job_repo.reindex_running(
+            await self._config_manager.get_entity_type_id_by_name(project_name, entity_type_name)
+        ) > 0
