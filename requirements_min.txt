@@ -4,6 +4,7 @@ ariadne
 asyncpg
 bcrypt
 buildpg
+dictdiffer
 edtf
 elasticsearch[async]
 fastapi
