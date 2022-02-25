@@ -45,6 +45,7 @@ class DataRepository(BaseRepository):
         self,
         project_id: str,
         label_id: int,
+        connection: asyncpg.connection.Connection = None,
     ) -> str:
         graph_id = await self._get_graph_id(project_id)
         n_etid_with_underscores = await self.fetchval(
@@ -58,6 +59,7 @@ class DataRepository(BaseRepository):
                 'label_id': label_id,
             },
             age=True,
+            connection=connection,
         )
         return utd(n_etid_with_underscores[2:])
 
@@ -65,6 +67,7 @@ class DataRepository(BaseRepository):
     async def _get_graph_id(
         self,
         project_id: str,
+        connection: asyncpg.connection.Connection = None,
     ) -> str:
         return await self.fetchval(
             (
@@ -76,6 +79,7 @@ class DataRepository(BaseRepository):
                 'relation': f'"{project_id}"._ag_label_vertex'
             },
             age=True,
+            connection=connection,
         )
 
     async def get_entities(
@@ -163,6 +167,7 @@ class DataRepository(BaseRepository):
         entity_ids: typing.List[int],
         relation_type_id: str,
         inverse: bool = False,
+        connection: asyncpg.Connection = None,
     ) -> typing.List[asyncpg.Record]:
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
@@ -199,6 +204,7 @@ class DataRepository(BaseRepository):
                     'entity_ids': entity_ids,
                 },
                 age=True,
+                connection=connection,
             )
         # If no relations have been added, the relation table doesn't exist
         except asyncpg.exceptions.UndefinedTableError:
@@ -211,6 +217,7 @@ class DataRepository(BaseRepository):
         project_id: str,
         relation_type_id: str,
         relation_ids: typing.List[str],
+        connection: asyncpg.connection.Connection = None,
     ) -> typing.List[asyncpg.Record]:
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         query = (
@@ -232,6 +239,7 @@ class DataRepository(BaseRepository):
                     'relation_ids': relation_ids,
                 },
                 age=True,
+                connection=connection,
             )
         # If no relations have been added, the relation table doesn't exist
         except asyncpg.exceptions.UndefinedTableError:
@@ -243,6 +251,7 @@ class DataRepository(BaseRepository):
         self,
         project_id: str,
         entity_type_id: str,
+        connection: asyncpg.Connection = None,
     ) -> typing.List[int]:
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
@@ -260,7 +269,8 @@ class DataRepository(BaseRepository):
         try:
             records = await self.fetch(
                 query,
-                age=True
+                age=True,
+                connection=connection,
             )
         # If no items have been added, the label does not exist
         except asyncpg.exceptions.FeatureNotSupportedError as e:
@@ -276,7 +286,7 @@ class DataRepository(BaseRepository):
         entity_type_id: str,
         entity_id: int,
         path_parts: typing.List[str],
-        connection: asyncpg.Connection,
+        connection: asyncpg.Connection = None,
     ) -> typing.List:
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(start_entity_type_id)

@@ -114,13 +114,23 @@ class DataManager:
         entity_ids: typing.List[int],
         entity_type_name: typing.Optional[str] = None,
         entity_type_id: typing.Optional[str] = None,
+        connection: asyncpg.Connection = None,
     ) -> typing.Dict:
         self.__class__._require_entity_type_name_or_entity_type_id(entity_type_name, entity_type_id)
 
         if entity_type_id is None:
-            entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+            entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+                self._project_name,
+                entity_type_name,
+                connection=connection,
+            )
 
-        records = await self._data_repo.get_entities(await self._get_project_id(), entity_type_id, entity_ids)
+        records = await self._data_repo.get_entities(
+            await self._get_project_id(),
+            entity_type_id,
+            entity_ids,
+            connection=connection,
+        )
 
         results = {
             record['id']: {
@@ -243,6 +253,7 @@ class DataManager:
         entity_type_id: typing.Optional[str] = None,
         relation_type_name: typing.Optional[str] = None,
         relation_type_id: typing.Optional[str] = None,
+        connection: asyncpg.Connection = None,
     ) -> typing.Dict:
         '''
         Get relations and linked entity information starting from an entity type, entity ids and a relation type.
@@ -264,12 +275,14 @@ class DataManager:
             entity_type_id = await self._config_manager.get_entity_type_id_by_name(
                 self._project_name,
                 entity_type_name,
+                connection=connection,
             )
 
         if relation_type_id is None:
             relation_type_id = await self._config_manager.get_relation_type_id_by_name(
                 self._project_name,
                 relation_type_name,
+                connection=connection,
             )
 
         records = await self._data_repo.get_relations(
@@ -277,7 +290,8 @@ class DataManager:
             entity_type_id,
             entity_ids,
             relation_type_id,
-            inverse
+            inverse,
+            connection=connection,
         )
 
         # build temporary dict so json only needs to be loaded once
@@ -458,6 +472,7 @@ class DataManager:
         first_iteration: bool = True,
         entity_type_name: typing.Optional[str] = None,
         entity_type_id: typing.Optional[str] = None,
+        connection: asyncpg.Connection = None,
     ) -> typing.Dict:
         if not entity_ids:
             return {}
@@ -478,7 +493,7 @@ class DataManager:
         if first_iteration:
             # check if entity props are requested
             if crdb_query['e_props']:
-                results = await self._get_entities_crdb(entity_ids, **entity_type_name_or_id)
+                results = await self._get_entities_crdb(entity_ids, **entity_type_name_or_id, connection=connection)
 
         for relation_type_id in crdb_query['relations']:
             # get relation data
@@ -487,6 +502,7 @@ class DataManager:
                 relation_type_id.split('_')[0] == 'ri',
                 **entity_type_name_or_id,
                 relation_type_id=relation_type_id.split('_')[1],
+                connection=connection,
             )
             for entity_id, raw_result in raw_results.items():
                 if entity_id not in results:
@@ -525,6 +541,7 @@ class DataManager:
                         crdb_query['relations'][relation_type_id],
                         False,
                         **entity_type_name_or_id,
+                        connection=connection,
                     )
 
                 # add the additional relation data to the result
@@ -545,11 +562,6 @@ class DataManager:
         diff_gen: typing.Generator,
         connection: asyncpg.Connection,
     ) -> None:
-        # docs = BaseElasticsearch.construct_update_docs_from_diff(
-        #     await self._get_entity_types_config(),
-        #     diff_gen,
-        # )
-
         entity_type_id = await self._config_manager.get_entity_type_id_by_name(
             self._project_name,
             entity_type_name,
@@ -557,7 +569,6 @@ class DataManager:
 
         diff_field_ids = []
         for diff in diff_gen:
-            # TODO: use new value
             diff_field_ids.append(f'${utd(diff[1][2:])}')
 
         fields_to_update = {}
@@ -662,6 +673,7 @@ class DataManager:
                         batch_ids,
                         crdb_query,
                         entity_type_id=es_entity_type_id,
+                        connection=connection,
                     )
 
                     batch_docs = BaseElasticsearch.convert_entities_to_docs(

@@ -1,4 +1,5 @@
 import aiocache
+import asyncpg
 import fastapi
 import json
 import starlette
@@ -65,8 +66,12 @@ class ConfigManager:
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_entity_types_config(self, project_name: str) -> typing.Dict:
-        records = await self._config_repo.get_entity_types_config(project_name)
+    async def get_entity_types_config(
+        self,
+        project_name: str,
+        connection: asyncpg.Connection = None,
+    ) -> typing.Dict:
+        records = await self._config_repo.get_entity_types_config(project_name, connection=connection)
 
         result = {}
         for record in records:
@@ -118,8 +123,13 @@ class ConfigManager:
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_entity_type_id_by_name(self, project_name: str, entity_type_name: str) -> str:
-        entity_types_config = await self.get_entity_types_config(project_name)
+    async def get_entity_type_id_by_name(
+        self,
+        project_name: str,
+        entity_type_name: str,
+        connection: asyncpg.Connection = None,
+    ) -> str:
+        entity_types_config = await self.get_entity_types_config(project_name, connection=connection)
 
         try:
             return entity_types_config[entity_type_name]['id']
@@ -155,8 +165,12 @@ class ConfigManager:
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_relation_types_config(self, project_name: str) -> typing.Dict:
-        records = await self._config_repo.get_relation_types_config(project_name)
+    async def get_relation_types_config(
+        self,
+        project_name: str,
+        connection: asyncpg.Connection = None,
+    ) -> typing.Dict:
+        records = await self._config_repo.get_relation_types_config(project_name, connection=connection)
 
         result = {}
         for record in records:
@@ -218,12 +232,17 @@ class ConfigManager:
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_relation_type_id_by_name(self, project_name: str, relation_type_name: str) -> int:
+    async def get_relation_type_id_by_name(
+        self,
+        project_name: str,
+        relation_type_name: str,
+        connection: asyncpg.Connection = None,
+    ) -> int:
         # Special case '_source__'
         if relation_type_name == '_source_':
             return '_source_'
 
-        relation_types_config = await self.get_relation_types_config(project_name)
+        relation_types_config = await self.get_relation_types_config(project_name, connection=connection)
 
         try:
             return relation_types_config[relation_type_name]['id']

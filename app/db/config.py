@@ -5,7 +5,7 @@ from app.db.base import BaseRepository
 
 
 class ConfigRepository(BaseRepository):
-    async def get_projects_config(self) -> typing.List[asyncpg.Record]:
+    async def get_projects_config(self, connection: asyncpg.Connection = None) -> typing.List[asyncpg.Record]:
         return await self.fetch(
             '''
                 SELECT
@@ -14,9 +14,14 @@ class ConfigRepository(BaseRepository):
                     project.display_name
                 FROM app.project;
             ''',
+            connection=connection,
         )
 
-    async def get_entity_types_config(self, project_name: str) -> typing.List[asyncpg.Record]:
+    async def get_entity_types_config(
+        self,
+        project_name: str,
+        connection: asyncpg.Connection = None,
+    ) -> typing.List[asyncpg.Record]:
         return await self.fetch(
             '''
                 SELECT
@@ -31,10 +36,15 @@ class ConfigRepository(BaseRepository):
             ''',
             {
                 'project_name': project_name,
-            }
+            },
+            connection=connection,
         )
 
-    async def get_current_entity_type_revision_id(self, entity_type_id: str) -> str:
+    async def get_current_entity_type_revision_id(
+        self,
+        entity_type_id: str,
+        connection: asyncpg.Connection = None,
+    ) -> str:
         return await self.fetchval(
             '''
                 SELECT id::text
@@ -45,10 +55,15 @@ class ConfigRepository(BaseRepository):
             ''',
             {
                 'entity_type_id': entity_type_id,
-            }
+            },
+            connection=connection,
         )
 
-    async def get_relation_types_config(self, project_name: str) -> typing.List[asyncpg.Record]:
+    async def get_relation_types_config(
+        self,
+        project_name: str,
+        connection: asyncpg.Connection = None
+    ) -> typing.List[asyncpg.Record]:
         return await self.fetch(
             '''
                 SELECT
@@ -69,5 +84,6 @@ class ConfigRepository(BaseRepository):
             ''',
             {
                 'project_name': project_name,
-            }
+            },
+            connection=connection,
         )

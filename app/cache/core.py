@@ -5,7 +5,7 @@ def no_arg_key_builder(func, *args):
     return f'{func.__module__}|{func.__name__}'
 
 
-def skip_first_arg_key_builder(func, *args):
+def skip_first_arg_key_builder(func, *args, **kwargs):
     str_args = [str(arg) for arg in args[1:]]
     return f'{func.__module__}|{func.__name__}|{"|".join(str_args)}'
 
