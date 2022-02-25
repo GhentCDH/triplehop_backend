@@ -106,19 +106,3 @@ class JobRepository(BaseRepository):
                 'job_id': id,
             }
         )
-
-    async def reindex_running(self, entity_type_id: str) -> str:
-        return await self.fetchval(
-            '''
-                SELECT count(*) FROM app.job
-                WHERE entity_id = :entity_type_id
-                AND (
-                    status = :status_created
-                    OR status = :status_started
-                )
-            ''', {
-                'entity_type_id': entity_type_id,
-                'status_created': 'created',
-                'status_started': 'started',
-            }
-        )

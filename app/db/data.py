@@ -85,8 +85,8 @@ class DataRepository(BaseRepository):
         entity_ids: typing.List[int],
         connection: asyncpg.connection.Connection = None,
     ) -> typing.List[asyncpg.Record]:
-        self.__class__._check_valid_uuid(project_id)
-        self.__class__._check_valid_uuid(entity_type_id)
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
 
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         query = (
@@ -121,8 +121,8 @@ class DataRepository(BaseRepository):
         input: typing.Dict,
         connection: asyncpg.connection.Connection = None,
     ) -> typing.Dict:
-        self.__class__._check_valid_uuid(project_id)
-        self.__class__._check_valid_uuid(entity_type_id)
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
 
         set_clause = ', '.join([f'n.{k} = ${k}' for k in input.keys()])
 
@@ -164,9 +164,9 @@ class DataRepository(BaseRepository):
         relation_type_id: str,
         inverse: bool = False,
     ) -> typing.List[asyncpg.Record]:
-        self.__class__._check_valid_uuid(project_id)
-        self.__class__._check_valid_uuid(entity_type_id)
-        self.__class__._check_valid_uuid(relation_type_id)
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
+        self.__class__._check_valid_label(relation_type_id)
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         if inverse:
             query = (
@@ -244,8 +244,8 @@ class DataRepository(BaseRepository):
         project_id: str,
         entity_type_id: str,
     ) -> typing.List[int]:
-        self.__class__._check_valid_uuid(project_id)
-        self.__class__._check_valid_uuid(entity_type_id)
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
 
         query = (
             f'SELECT * FROM cypher('
@@ -278,14 +278,14 @@ class DataRepository(BaseRepository):
         path_parts: typing.List[str],
         connection: asyncpg.Connection,
     ) -> typing.List:
-        self.__class__._check_valid_uuid(project_id)
-        self.__class__._check_valid_uuid(start_entity_type_id)
-        self.__class__._check_valid_uuid(entity_type_id)
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(start_entity_type_id)
+        self.__class__._check_valid_label(entity_type_id)
 
         cypher_path = ''
         for part in path_parts:
             [direction, relation_type_id] = part.split('_')
-            self.__class__._check_valid_uuid(relation_type_id)
+            self.__class__._check_valid_label(relation_type_id)
             if cypher_path == '':
                 node = f'(n:n_{dtu(start_entity_type_id)})'
             else:

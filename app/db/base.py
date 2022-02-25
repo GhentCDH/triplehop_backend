@@ -57,7 +57,10 @@ class BaseRepository:
         )
 
     @staticmethod
-    def _check_valid_uuid(uuid_to_test, version=4) -> None:
+    def _check_valid_label(uuid_to_test, version=4) -> None:
+        if uuid_to_test == '_source_':
+            return
+
         try:
             uuid.UUID(uuid_to_test, version=version)
         except ValueError:

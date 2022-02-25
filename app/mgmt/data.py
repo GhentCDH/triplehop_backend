@@ -9,14 +9,12 @@ from app.db.core import get_repository_from_request
 from app.db.data import DataRepository
 from app.es.base import BaseElasticsearch
 from app.es.core import get_es_from_request
-from app.exceptions import ReindexRunningException
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
 from app.mgmt.config import ConfigManager
 from app.mgmt.revision import RevisionManager
 from app.models.auth import UserWithPermissions
-from app.utils import RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
+from app.utils import BATCH_SIZE, RE_SOURCE_PROP_INDEX, dtu, first_cap, utd
 
-import app.mgmt.job
 
 class DataManager:
     def __init__(
@@ -172,6 +170,8 @@ class DataManager:
             etipm[k]: v
             for k, v in input.items()
         }
+
+        # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
 
         async with self._data_repo.connection() as connection:
             async with connection.transaction():
@@ -557,6 +557,7 @@ class DataManager:
 
         diff_field_ids = []
         for diff in diff_gen:
+            # TODO: use new value
             diff_field_ids.append(f'${utd(diff[1][2:])}')
 
         fields_to_update = {}
@@ -627,10 +628,56 @@ class DataManager:
                                     es_field_def['system_name'],
                                 )
 
-        # # check if there is a re-index job running for relevant entity_types
-        # job_manager = app.mgmt.job.JobManager(self._request, self._user)
-        # if await job_manager.reindex_running(self._project_name, entity_type_name):
-        #     raise ReindexRunningException
+        entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
+
+        for es_entity_type_id in fields_to_update:
+            entity_type_config = entity_types_config[
+                await self._config_manager.get_entity_type_name_by_id(self._project_name, es_entity_type_id)
+            ]
+            # Batch entities in lists with the same entity type and the same required fields
+            while fields_to_update[es_entity_type_id]:
+                batch_entity_ids = []
+                [e_id, es_field_system_names] = fields_to_update[es_entity_type_id].popitem()
+                batch_entity_ids = [
+                    i
+                    for i in fields_to_update[es_entity_type_id]
+                    if fields_to_update[es_entity_type_id][i] == es_field_system_names
+                ]
+                for other_e_id in batch_entity_ids:
+                    del fields_to_update[es_entity_type_id][other_e_id]
+
+                batch_entity_ids.append(e_id)
+
+                es_data_config = [
+                    field_def
+                    for field_def in entity_type_config['config']['es_data']['fields']
+                    if field_def['system_name'] in es_field_system_names
+                ]
+                crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
+
+                batch_counter = 0
+                while True:
+                    batch_ids = batch_entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
+                    batch_entities = await self.get_entity_data(
+                        batch_ids,
+                        crdb_query,
+                        entity_type_id=es_entity_type_id,
+                    )
+
+                    batch_docs = BaseElasticsearch.convert_entities_to_docs(
+                        entity_types_config,
+                        es_data_config,
+                        batch_entities
+                    )
+
+                    # print(batch_docs)
+
+                    await self._es.op_bulk(es_entity_type_id, batch_docs, 'update')
+
+                    if (batch_counter + 1) * BATCH_SIZE + 1 > len(batch_entity_ids):
+                        break
+
+                    batch_counter += 1
 
     async def find_entities_to_update(
         self,

@@ -1,5 +1,7 @@
 import re
 
+BATCH_SIZE = 500
+
 RE_FIELD_CONVERSION = re.compile(
     # zero, one or multiple (inverse) relations
     r'(?:[$]ri?_[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}->)*'

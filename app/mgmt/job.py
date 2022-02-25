@@ -8,10 +8,9 @@ from app.es.core import get_es_from_request
 from app.mgmt.config import ConfigManager
 from app.models.auth import UserWithPermissions
 from app.models.job import JobToDisplay
+from app.utils import BATCH_SIZE
 
 import app.mgmt.data
-
-BATCH_SIZE = 500
 
 
 class JobManager:
@@ -86,8 +85,3 @@ class JobManager:
             await self._job_repo.end_with_error(job_id)
             # TODO: log error
             raise e
-
-    async def reindex_running(self, project_name: str, entity_type_name: str):
-        return await self._job_repo.reindex_running(
-            await self._config_manager.get_entity_type_id_by_name(project_name, entity_type_name)
-        ) > 0
