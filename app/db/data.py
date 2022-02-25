@@ -295,14 +295,12 @@ class DataRepository(BaseRepository):
             elif direction == '$ri':
                 cypher_path = f'{cypher_path}{node}<-[\\:e_{dtu(relation_type_id)}]-'
 
-        print(cypher_path)
-
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
             f'$$MATCH {cypher_path}(\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
-            f'return n$$, :params'
-            f') as (n agtype);'
+            f'return n.id$$, :params'
+            f') as (id agtype);'
         )
 
         records = await self.fetch(
@@ -315,4 +313,5 @@ class DataRepository(BaseRepository):
             age=True,
             connection=connection,
         )
-        print(records)
+
+        return [int(r['id']) for r in records]

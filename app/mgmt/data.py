@@ -550,64 +550,81 @@ class DataManager:
         #     diff_gen,
         # )
 
+        entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+            self._project_name,
+            entity_type_name,
+        )
+
         diff_field_ids = []
         for diff in diff_gen:
             diff_field_ids.append(f'${utd(diff[1][2:])}')
 
-        print(diff_field_ids)
+        fields_to_update = {}
 
-        # fields_to_update = {}
-        for etn, etd in self._entity_types_config.items():
+        async def add_entities_and_field_to_update(
+            es_entity_type_id: str,
+            selector_value: str,
+            diff_field_id: str,
+            es_field_system_name: str,
+        ) -> None:
+            entity_ids = await self.find_entities_to_update(
+                es_entity_type_id,
+                entity_type_id,
+                entity_id,
+                selector_value,
+                diff_field_id,
+                connection,
+            )
+
+            if entity_ids:
+                if es_entity_type_id not in fields_to_update:
+                    fields_to_update[es_entity_type_id] = {}
+                for e_id in entity_ids:
+                    if e_id not in fields_to_update[es_entity_type_id]:
+                        fields_to_update[es_entity_type_id][e_id] = set()
+                    fields_to_update[es_entity_type_id][e_id].add(es_field_system_name)
+
+        for es_etn, etd in self._entity_types_config.items():
             if 'config' in etd and 'es_data' in etd['config']:
-                for field_def in etd['config']['es_data']['fields']:
-                    if field_def['type'] == 'nested':
-                        for part in field_def['parts'].values():
+                es_entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+                    self._project_name,
+                    es_etn,
+                )
+                for es_field_def in etd['config']['es_data']['fields']:
+                    if es_field_def['type'] == 'nested':
+                        for part in es_field_def['parts'].values():
                             for diff_field_id in diff_field_ids:
                                 if diff_field_id in part['selector_value']:
-                                    print(part['selector_value'])
-                                    await self.find_entities_to_update(
-                                        etn,
-                                        entity_type_name,
-                                        entity_id,
+                                    await add_entities_and_field_to_update(
+                                        es_entity_type_id,
                                         part['selector_value'],
                                         diff_field_id,
-                                        connection,
+                                        es_field_def['system_name'],
                                     )
-                                    # if etn not in fields_to_update:
-                                    #     fields_to_update[etn] = {}
-                    elif field_def['type'] == 'edtf_interval':
+                    elif es_field_def['type'] == 'edtf_interval':
                         for diff_field_id in diff_field_ids:
-                            if diff_field_id in field_def['start']:
-                                print(field_def['start'])
-                                await self.find_entities_to_update(
-                                    etn,
-                                    entity_type_name,
-                                    entity_id,
-                                    field_def['start'],
+                            if diff_field_id in es_field_def['start']:
+                                await add_entities_and_field_to_update(
+                                    es_entity_type_id,
+                                    es_field_def['start'],
                                     diff_field_id,
-                                    connection,
+                                    es_field_def['system_name'],
                                 )
-                            if diff_field_id in field_def['end']:
-                                print(field_def['end'])
-                                await self.find_entities_to_update(
-                                    etn,
-                                    entity_type_name,
-                                    entity_id,
-                                    field_def['end'],
+                            if diff_field_id in es_field_def['end']:
+                                await add_entities_and_field_to_update(
+                                    es_entity_type_id,
+                                    es_field_def['end'],
                                     diff_field_id,
-                                    connection,
+                                    es_field_def['system_name'],
                                 )
                     else:
                         for diff_field_id in diff_field_ids:
-                            if diff_field_id in field_def['selector_value']:
-                                print(field_def['selector_value'])
-                                await self.find_entities_to_update(
-                                    etn,
-                                    entity_type_name,
-                                    entity_id,
-                                    field_def['selector_value'],
+                            if diff_field_id in es_field_def['selector_value']:
+                                await add_entities_and_field_to_update(
+                                    es_entity_type_id,
+                                    es_field_def['selector_value'],
                                     diff_field_id,
-                                    connection,
+                                    es_field_def['system_name'],
                                 )
 
         # # check if there is a re-index job running for relevant entity_types
@@ -617,25 +634,21 @@ class DataManager:
 
     async def find_entities_to_update(
         self,
-        es_entity_type_name: str,
-        entity_type_name: str,
+        es_entity_type_id: str,
+        entity_type_id: str,
         entity_id: int,
         selector_value: str,
         diff_field_id: str,
         connection: asyncpg.Connection,
-    ) -> typing.Dict[str, typing.List]:
-        entities = {}
-        es_entity_type_id = None
-        entity_type_id = None
+    ) -> typing.Set:
+        result = set()
         for selector_part in selector_value.split(' $||$ '):
             if diff_field_id not in selector_part:
                 continue
 
             # Property of the entity type itself
             if diff_field_id == selector_part:
-                if es_entity_type_name not in entities:
-                    entities[es_entity_type_name] = []
-                entities[es_entity_type_name].append(entity_id)
+                result.add(entity_id)
                 continue
 
             # Property of another entity type
@@ -643,18 +656,7 @@ class DataManager:
             if path[-1] != diff_field_id:
                 raise Exception('Updated field is not last part of query path')
 
-            if es_entity_type_id is None:
-                es_entity_type_id = await self._config_manager.get_entity_type_id_by_name(
-                    self._project_name,
-                    es_entity_type_name,
-                )
-            if entity_type_id is None:
-                entity_type_id = await self._config_manager.get_entity_type_id_by_name(
-                    self._project_name,
-                    entity_type_name,
-                )
-
-            raw_entities = await self._data_repo.find_entities_linked_to_entity(
+            entity_ids = await self._data_repo.find_entities_linked_to_entity(
                 await self._get_project_id(),
                 es_entity_type_id,
                 entity_type_id,
@@ -662,7 +664,9 @@ class DataManager:
                 path[:-1],
                 connection,
             )
-            print(raw_entities)
 
-        return entities
+            if entity_ids:
+                result.update(entity_ids)
+
+        return result
 
