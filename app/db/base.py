@@ -1,7 +1,10 @@
 import asyncpg
 import buildpg
 import typing
+import uuid
 from contextlib import asynccontextmanager
+
+from app.exceptions import InvalidUUIdException
 
 # Specify regex with negative lookbehind
 # Prevent conversion of Apache Age vertices or edges with label
@@ -30,7 +33,9 @@ class BaseRepository:
             query, args = RENDERER(query_template)
         else:
             query, args = RENDERER(query_template, **params)
+
         query = query.replace('\\:', ':')
+
         return [query, args]
 
     @staticmethod
@@ -50,6 +55,13 @@ class BaseRepository:
                 LOAD '$libdir/plugins/age';
             """
         )
+
+    @staticmethod
+    def _check_valid_uuid(uuid_to_test, version=4) -> None:
+        try:
+            uuid.UUID(uuid_to_test, version=version)
+        except ValueError:
+            raise InvalidUUIdException
 
     @asynccontextmanager
     async def connection(self) -> None:

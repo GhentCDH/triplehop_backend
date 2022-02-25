@@ -85,6 +85,9 @@ class DataRepository(BaseRepository):
         entity_ids: typing.List[int],
         connection: asyncpg.connection.Connection = None,
     ) -> typing.List[asyncpg.Record]:
+        self.__class__._check_valid_uuid(project_id)
+        self.__class__._check_valid_uuid(entity_type_id)
+
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         query = (
             f'SELECT i.id, n.properties '
@@ -93,6 +96,7 @@ class DataRepository(BaseRepository):
             f'ON n.id = i.nid '
             f'WHERE i.id = ANY(:entity_ids);'
         )
+
         try:
             records = await self.fetch(
                 query,
@@ -117,7 +121,8 @@ class DataRepository(BaseRepository):
         input: typing.Dict,
         connection: asyncpg.connection.Connection = None,
     ) -> typing.Dict:
-        # TODO: log revision
+        self.__class__._check_valid_uuid(project_id)
+        self.__class__._check_valid_uuid(entity_type_id)
 
         set_clause = ', '.join([f'n.{k} = ${k}' for k in input.keys()])
 
@@ -129,6 +134,7 @@ class DataRepository(BaseRepository):
             f'return n$$, :params'
             f') as (n agtype);'
         )
+
         try:
             record = await self.fetchrow(
                 query,
@@ -158,6 +164,9 @@ class DataRepository(BaseRepository):
         relation_type_id: str,
         inverse: bool = False,
     ) -> typing.List[asyncpg.Record]:
+        self.__class__._check_valid_uuid(project_id)
+        self.__class__._check_valid_uuid(entity_type_id)
+        self.__class__._check_valid_uuid(relation_type_id)
         # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
         if inverse:
             query = (
@@ -215,6 +224,7 @@ class DataRepository(BaseRepository):
             f'ON e.end_id = n.id '
             f'WHERE di.id = ANY(:relation_ids);'
         )
+
         try:
             records = await self.fetch(
                 query,
@@ -234,7 +244,9 @@ class DataRepository(BaseRepository):
         project_id: str,
         entity_type_id: str,
     ) -> typing.List[int]:
-        # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
+        self.__class__._check_valid_uuid(project_id)
+        self.__class__._check_valid_uuid(entity_type_id)
+
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
@@ -244,6 +256,7 @@ class DataRepository(BaseRepository):
             f'return id$$'
             f') as (id agtype);'
         )
+
         try:
             records = await self.fetch(
                 query,
@@ -253,4 +266,53 @@ class DataRepository(BaseRepository):
         except asyncpg.exceptions.FeatureNotSupportedError as e:
             if RE_LABEL_DOES_NOT_EXIST.match(e.message):
                 return []
+
         return [int(r['id']) for r in records]
+
+    async def find_entities_linked_to_entity(
+        self,
+        project_id: str,
+        start_entity_type_id: str,
+        entity_type_id: str,
+        entity_id: int,
+        path_parts: typing.List[str],
+        connection: asyncpg.Connection,
+    ) -> typing.List:
+        self.__class__._check_valid_uuid(project_id)
+        self.__class__._check_valid_uuid(start_entity_type_id)
+        self.__class__._check_valid_uuid(entity_type_id)
+
+        cypher_path = ''
+        for part in path_parts:
+            [direction, relation_type_id] = part.split('_')
+            self.__class__._check_valid_uuid(relation_type_id)
+            if cypher_path == '':
+                node = f'(n:n_{dtu(start_entity_type_id)})'
+            else:
+                node = '()'
+            if direction == '$r':
+                cypher_path = f'{cypher_path}{node}-[\\:e_{dtu(relation_type_id)}]->'
+            elif direction == '$ri':
+                cypher_path = f'{cypher_path}{node}<-[\\:e_{dtu(relation_type_id)}]-'
+
+        print(cypher_path)
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH {cypher_path}(\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
+            f'return n$$, :params'
+            f') as (n agtype);'
+        )
+
+        records = await self.fetch(
+            query,
+            {
+                'params': json.dumps({
+                    'entity_id': entity_id,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
+        print(records)

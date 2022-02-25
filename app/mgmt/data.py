@@ -1,4 +1,4 @@
-from lib2to3.pytree import Base
+import asyncpg
 import dictdiffer
 import fastapi
 import json
@@ -39,6 +39,11 @@ class DataManager:
         if self._project_id is None:
             self._project_id = await self._config_manager.get_project_id_by_name(self._project_name)
         return self._project_id
+
+    async def _get_entity_types_config(self):
+        if self._entity_types_config is None:
+            self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
+        return self._entity_types_config
 
     @staticmethod
     def valid_prop_value(prop_type: str, prop_value: typing.Any) -> bool:
@@ -98,11 +103,7 @@ class DataManager:
         entity_type_name: str,
         input: typing.Dict,
     ) -> None:
-        # TODO: set _entity_types_config on init
-        if self._entity_types_config is None:
-            self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
-
-        data_config = self._entity_types_config[entity_type_name]['config']['data']['fields']
+        data_config = (await self._get_entity_types_config())[entity_type_name]['config']['data']['fields']
         for prop_name, prop_value in input.items():
             etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
             # Strip p_ from prop id
@@ -183,6 +184,20 @@ class DataManager:
                 if len(old_raw_entities) != 1 or old_raw_entities[0]['id'] != entity_id:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
                 old_entity = json.loads(old_raw_entities[0]['properties'])
+
+                # check if there are any changes
+                # TODO: respond with no changes
+                changes = False
+                for k, v in db_input.items():
+                    if k not in old_entity:
+                        changes = True
+                        break
+                    if old_entity[k] != v:
+                        changes = True
+                        break
+                if not changes:
+                    return old_entity
+
                 new_raw_entity = await self._data_repo.put_entity(
                     await self._get_project_id(),
                     entity_type_id,
@@ -212,7 +227,8 @@ class DataManager:
                 await self.update_es(
                     entity_type_name,
                     entity_id,
-                    dictdiffer.diff(old_entity, new_entity)
+                    dictdiffer.diff(old_entity, new_entity),
+                    connection
                 )
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
@@ -522,13 +538,15 @@ class DataManager:
 
         return results
 
-    async def update_es(self, entity_type_name: str, entity_id: int, diff_gen: typing.Generator) -> None:
-        # TODO: set _entity_types_config on init
-        if self._entity_types_config is None:
-            self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
-
+    async def update_es(
+        self,
+        entity_type_name: str,
+        entity_id: int,
+        diff_gen: typing.Generator,
+        connection: asyncpg.Connection,
+    ) -> None:
         # docs = BaseElasticsearch.construct_update_docs_from_diff(
-        #     self._entity_types_config,
+        #     await self._get_entity_types_config(),
         #     diff_gen,
         # )
 
@@ -547,31 +565,104 @@ class DataManager:
                             for diff_field_id in diff_field_ids:
                                 if diff_field_id in part['selector_value']:
                                     print(part['selector_value'])
+                                    await self.find_entities_to_update(
+                                        etn,
+                                        entity_type_name,
+                                        entity_id,
+                                        part['selector_value'],
+                                        diff_field_id,
+                                        connection,
+                                    )
                                     # if etn not in fields_to_update:
                                     #     fields_to_update[etn] = {}
                     elif field_def['type'] == 'edtf_interval':
                         for diff_field_id in diff_field_ids:
                             if diff_field_id in field_def['start']:
                                 print(field_def['start'])
+                                await self.find_entities_to_update(
+                                    etn,
+                                    entity_type_name,
+                                    entity_id,
+                                    field_def['start'],
+                                    diff_field_id,
+                                    connection,
+                                )
                             if diff_field_id in field_def['end']:
                                 print(field_def['end'])
+                                await self.find_entities_to_update(
+                                    etn,
+                                    entity_type_name,
+                                    entity_id,
+                                    field_def['end'],
+                                    diff_field_id,
+                                    connection,
+                                )
                     else:
                         for diff_field_id in diff_field_ids:
                             if diff_field_id in field_def['selector_value']:
-                                self.find_entities_to_update(etn, entity_id, field_def['selector_value'], diff_field_id)
                                 print(field_def['selector_value'])
+                                await self.find_entities_to_update(
+                                    etn,
+                                    entity_type_name,
+                                    entity_id,
+                                    field_def['selector_value'],
+                                    diff_field_id,
+                                    connection,
+                                )
 
         # # check if there is a re-index job running for relevant entity_types
         # job_manager = app.mgmt.job.JobManager(self._request, self._user)
         # if await job_manager.reindex_running(self._project_name, entity_type_name):
         #     raise ReindexRunningException
 
-    async def find_entities_to_update(self, entity_type_name, entity_id, selector_value, diff_field_id) ->typing.Dict[typing.List]:
-        entities = ''
+    async def find_entities_to_update(
+        self,
+        es_entity_type_name: str,
+        entity_type_name: str,
+        entity_id: int,
+        selector_value: str,
+        diff_field_id: str,
+        connection: asyncpg.Connection,
+    ) -> typing.Dict[str, typing.List]:
+        entities = {}
+        es_entity_type_id = None
+        entity_type_id = None
         for selector_part in selector_value.split(' $||$ '):
-            if diff_field_id == selector_part:
-                entities[entity_type_name] = [entity_id]
+            if diff_field_id not in selector_part:
                 continue
+
+            # Property of the entity type itself
+            if diff_field_id == selector_part:
+                if es_entity_type_name not in entities:
+                    entities[es_entity_type_name] = []
+                entities[es_entity_type_name].append(entity_id)
+                continue
+
+            # Property of another entity type
             path = selector_part.split('->')
+            if path[-1] != diff_field_id:
+                raise Exception('Updated field is not last part of query path')
+
+            if es_entity_type_id is None:
+                es_entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+                    self._project_name,
+                    es_entity_type_name,
+                )
+            if entity_type_id is None:
+                entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+                    self._project_name,
+                    entity_type_name,
+                )
+
+            raw_entities = await self._data_repo.find_entities_linked_to_entity(
+                await self._get_project_id(),
+                es_entity_type_id,
+                entity_type_id,
+                entity_id,
+                path[:-1],
+                connection,
+            )
+            print(raw_entities)
+
         return entities
 
