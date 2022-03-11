@@ -310,6 +310,15 @@ class GraphQLConfigBuilder:
                 ['label', 'String'],
                 ['field', 'String!'],
                 ['type', 'String'],
+                ['placeholder', 'String'],
+                ['help_message', 'String'],
+                ['multi', 'Boolean'],
+                ['validators', '[Validator!]'],
+            ],
+            'Validator': [
+                ['type', 'String!'],
+                ['regex', 'String'],
+                ['error_message', 'String'],
             ],
             'Es_config': [
                 ['title', 'String!'],
