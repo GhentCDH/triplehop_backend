@@ -48,6 +48,13 @@ class DataManager:
         """Check if a property value is of the correct type."""
         if prop_type == 'String':
             return isinstance(prop_value, str)
+        if prop_type == '[String]':
+            if not isinstance(prop_value, list):
+                return False
+            for prop_val in prop_value:
+                if not isinstance(prop_val, str):
+                    return False
+            return True
 
     @staticmethod
     def _require_entity_type_name_or_entity_type_id(entity_type_name, entity_type_id) -> None:
@@ -569,7 +576,11 @@ class DataManager:
 
         diff_field_ids = []
         for diff in diff_gen:
-            diff_field_ids.append(f'${utd(diff[1][2:])}')
+            # When processing list values, the dictdiffer key is a list
+            if isinstance(diff[1], list):
+                diff_field_ids.append(f'${utd(diff[1][0][2:])}')
+            else:
+                diff_field_ids.append(f'${utd(diff[1][2:])}')
 
         fields_to_update = {}
 
@@ -681,8 +692,6 @@ class DataManager:
                         es_data_config,
                         batch_entities
                     )
-
-                    # print(batch_docs)
 
                     await self._es.op_bulk(es_entity_type_id, batch_docs, 'update')
 
