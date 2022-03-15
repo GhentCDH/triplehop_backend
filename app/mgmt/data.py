@@ -737,4 +737,3 @@ class DataManager:
                 result.update(entity_ids)
 
         return result
-
