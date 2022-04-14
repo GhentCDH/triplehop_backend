@@ -294,6 +294,12 @@ class GraphQLConfigBuilder:
                 ['system_name', 'String!'],
                 ['display_name', 'String!'],
                 ['type', 'String!'],
+                ['validators', '[Validator!]'],
+            ],
+            'Validator': [
+                ['type', 'String!'],
+                ['regex', 'String'],
+                ['error_message', 'String'],
             ],
             'Entity_display_config': [
                 ['title', 'String!'],
@@ -313,12 +319,6 @@ class GraphQLConfigBuilder:
                 ['placeholder', 'String'],
                 ['help_message', 'String'],
                 ['multi', 'Boolean'],
-                ['validators', '[Validator!]'],
-            ],
-            'Validator': [
-                ['type', 'String!'],
-                ['regex', 'String'],
-                ['error_message', 'String'],
             ],
             'Es_config': [
                 ['title', 'String!'],

@@ -1,7 +1,9 @@
 import asyncpg
 import dictdiffer
+import edtf
 import fastapi
 import json
+import re
 import typing
 import starlette
 
@@ -44,17 +46,62 @@ class DataManager:
         return self._entity_types_config
 
     @staticmethod
-    def valid_prop_value(prop_type: str, prop_value: typing.Any) -> bool:
+    def raise_validation_exception(
+        validator: typing.Optional[typing.Dict[str, str]] = None,
+        type_error_message: typing.Optional[str] = None,
+    ):
+        if validator is not None and 'error_message' in validator:
+            raise Exception(validator['error_message'])
+        if type_error_message is not None:
+            raise Exception(type_error_message)
+        raise Exception('The value provided for this field is invalid.')
+
+    @staticmethod
+    def validate_prop_value_validators(
+        prop_value: typing.Any,
+        validators: typing.Optional[typing.List] = None
+    ):
+        if validators is None:
+            return
+        for validator in validators:
+            if validator['type'] == 'required':
+                if prop_value is None or prop_value == '':
+                    DataManager.raise_validation_exception(validator, 'This field is required.')
+
+            if validator['type'] == 'edtf_year':
+                try:
+                    # edtf module needs to be updated to the newest revision
+                    # https://github.com/ixc/python-edtf/issues/24
+                    old_edtf_text = prop_value.replace('X', 'u')
+                    edtf_date = edtf.parse_edtf(old_edtf_text)
+                except edtf.parser.edtf_exceptions.EDTFParseException:
+                    DataManager.raise_validation_exception(validator)
+                # Check if it is a year or has more precision
+                if len(str(edtf_date).split('-')) > 1:
+                    DataManager.raise_validation_exception(validator)
+            if validator['type'] == 'regex':
+                if not re.match(validator.regex, prop_value):
+                    DataManager.raise_validation_exception(validator)
+
+    @staticmethod
+    def validate_prop_value(
+        prop_value: typing.Any,
+        prop_type: str,
+        validators: typing.Optional[typing.List] = None
+    ) -> None:
         """Check if a property value is of the correct type."""
         if prop_type == 'String':
-            return isinstance(prop_value, str)
+            if not isinstance(prop_value, str):
+                DataManager.raise_validation_exception()
+            DataManager.validate_prop_value_validators(prop_value, validators)
+
         if prop_type == '[String]':
             if not isinstance(prop_value, list):
-                return False
+                DataManager.raise_validation_exception()
             for prop_val in prop_value:
                 if not isinstance(prop_val, str):
-                    return False
-            return True
+                    DataManager.raise_validation_exception()
+                DataManager.validate_prop_value_validators(prop_val, validators)
 
     @staticmethod
     def _require_entity_type_name_or_entity_type_id(entity_type_name, entity_type_id) -> None:
@@ -112,9 +159,11 @@ class DataManager:
         for prop_name, prop_value in input.items():
             etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
             # Strip p_ from prop id
-            prop_type = data_config[utd(etipm[prop_name][2:])]['type']
-            if not self.__class__.valid_prop_value(prop_type, prop_value):
-                raise fastapi.exceptions.HTTPException(status_code=422, detail="Invalid value")
+            prop_config = data_config[utd(etipm[prop_name][2:])]
+            prop_validators = None
+            if 'validators' in prop_config:
+                prop_validators = prop_config['validators']
+            self.__class__.validate_prop_value(prop_value, prop_config['type'], prop_validators)
 
     async def _get_entities_crdb(
         self,
