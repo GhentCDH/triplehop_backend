@@ -59,7 +59,7 @@ class JobManager:
             batch_counter = 0
             while True:
                 batch_ids = entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
-                batch_entities = await app.mgmt.data.data_manager.get_entity_data(
+                batch_entities = await data_manager.get_entity_data(
                     batch_ids,
                     crdb_query,
                     entity_type_name=entity_type_name,
