@@ -397,6 +397,7 @@ class DataManager:
             self._project_name,
             relation_type_name,
         )
+
         source_records = await self._data_repo.get_relation_sources(
             await self._get_project_id(),
             relation_type_id,
@@ -509,7 +510,7 @@ class DataManager:
                             source_result['properties'] = props
                         result['_source_'].append(source_result)
 
-            results[entity_id].append(result)
+                results[entity_id].append(result)
         return results
 
     async def get_entity_ids_by_type_name(
