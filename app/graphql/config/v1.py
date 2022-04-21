@@ -157,6 +157,8 @@ class GraphQLConfigBuilder:
                     'display_name': entity_config['display_name'],
                 }
                 # TODO: remove configs that cannot be used by users based on permissions
+                if 'detail' in entity_config['config']:
+                    config_item['detail'] = entity_config['config']['detail']
                 if 'source' in entity_config['config']:
                     config_item['source'] = entity_config['config']['source']
                 if 'data' in entity_config['config'] and 'fields' in entity_config['config']['data']:
@@ -284,6 +286,7 @@ class GraphQLConfigBuilder:
             'Entity_config': [
                 ['system_name', 'String!'],
                 ['display_name', 'String!'],
+                ['detail', 'Boolean'],
                 ['source', 'Boolean'],
                 ['data', '[Data_config!]'],
                 ['display', 'Entity_display_config'],
