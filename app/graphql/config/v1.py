@@ -167,20 +167,21 @@ class GraphQLConfigBuilder:
                 # TODO: add display_names from data to display, so data doesn't need to be exported
                 # TODO: figure out a way to add permissions for displaying layouts and fields
                 if 'display' in entity_config['config']:
-                    config_item['display'] = {
-                        'title': self.__class__._replace_field_ids_by_system_names(
+                    config_item['display'] = {}
+                    if 'title' in entity_config['config']['display']:
+                        config_item['display']['title'] = self.__class__._replace_field_ids_by_system_names(
                             entity_config['config']['display']['title'],
                             entity_field_lookup,
                             relation_lookup,
                             relation_field_lookup,
-                        ),
-                        'layout': self.__class__._layout_field_converter(
+                        )
+                    if 'layout' in entity_config['config']['display']:
+                        config_item['display']['layout'] = self.__class__._layout_field_converter(
                             entity_config['config']['display']['layout'],
                             entity_field_lookup,
                             relation_lookup,
                             relation_field_lookup,
-                        ),
-                    }
+                        )
                 if 'edit' in entity_config['config']:
                     config_item['edit'] = {
                         'layout': self.__class__._layout_field_converter(
