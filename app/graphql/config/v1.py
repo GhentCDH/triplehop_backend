@@ -243,6 +243,12 @@ class GraphQLConfigBuilder:
                             relation_config['config']['display']['layout'],
                             relation_field_lookup,
                         )
+                if 'edit' in relation_config['config']:
+                    config_item['edit'] = {}
+                    if 'domain_title' in relation_config['config']['edit']:
+                        config_item['edit']['domain_title'] = relation_config['config']['edit']['domain_title']
+                    if 'range_title' in relation_config['config']['edit']:
+                        config_item['edit']['range_title'] = relation_config['config']['edit']['range_title']
                 results.append(config_item)
 
             return results
@@ -362,6 +368,7 @@ class GraphQLConfigBuilder:
                 ['display_name', 'String!'],
                 ['data', '[Data_config!]'],
                 ['display', 'Relation_display_config'],
+                ['edit', 'Relation_edit_config'],
                 ['domain_names', '[String!]!'],
                 ['range_names', '[String!]!'],
             ],
@@ -370,6 +377,10 @@ class GraphQLConfigBuilder:
                 ['domain_title', 'String!'],
                 ['range_title', 'String!'],
                 ['layout', '[Display_panel_config!]'],
+            ],
+            'Relation_edit_config': [
+                ['domain_title', 'String!'],
+                ['range_title', 'String!'],
             ],
         })
 
