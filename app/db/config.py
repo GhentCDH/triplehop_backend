@@ -72,7 +72,8 @@ class ConfigRepository(BaseRepository):
                     entity.config
                 FROM app.entity
                 INNER JOIN app.project ON entity.project_id = project.id
-                WHERE project.system_name = :project_name;
+                WHERE project.system_name = :project_name
+                AND entity.system_name != '__all__';
             ''',
             {
                 'project_name': project_name,
