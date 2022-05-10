@@ -138,16 +138,16 @@ class GraphQLConfigBuilder:
             entity_field_lookup = {}
             for entity_config in entity_types_config.values():
                 if 'data' in entity_config['config'] and 'fields' in entity_config['config']['data']:
-                    for id_, config in entity_config['config']['data']['fields'].items():
-                        entity_field_lookup[id_] = config['system_name']
+                    for field_id, config in entity_config['config']['data']['fields'].items():
+                        entity_field_lookup[field_id] = config['system_name']
 
             relation_lookup = {}
             relation_field_lookup = {}
             for relation_system_name, relation_config in relation_types_config.items():
                 relation_lookup[relation_config['id']] = relation_system_name
                 if 'data' in relation_config['config'] and 'fields' in relation_config['config']['data']:
-                    for id_, config in relation_config['config']['data']['fields'].items():
-                        relation_field_lookup[id_] = config['system_name']
+                    for field_id, config in relation_config['config']['data']['fields'].items():
+                        relation_field_lookup[field_id] = config['system_name']
 
             results = []
             for entity_system_name, entity_config in entity_types_config.items():
