@@ -128,11 +128,6 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
 
-        # workaround for https://github.com/apache/incubator-age/issues/44
-        for key, value in input.items():
-            if isinstance(value, list):
-                input[key] = [value]
-
         set_clause = ', '.join([f'n.{k} = ${k}' for k in input.keys()])
 
         query = (
