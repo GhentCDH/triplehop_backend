@@ -80,7 +80,7 @@ class DataManager:
                 if len(str(edtf_date).split('-')) > 1:
                     DataManager.raise_validation_exception(validator)
             if validator['type'] == 'regex':
-                if not re.match(validator.regex, prop_value):
+                if not re.match(validator['regex'], prop_value):
                     DataManager.raise_validation_exception(validator)
 
     @staticmethod
