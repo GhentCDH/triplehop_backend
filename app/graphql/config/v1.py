@@ -250,6 +250,11 @@ class GraphQLConfigBuilder:
                         config_item['edit']['domain_title'] = relation_config['config']['edit']['domain_title']
                     if 'range_title' in relation_config['config']['edit']:
                         config_item['edit']['range_title'] = relation_config['config']['edit']['range_title']
+                    if 'layout' in relation_config['config']['edit']:
+                        config_item['edit']['layout'] = self.__class__._layout_field_converter(
+                            relation_config['config']['edit']['layout'],
+                            relation_field_lookup,
+                        )
                 results.append(config_item)
 
             return results
@@ -270,8 +275,19 @@ class GraphQLConfigBuilder:
             self._get_project_config_resolver_wrapper(),
         )
 
-    def _add_display_panel_type_defs(self):
+    def _add_common_type_defs(self):
         self._type_defs_dict.update({
+            'Data_config': [
+                ['system_name', 'String!'],
+                ['display_name', 'String!'],
+                ['type', 'String!'],
+                ['validators', '[Validator!]'],
+            ],
+            'Validator': [
+                ['type', 'String!'],
+                ['regex', 'String'],
+                ['error_message', 'String'],
+            ],
             'Display_panel_config': [
                 ['label', 'String'],
                 ['fields', '[Display_panel_field_config!]'],
@@ -284,6 +300,18 @@ class GraphQLConfigBuilder:
                 # TODO: add overlays
                 ['base_layer', 'String'],
                 ['base_url', 'String'],
+            ],
+            'Edit_panel_config': [
+                ['label', 'String'],
+                ['fields', '[Edit_panel_field_config!]'],
+            ],
+            'Edit_panel_field_config': [
+                ['label', 'String'],
+                ['field', 'String!'],
+                ['type', 'String'],
+                ['placeholder', 'String'],
+                ['help_message', 'String'],
+                ['multi', 'Boolean'],
             ],
         })
 
@@ -300,35 +328,12 @@ class GraphQLConfigBuilder:
                 ['edit', 'Entity_edit_config'],
                 ['elasticsearch', 'Es_config'],
             ],
-            'Data_config': [
-                ['system_name', 'String!'],
-                ['display_name', 'String!'],
-                ['type', 'String!'],
-                ['validators', '[Validator!]'],
-            ],
-            'Validator': [
-                ['type', 'String!'],
-                ['regex', 'String'],
-                ['error_message', 'String'],
-            ],
             'Entity_display_config': [
                 ['title', 'String!'],
                 ['layout', '[Display_panel_config!]'],
             ],
             'Entity_edit_config': [
                 ['layout', '[Edit_panel_config!]'],
-            ],
-            'Edit_panel_config': [
-                ['label', 'String'],
-                ['fields', '[Edit_panel_field_config!]'],
-            ],
-            'Edit_panel_field_config': [
-                ['label', 'String'],
-                ['field', 'String!'],
-                ['type', 'String'],
-                ['placeholder', 'String'],
-                ['help_message', 'String'],
-                ['multi', 'Boolean'],
             ],
             'Es_config': [
                 ['title', 'String!'],
@@ -382,6 +387,7 @@ class GraphQLConfigBuilder:
             'Relation_edit_config': [
                 ['domain_title', 'String!'],
                 ['range_title', 'String!'],
+                ['layout', '[Edit_panel_config!]'],
             ],
         })
 
@@ -398,8 +404,8 @@ class GraphQLConfigBuilder:
 
         self._add_get_project_config_schema_parts()
 
-        # Display panel is used both in entity config and relation config
-        self._add_display_panel_type_defs()
+        # Data config, Display panel and edit panel are used both in entity config and relation config
+        self._add_common_type_defs()
 
         self._add_get_entity_configs_schema_parts()
         self._add_get_relation_configs_schema_parts()
