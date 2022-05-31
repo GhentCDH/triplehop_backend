@@ -312,6 +312,7 @@ class GraphQLConfigBuilder:
                 ['placeholder', 'String'],
                 ['help_message', 'String'],
                 ['multi', 'Boolean'],
+                ['options', '[String!]'],
             ],
         })
 
