@@ -212,6 +212,49 @@ class DataRepository(BaseRepository):
 
         return records
 
+    async def put_relation(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        relation_id: int,
+        input: typing.Dict,
+        connection: asyncpg.connection.Connection = None,
+    ) -> typing.Dict:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        set_clause = ', '.join([f'e.{k} = ${k}' for k in input.keys()])
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH ()-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->() '
+            f'SET {set_clause} '
+            f'return e$$, :params'
+            f') as (e agtype);'
+            )
+
+        try:
+            record = await self.fetchrow(
+                query,
+                {
+                    'params': json.dumps({
+                        'relation_id': relation_id,
+                        **input,
+                    })
+                },
+                age=True,
+                connection=connection,
+            )
+
+        # If no items have been added, the label does not exist
+        except asyncpg.exceptions.FeatureNotSupportedError as e:
+            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
+                return None
+            raise e
+
+        return record
+
     async def get_relation_sources(
         self,
         project_id: str,
@@ -293,22 +336,33 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(entity_type_id)
 
         cypher_path = ''
-        for part in path_parts:
+        last_index = len(path_parts) - 1
+        for index, part in enumerate(path_parts):
             [direction, relation_type_id] = part.split('_')
             self.__class__._check_valid_label(relation_type_id)
-            if cypher_path == '':
+            if direction == '$r':
+                rel_start = '-'
+                rel_end = '->'
+            else:
+                rel_start = '<-'
+                rel_end = '-'
+
+            if index == 0:
                 node = f'(n:n_{dtu(start_entity_type_id)})'
             else:
                 node = '()'
-            if direction == '$r':
-                cypher_path = f'{cypher_path}{node}-[\\:e_{dtu(relation_type_id)}]->'
-            elif direction == '$ri':
-                cypher_path = f'{cypher_path}{node}<-[\\:e_{dtu(relation_type_id)}]-'
+
+            if index == last_index:
+                end_node = f'(\\:n_{dtu(entity_type_id)} {{id: $entity_id}})'
+            else:
+                end_node = ''
+
+            cypher_path = f'{cypher_path}{node}{rel_start}[\\:e_{dtu(relation_type_id)}]{rel_end}{end_node}'
 
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
-            f'$$MATCH {cypher_path}(\\:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
+            f'$$MATCH {cypher_path} '
             f'return n.id$$, :params'
             f') as (id agtype);'
         )
@@ -318,6 +372,66 @@ class DataRepository(BaseRepository):
             {
                 'params': json.dumps({
                     'entity_id': entity_id,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
+
+        return [int(r['id']) for r in records]
+
+    async def find_entities_linked_to_relation(
+        self,
+        project_id: str,
+        start_entity_type_id: str,
+        end_relation_type_id: str,
+        relation_id: int,
+        path_parts: typing.List[str],
+        connection: asyncpg.Connection = None,
+    ) -> typing.List:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(start_entity_type_id)
+        self.__class__._check_valid_label(end_relation_type_id)
+
+        cypher_path = ''
+        last_index = len(path_parts) - 1
+        for index, part in enumerate(path_parts):
+            [direction, relation_type_id] = part.split('_')
+            self.__class__._check_valid_label(relation_type_id)
+            if direction == '$r':
+                rel_start = '-'
+                rel_end = '->'
+            else:
+                rel_start = '<-'
+                rel_end = '-'
+
+            if index == 0:
+                node = f'(n:n_{dtu(start_entity_type_id)})'
+            else:
+                node = '()'
+
+            if index == last_index:
+                relation = f'[\\:e_{dtu(relation_type_id)} {{id: $relation_id}}]'
+                end_node = '()'
+            else:
+                relation = f'[\\:e_{dtu(relation_type_id)}]'
+                end_node = ''
+
+            cypher_path = f'{cypher_path}{node}{rel_start}{relation}{rel_end}{end_node}'
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH {cypher_path} '
+            f'return n.id$$, :params'
+            f') as (id agtype);'
+        )
+
+        records = await self.fetch(
+            query,
+            {
+                'params': json.dumps({
+                    'relation_id': relation_id,
                 })
             },
             age=True,

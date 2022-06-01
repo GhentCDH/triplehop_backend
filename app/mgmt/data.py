@@ -152,14 +152,20 @@ class DataManager:
 
     async def _validate_input(
         self,
-        entity_type_name: str,
+        entities_or_relations: str,
+        type_name: str,
         input: typing.Dict,
     ) -> None:
-        data_config = (await self._get_entity_types_config())[entity_type_name]['config']['data']['fields']
+        if entities_or_relations == 'entities':
+            data_config = (await self._get_entity_types_config())[type_name]['config']['data']['fields']
+            ipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, type_name)
+        else:
+            data_config = self._relation_types_config[type_name]['config']['data']['fields']
+            ipm = await self._config_manager.get_relation_type_i_property_mapping(self._project_name, type_name)
+
         for prop_name, prop_value in input.items():
-            etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
             # Strip p_ from prop id
-            prop_config = data_config[utd(etipm[prop_name][2:])]
+            prop_config = data_config[utd(ipm[prop_name][2:])]
             prop_validators = None
             if 'validators' in prop_config:
                 prop_validators = prop_config['validators']
@@ -227,7 +233,7 @@ class DataManager:
     ):
         await self._check_permission('put', 'entities', entity_type_name, input.keys())
 
-        await self._validate_input(entity_type_name, input)
+        await self._validate_input('entities', entity_type_name, input)
 
         # Insert in database
         entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
@@ -291,6 +297,7 @@ class DataManager:
                 )
 
                 await self.update_es(
+                    'entities',
                     entity_type_name,
                     entity_id,
                     dictdiffer.diff(old_entity, new_entity),
@@ -513,6 +520,93 @@ class DataManager:
                 results[entity_id].append(result)
         return results
 
+    async def put_relation(
+        self,
+        relation_type_name: str,
+        relation_id: int,
+        input: typing.Dict,
+        inverse: bool = False,
+    ):
+        await self._check_permission('put', 'relations', relation_type_name, input.keys())
+
+        await self._validate_input('relations', relation_type_name, input)
+
+        # Insert in database
+        relation_type_id = await self._config_manager.get_relation_type_id_by_name(
+            self._project_name,
+            relation_type_name,
+        )
+        rtipm = await self._config_manager.get_relation_type_i_property_mapping(self._project_name, relation_type_name)
+        db_input = {
+            rtipm[k]: v
+            for k, v in input.items()
+        }
+
+        # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
+
+        async with self._data_repo.connection() as connection:
+            async with connection.transaction():
+                old_raw_relations = await self._data_repo.get_relations(
+                    await self._get_project_id(),
+                    relation_type_id,
+                    [relation_id],
+                    connection
+                )
+                if len(old_raw_relations) != 1 or old_raw_relations[0]['id'] != relation_id:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                old_relation = json.loads(old_raw_relations[0]['properties'])
+
+                # check if there are any changes
+                # TODO: respond with no changes
+                changes = False
+                for k, v in db_input.items():
+                    if k not in old_relation:
+                        changes = True
+                        break
+                    if old_relation[k] != v:
+                        changes = True
+                        break
+                if not changes:
+                    return old_relation
+
+                new_raw_relation = await self._data_repo.put_relation(
+                    await self._get_project_id(),
+                    relation_type_id,
+                    relation_id,
+                    db_input,
+                    connection
+                )
+                if new_raw_relation is None:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                # strip off ::vertex
+                new_relation = json.loads(new_raw_relation['n'][:-8])['properties']
+
+                await self._revision_manager.post_revision(
+                    {
+                        'relations': {
+                            relation_type_name: {
+                                relation_id: [
+                                    old_relation,
+                                    new_relation,
+                                ]
+                            }
+                        }
+                    },
+                    connection,
+                )
+
+                await self.update_es(
+                    'relations',
+                    relation_type_name,
+                    relation_id,
+                    dictdiffer.diff(old_relation, new_relation),
+                    connection
+                )
+
+        rtpm = await self._config_manager.get_relation_type_property_mapping(self._project_name, relation_type_name)
+
+        return {rtpm[k]: v for k, v in new_relation.items() if k in rtpm}
+
     async def get_entity_ids_by_type_name(
         self,
         entity_type_name: str,
@@ -614,15 +708,22 @@ class DataManager:
 
     async def update_es(
         self,
-        entity_type_name: str,
-        entity_id: int,
+        entities_or_relations: str,
+        type_name: str,
+        id: int,
         diff_gen: typing.Generator,
         connection: asyncpg.Connection,
     ) -> None:
-        entity_type_id = await self._config_manager.get_entity_type_id_by_name(
-            self._project_name,
-            entity_type_name,
-        )
+        if entities_or_relations == 'entities':
+            type_id = await self._config_manager.get_entity_type_id_by_name(
+                self._project_name,
+                type_name,
+            )
+        else:
+            type_id = await self._config_manager.get_relation_type_id_by_name(
+                self._project_name,
+                type_name,
+            )
 
         diff_field_ids = []
         for diff in diff_gen:
@@ -642,8 +743,9 @@ class DataManager:
         ) -> None:
             entity_ids = await self.find_entities_to_update(
                 es_entity_type_id,
-                entity_type_id,
-                entity_id,
+                entities_or_relations,
+                type_id,
+                id,
                 selector_value,
                 diff_field_id,
                 connection,
@@ -753,35 +855,53 @@ class DataManager:
     async def find_entities_to_update(
         self,
         es_entity_type_id: str,
-        entity_type_id: str,
-        entity_id: int,
+        entities_or_relations: str,
+        type_id: str,
+        id: int,
         selector_value: str,
         diff_field_id: str,
         connection: asyncpg.Connection,
     ) -> typing.Set:
         result = set()
-        for selector_part in selector_value.split(' $||$ '):
+        for selector_part in selector_value.split(' '):
             if diff_field_id not in selector_part:
                 continue
 
-            # Property of the entity type itself
-            if diff_field_id == selector_part:
-                result.add(entity_id)
-                continue
+            if entities_or_relations == 'entities':
+                # Property of the entity type itself
+                if diff_field_id == selector_part:
+                    result.add(id)
+                    continue
 
-            # Property of another entity type
-            path = selector_part.split('->')
-            if path[-1] != diff_field_id:
-                raise Exception('Updated field is not last part of query path')
+                # Property of another entity type
+                path = selector_part.split('->')
+                if path[-1] != diff_field_id:
+                    raise Exception('Updated field is not last part of query path')
 
-            entity_ids = await self._data_repo.find_entities_linked_to_entity(
-                await self._get_project_id(),
-                es_entity_type_id,
-                entity_type_id,
-                entity_id,
-                path[:-1],
-                connection,
-            )
+                entity_ids = await self._data_repo.find_entities_linked_to_entity(
+                    await self._get_project_id(),
+                    es_entity_type_id,
+                    type_id,
+                    id,
+                    path[:-1],
+                    connection,
+                )
+            else:
+                # Property of an entity type
+                path = selector_part.split('.')
+                if path[1] != diff_field_id:
+                    raise Exception('Updated field is not last part of query path')
+
+                path = path[0].split('->')
+
+                entity_ids = await self._data_repo.find_entities_linked_to_relation(
+                    await self._get_project_id(),
+                    es_entity_type_id,
+                    type_id,
+                    id,
+                    path[:-1],
+                    connection,
+                )
 
             if entity_ids:
                 result.update(entity_ids)

@@ -136,6 +136,34 @@ class GraphQLDataBuilder:
 
         return resolver
 
+    def _post_relation_resolver_wrapper(
+        self,
+        entity_type_name: str,
+        inverse: bool = False,
+    ):
+        # TODO
+        async def post_entity(entity_id: int, input: typing.Dict):
+            print('post_entity')
+            print(self._request)
+            return await self._data_manager.put_entity(entity_type_name, entity_id, input)
+
+        async def resolver(_, info, id, input):
+            return await post_entity(id, input)
+
+        return resolver
+
+    def _put_relation_resolver_wrapper(
+        self,
+        relation_type_name: str,
+    ):
+        async def put_relation(relation_id: int, input: typing.Dict):
+            return await self._data_manager.put_relation(relation_type_name, relation_id, input)
+
+        async def resolver(_, info, id, input):
+            return await put_relation(id, input)
+
+        return resolver
+
     def _calc_props(
         self,
         entity_or_relation: str,
@@ -265,6 +293,7 @@ class GraphQLDataBuilder:
                     self._query_dict['Mutation'] = ariadne.MutationType()
 
                 for etn, allowed_props in allowed.items():
+                    # TODO: post (no id)
                     self._type_defs_dict['Mutation'].append(
                         [
                             f'{perm}{first_cap(etn)}(id: Int!, input: {first_cap(perm)}{first_cap(etn)}Input)',
@@ -338,6 +367,72 @@ class GraphQLDataBuilder:
             self._type_defs_dict[f'R_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
             self._type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
+    def _add_post_put_relation_schema_parts(self) -> None:
+
+        alloweds = {
+            perm: allowed_entities_or_relations_and_properties(
+                self._user,
+                self._project_name,
+                'relations',
+                'data',
+                perm,
+            )
+            for perm in ['post', 'put']
+        }
+
+        for perm, allowed in alloweds.items():
+            if len(allowed.keys()) != 0:
+                if 'Mutation' not in self._type_defs_dict:
+                    self._type_defs_dict['Mutation'] = []
+                if 'Mutation' not in self._query_dict:
+                    self._query_dict['Mutation'] = ariadne.MutationType()
+
+                for rtn, allowed_props in allowed.items():
+                    # TODO: post (no id and possibly no allowed props)
+                    if not allowed_props:
+                        continue
+                    self._type_defs_dict['Mutation'].append(
+                        [
+                            f'{perm}R_{rtn}(id: Int!, input: {first_cap(perm)}R_{rtn}Input)',
+                            f'R_{rtn}',
+                        ]
+                    )
+                    self._type_defs_dict['Mutation'].append(
+                        [
+                            f'{perm}Ri_{rtn}(id: Int!, input: {first_cap(perm)}Ri_{rtn}Input)',
+                            f'Ri_{rtn}',
+                        ]
+                    )
+                    if perm == 'post':
+                        self._query_dict['Mutation'].set_field(
+                            f'postR_{rtn}',
+                            self._post_relation_resolver_wrapper(rtn),
+                        )
+                        self._query_dict['Mutation'].set_field(
+                            f'postRi_{rtn}',
+                            self._post_relation_resolver_wrapper(rtn, inverse=True),
+                        )
+                    else:
+                        self._query_dict['Mutation'].set_field(
+                            f'putR_{rtn}',
+                            self._put_relation_resolver_wrapper(rtn),
+                        )
+                        self._query_dict['Mutation'].set_field(
+                            f'putRi_{rtn}',
+                            self._put_relation_resolver_wrapper(rtn),
+                        )
+
+                    props = self._calc_props(
+                        'relation',
+                        rtn,
+                        allowed_props,
+                        False,
+                        True,
+                    )
+                    self._add_additional_props(props, True)
+                    self._input_type_defs_dict[f'{first_cap(perm)}R_{rtn}Input'] = props
+                    self._input_type_defs_dict[f'{first_cap(perm)}Ri_{rtn}Input'] = props
+
     # TODO: reset cache when project is updated or user permissions have been updated
     @aiocache.cached(key_builder=create_schema_key_builder)
     async def create_schema(self):
@@ -373,6 +468,8 @@ class GraphQLDataBuilder:
         self._add_post_put_entity_schema_parts()
 
         self._add_get_relation_schema_parts()
+
+        self._add_post_put_relation_schema_parts()
 
         type_defs_array = [
             construct_def('type', type, props)

@@ -119,7 +119,11 @@ class ConfigManager:
         return result
 
     async def get_entity_type_i_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
-        return {v: k for k, v in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()}
+        return {
+            v: k
+            for k, v
+            in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()
+        }
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
@@ -229,6 +233,13 @@ class ConfigManager:
             result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
 
         return result
+
+    async def get_relation_type_i_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
+        return {
+            v: k
+            for k, v
+            in (await self.get_relation_type_property_mapping(project_name, relation_type_name)).items()
+        }
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
