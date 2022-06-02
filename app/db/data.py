@@ -160,7 +160,7 @@ class DataRepository(BaseRepository):
 
         return record
 
-    async def get_relations(
+    async def get_relations_from_start_entities(
         self,
         project_id: str,
         entity_type_id: str,
@@ -212,6 +212,46 @@ class DataRepository(BaseRepository):
 
         return records
 
+    # Return {id: int, properties: {})}
+    async def get_relation(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        relation_id: int,
+        connection: asyncpg.Connection = None,
+    ) -> typing.Dict:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+        # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH ()-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->() '
+            f'return e$$, :params'
+            f') as (e agtype);'
+        )
+        try:
+            record = await self.fetchval(
+                query,
+                {
+                    'params': json.dumps({
+                        'relation_id': relation_id,
+                    })
+                },
+                age=True,
+                connection=connection,
+            )
+        # If no relations have been added, the relation table doesn't exist
+        except asyncpg.exceptions.UndefinedTableError:
+            return None
+
+        # strip off ::edge
+        properties = json.loads(record[:-6])['properties']
+        return {
+            'id': properties['id'],
+            'properties': properties,
+        }
+
     async def put_relation(
         self,
         project_id: str,
@@ -232,7 +272,7 @@ class DataRepository(BaseRepository):
             f'SET {set_clause} '
             f'return e$$, :params'
             f') as (e agtype);'
-            )
+        )
 
         try:
             record = await self.fetchrow(

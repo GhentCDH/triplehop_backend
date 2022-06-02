@@ -45,6 +45,11 @@ class DataManager:
             self._entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
         return self._entity_types_config
 
+    async def _get_relation_types_config(self):
+        if self._relation_types_config is None:
+            self._relation_types_config = await self._config_manager.get_relation_types_config(self._project_name)
+        return self._relation_types_config
+
     @staticmethod
     def raise_validation_exception(
         validator: typing.Optional[typing.Dict[str, str]] = None,
@@ -160,7 +165,7 @@ class DataManager:
             data_config = (await self._get_entity_types_config())[type_name]['config']['data']['fields']
             ipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, type_name)
         else:
-            data_config = self._relation_types_config[type_name]['config']['data']['fields']
+            data_config = (await self._get_relation_types_config())[type_name]['config']['data']['fields']
             ipm = await self._config_manager.get_relation_type_i_property_mapping(self._project_name, type_name)
 
         for prop_name, prop_value in input.items():
@@ -348,7 +353,7 @@ class DataManager:
                 connection=connection,
             )
 
-        records = await self._data_repo.get_relations(
+        records = await self._data_repo.get_relations_from_start_entities(
             await self._get_project_id(),
             entity_type_id,
             entity_ids,
@@ -546,15 +551,15 @@ class DataManager:
 
         async with self._data_repo.connection() as connection:
             async with connection.transaction():
-                old_raw_relations = await self._data_repo.get_relations(
+                old_raw_relation = await self._data_repo.get_relation(
                     await self._get_project_id(),
                     relation_type_id,
-                    [relation_id],
+                    relation_id,
                     connection
                 )
-                if len(old_raw_relations) != 1 or old_raw_relations[0]['id'] != relation_id:
+                if old_raw_relation is None or old_raw_relation['id'] != relation_id:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                old_relation = json.loads(old_raw_relations[0]['properties'])
+                old_relation = old_raw_relation['properties']
 
                 # check if there are any changes
                 # TODO: respond with no changes
@@ -578,8 +583,8 @@ class DataManager:
                 )
                 if new_raw_relation is None:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                # strip off ::vertex
-                new_relation = json.loads(new_raw_relation['n'][:-8])['properties']
+                # strip off ::edge
+                new_relation = json.loads(new_raw_relation['e'][:-6])['properties']
 
                 await self._revision_manager.post_revision(
                     {
@@ -759,7 +764,7 @@ class DataManager:
                         fields_to_update[es_entity_type_id][e_id] = set()
                     fields_to_update[es_entity_type_id][e_id].add(es_field_system_name)
 
-        for es_etn, etd in self._entity_types_config.items():
+        for es_etn, etd in (await self._get_entity_types_config()).items():
             if 'config' in etd and 'es_data' in etd['config']:
                 es_entity_type_id = await self._config_manager.get_entity_type_id_by_name(
                     self._project_name,
@@ -899,7 +904,7 @@ class DataManager:
                     es_entity_type_id,
                     type_id,
                     id,
-                    path[:-1],
+                    path,
                     connection,
                 )
 
