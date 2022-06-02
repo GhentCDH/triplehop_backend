@@ -751,7 +751,6 @@ class BaseElasticsearch:
             }
             for i, v in data.items()
         ]
-        # print(actions)
         await async_bulk(self._es, actions)
 
     async def search(self, entity_type_id: str, body: typing.Dict) -> typing.Dict:
