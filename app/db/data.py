@@ -3,17 +3,12 @@ from __future__ import annotations
 import aiocache
 import asyncpg
 import json
-import re
 import typing
 
 from app.cache.core import skip_first_arg_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, relation_label, utd
-
-RE_LABEL_DOES_NOT_EXIST = re.compile(
-    r'^label[ ][en]_[a-f0-9]{8}_[a-f0-9]{4}_4[a-f0-9]{3}_[89ab][a-f0-9]{3}_[a-f0-9]{12}[ ]does not exists$'
-)
 
 
 class DataRepository(BaseRepository):
@@ -101,19 +96,15 @@ class DataRepository(BaseRepository):
             f'WHERE i.id = ANY(:entity_ids);'
         )
 
-        try:
-            records = await self.fetch(
-                query,
-                {
-                    'entity_ids': entity_ids,
-                },
-                age=True,
-                connection=connection,
-            )
+        records = await self.fetch(
+            query,
+            {
+                'entity_ids': entity_ids,
+            },
+            age=True,
+            connection=connection,
+        )
 
-        # If no entities have been added, the entity table doesn't exist
-        except asyncpg.exceptions.UndefinedTableError:
-            return []
 
         return records
 
@@ -139,24 +130,17 @@ class DataRepository(BaseRepository):
             f') as (n agtype);'
         )
 
-        try:
-            record = await self.fetchrow(
-                query,
-                {
-                    'params': json.dumps({
-                        'entity_id': entity_id,
-                        **input,
-                    })
-                },
-                age=True,
-                connection=connection,
-            )
-
-        # If no items have been added, the label does not exist
-        except asyncpg.exceptions.FeatureNotSupportedError as e:
-            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
-                return None
-            raise e
+        record = await self.fetchrow(
+            query,
+            {
+                'params': json.dumps({
+                    'entity_id': entity_id,
+                    **input,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
 
         return record
 
@@ -197,18 +181,14 @@ class DataRepository(BaseRepository):
                 f'ON e.end_id = n.id '
                 f'WHERE di.id = ANY(:entity_ids);'
             )
-        try:
-            records = await self.fetch(
-                query,
-                {
-                    'entity_ids': entity_ids,
-                },
-                age=True,
-                connection=connection,
-            )
-        # If no relations have been added, the relation table doesn't exist
-        except asyncpg.exceptions.UndefinedTableError:
-            return []
+        records = await self.fetch(
+            query,
+            {
+                'entity_ids': entity_ids,
+            },
+            age=True,
+            connection=connection,
+        )
 
         return records
 
@@ -230,20 +210,16 @@ class DataRepository(BaseRepository):
             f'return e$$, :params'
             f') as (e agtype);'
         )
-        try:
-            record = await self.fetchval(
-                query,
-                {
-                    'params': json.dumps({
-                        'relation_id': relation_id,
-                    })
-                },
-                age=True,
-                connection=connection,
-            )
-        # If no relations have been added, the relation table doesn't exist
-        except asyncpg.exceptions.UndefinedTableError:
-            return None
+        record = await self.fetchval(
+            query,
+            {
+                'params': json.dumps({
+                    'relation_id': relation_id,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
 
         # strip off ::edge
         properties = json.loads(record[:-6])['properties']
@@ -274,24 +250,17 @@ class DataRepository(BaseRepository):
             f') as (e agtype);'
         )
 
-        try:
-            record = await self.fetchrow(
-                query,
-                {
-                    'params': json.dumps({
-                        'relation_id': relation_id,
-                        **input,
-                    })
-                },
-                age=True,
-                connection=connection,
-            )
-
-        # If no items have been added, the label does not exist
-        except asyncpg.exceptions.FeatureNotSupportedError as e:
-            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
-                return None
-            raise e
+        record = await self.fetchrow(
+            query,
+            {
+                'params': json.dumps({
+                    'relation_id': relation_id,
+                    **input,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
 
         return record
 
@@ -315,18 +284,14 @@ class DataRepository(BaseRepository):
             f'WHERE di.id = ANY(:relation_ids);'
         )
 
-        try:
-            records = await self.fetch(
-                query,
-                {
-                    'relation_ids': relation_ids,
-                },
-                age=True,
-                connection=connection,
-            )
-        # If no relations have been added, the relation table doesn't exist
-        except asyncpg.exceptions.UndefinedTableError:
-            return []
+        records = await self.fetch(
+            query,
+            {
+                'relation_ids': relation_ids,
+            },
+            age=True,
+            connection=connection,
+        )
 
         return records
 
@@ -349,16 +314,11 @@ class DataRepository(BaseRepository):
             f') as (id agtype);'
         )
 
-        try:
-            records = await self.fetch(
-                query,
-                age=True,
-                connection=connection,
-            )
-        # If no items have been added, the label does not exist
-        except asyncpg.exceptions.FeatureNotSupportedError as e:
-            if RE_LABEL_DOES_NOT_EXIST.match(e.message):
-                return []
+        records = await self.fetch(
+            query,
+            age=True,
+            connection=connection,
+        )
 
         return [int(r['id']) for r in records]
 
