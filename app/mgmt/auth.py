@@ -183,8 +183,15 @@ def allowed_entities_or_relations_and_properties(
     if entities_or_relations not in user.permissions[project_name]:
         return {}
 
-    return {
-        etn: perms[section][permission]
-        for etn, perms in user.permissions[project_name][entities_or_relations].items()
+    allowed = {
+        tn: perms[section][permission]
+        for tn, perms in user.permissions[project_name][entities_or_relations].items()
         if section in perms and permission in perms[section]
     }
+
+    if permission == 'get':
+        return {
+            tn: ['id', *props]
+            for tn, props in allowed.items()
+        }
+    return allowed
