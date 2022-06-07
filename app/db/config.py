@@ -87,3 +87,22 @@ class ConfigRepository(BaseRepository):
             },
             connection=connection,
         )
+
+    async def get_current_relation_type_revision_id(
+        self,
+        relation_type_id: str,
+        connection: asyncpg.Connection = None,
+    ) -> str:
+        return await self.fetchval(
+            '''
+                SELECT id::text
+                FROM app.relation_revision
+                WHERE relation_id = :relation_type_id
+                ORDER BY created DESC
+                LIMIT 1;
+            ''',
+            {
+                'relation_type_id': relation_type_id,
+            },
+            connection=connection,
+        )

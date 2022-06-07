@@ -80,6 +80,50 @@ class RevisionManager:
                         new_value,
                     ])
 
+        if 'relations' in data:
+            for relation_type_name in data['relations']:
+                relation_type_revision_id = await self._config_manager.get_current_relation_type_revision_id_by_name(
+                    self._project_name,
+                    relation_type_name,
+                )
+                relation_type_id = await self._config_manager.get_relation_type_id_by_name(
+                    self._project_name,
+                    relation_type_name,
+                )
+                for relation_id, [
+                    old_relation_props,
+                    new_relation_props,
+                    start_entity_type_name,
+                    start_entity_id,
+                    end_entity_type_name,
+                    end_entity_id,
+                ] in data['relations'][relation_type_name].items():
+                    raw_relations.append([
+                        relation_type_revision_id,
+                        relation_type_id,
+                        relation_id,
+                        await self._config_manager.get_current_entity_type_revision_id_by_name(
+                            self._project_name,
+                            start_entity_type_name,
+                        ),
+                        await self._config_manager.get_entity_type_id_by_name(
+                            self._project_name,
+                            start_entity_type_name,
+                        ),
+                        start_entity_id,
+                        await self._config_manager.get_current_entity_type_revision_id_by_name(
+                            self._project_name,
+                            end_entity_type_name,
+                        ),
+                        await self._config_manager.get_entity_type_id_by_name(
+                            self._project_name,
+                            end_entity_type_name,
+                        ),
+                        end_entity_id,
+                        old_relation_props,
+                        new_relation_props,
+                    ])
+
         # Connection is required
         # There should already be a transaction on the connection, a nested one is created here
         async with connection.transaction():
@@ -105,17 +149,23 @@ class RevisionManager:
                     connection,
                 )
             if raw_relations:
-                await self._revision_repo.post_entities_revision(
+                await self._revision_repo.post_relations_revision(
                     project_id,
                     [
                         {
                             'revision_id': revision_id,
                             'user_id': str(self._user.id),
                             'relation_type_revision_id': raw_relation[0],
-                            'entity_type_id': raw_relation[1],
-                            'entity_id': raw_relation[2],
-                            'old_value': json.dumps(raw_relation[3]),
-                            'new_value': json.dumps(raw_relation[4]),
+                            'relation_type_id': raw_relation[1],
+                            'relation_id': raw_relation[2],
+                            'start_entity_type_revision_id': raw_relation[3],
+                            'start_entity_type_id': raw_relation[4],
+                            'start_entity_id': raw_relation[5],
+                            'end_entity_type_revision_id': raw_relation[6],
+                            'end_entity_type_id': raw_relation[7],
+                            'end_entity_id': raw_relation[8],
+                            'old_value': json.dumps(raw_relation[9]),
+                            'new_value': json.dumps(raw_relation[10]),
                         }
                         for raw_relation in raw_relations
                     ],

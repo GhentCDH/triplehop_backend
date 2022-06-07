@@ -263,3 +263,10 @@ class ConfigManager:
                 status_code=404,
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
+
+    # TODO: delete cache on relation config update
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    async def get_current_relation_type_revision_id_by_name(self, project_name: str, relation_type_name: str) -> str:
+        relation_type_id = await self.get_relation_type_id_by_name(project_name, relation_type_name)
+
+        return await self._config_repo.get_current_relation_type_revision_id(relation_type_id)
