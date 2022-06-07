@@ -410,11 +410,13 @@ class DataManager:
             relation_type_name,
         )
 
-        source_records = await self._data_repo.get_relation_sources(
-            await self._get_project_id(),
-            relation_type_id,
-            relation_ids,
-        )
+        source_records = []
+        if relation_type_name != '_source_':
+            source_records = await self._data_repo.get_relation_sources(
+                await self._get_project_id(),
+                relation_type_id,
+                relation_ids,
+            )
 
         # build temporary dict so sources can easily be retrieved
         source_results = {}
