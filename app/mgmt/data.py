@@ -127,8 +127,9 @@ class DataManager:
         permission: str,
         entities_or_relations: str,
         type_name: str,
-        props: typing.List,
+        props: typing.List = None,
     ) -> None:
+        # Special case: source
         # TODO: check source permissions using config
         if (
             entities_or_relations == 'relations'
@@ -149,6 +150,9 @@ class DataManager:
         )
         if type_name not in allowed:
             raise fastapi.exceptions.HTTPException(status_code=403, detail="Forbidden")
+
+        if props is None:
+            return
 
         allowed_props = allowed[type_name]
         for prop in props:
@@ -273,7 +277,9 @@ class DataManager:
                         changes = True
                         break
                 if not changes:
-                    return old_entity
+                    return {
+                        'id': old_entity['id'],
+                    }
 
                 new_raw_entity = await self._data_repo.put_entity(
                     await self._get_project_id(),
@@ -532,13 +538,11 @@ class DataManager:
         relation_type_name: str,
         relation_id: int,
         input: typing.Dict,
-        inverse: bool = False,
-    ):
-        await self._check_permission('put', 'relations', relation_type_name, input.keys())
+    ) -> int:
+        await self._check_permission('delete', 'relations', relation_type_name)
 
         await self._validate_input('relations', relation_type_name, input)
 
-        # Insert in database
         relation_type_id = await self._config_manager.get_relation_type_id_by_name(
             self._project_name,
             relation_type_name,
@@ -561,20 +565,22 @@ class DataManager:
                 )
                 if old_raw_relation is None or old_raw_relation['id'] != relation_id:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                old_relation = old_raw_relation['properties']
+                old_relation_props = old_raw_relation['properties']
 
                 # check if there are any changes
                 # TODO: respond with no changes
                 changes = False
                 for k, v in db_input.items():
-                    if k not in old_relation:
+                    if k not in old_relation_props:
                         changes = True
                         break
-                    if old_relation[k] != v:
+                    if old_relation_props[k] != v:
                         changes = True
                         break
                 if not changes:
-                    return old_relation
+                    return {
+                        'id': old_relation_props['id'],
+                    }
 
                 new_raw_relation = await self._data_repo.put_relation(
                     await self._get_project_id(),
@@ -583,6 +589,89 @@ class DataManager:
                     db_input,
                     connection
                 )
+                if new_raw_relation is None:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                # strip off ::edge
+                new_relation_props = json.loads(new_raw_relation['e'][:-6])['properties']
+                # strip of ::vertex
+                start_entity_data = json.loads(new_raw_relation['d'][:-8])
+                start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                    self._project_name,
+                    utd(start_entity_data['label'][2:]),
+                )
+                start_entity_id = start_entity_data['properties']['id']
+                # strip of ::vertex
+                end_entity_data = json.loads(new_raw_relation['r'][:-8])
+                end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                    self._project_name,
+                    utd(end_entity_data['label'][2:]),
+                )
+                end_entity_id = end_entity_data['properties']['id']
+
+                await self._revision_manager.post_revision(
+                    {
+                        'relations': {
+                            relation_type_name: {
+                                relation_id: [
+                                    old_relation_props,
+                                    new_relation_props,
+                                    start_entity_type_name,
+                                    start_entity_id,
+                                    end_entity_type_name,
+                                    end_entity_id,
+                                ]
+                            }
+                        }
+                    },
+                    connection,
+                )
+
+                await self.update_es(
+                    'relations',
+                    relation_type_name,
+                    relation_id,
+                    dictdiffer.diff(old_relation_props, new_relation_props),
+                    connection
+                )
+
+        rtpm = await self._config_manager.get_relation_type_property_mapping(self._project_name, relation_type_name)
+
+        return {rtpm[k]: v for k, v in new_relation_props.items() if k in rtpm}
+
+    async def delete_relation(
+        self,
+        relation_type_name: str,
+        relation_id: int,
+    ):
+        await self._check_permission('delete', 'relations', relation_type_name)
+
+        relation_type_id = await self._config_manager.get_relation_type_id_by_name(
+            self._project_name,
+            relation_type_name,
+        )
+
+        # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
+
+        async with self._data_repo.connection() as connection:
+            async with connection.transaction():
+                old_raw_relation = await self._data_repo.get_relation(
+                    await self._get_project_id(),
+                    relation_type_id,
+                    relation_id,
+                    connection
+                )
+                if old_raw_relation is None or old_raw_relation['id'] != relation_id:
+                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                old_relation = old_raw_relation['properties']
+
+                return_data = await self._data_repo.delete_relation(
+                    await self._get_project_id(),
+                    relation_type_id,
+                    relation_id,
+                    connection
+                )
+                print(return_data)
+                # TODO
                 if new_raw_relation is None:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
                 # strip off ::edge
@@ -595,6 +684,10 @@ class DataManager:
                                 relation_id: [
                                     old_relation,
                                     new_relation,
+                                    start_entity_type_name,
+                                    start_entity_id,
+                                    end_entity_type_name,
+                                    end_entity_id,
                                 ]
                             }
                         }

@@ -59,7 +59,7 @@ class RevisionManager:
         project_id = await self._get_project_id()
         # TODO: relations
         raw_entities = []
-        # raw_relations = []
+        raw_relations = []
 
         if 'entities' in data:
             for entity_type_name in data['entities']:
@@ -101,6 +101,23 @@ class RevisionManager:
                             'new_value': json.dumps(raw_entity[4]),
                         }
                         for raw_entity in raw_entities
+                    ],
+                    connection,
+                )
+            if raw_relations:
+                await self._revision_repo.post_entities_revision(
+                    project_id,
+                    [
+                        {
+                            'revision_id': revision_id,
+                            'user_id': str(self._user.id),
+                            'relation_type_revision_id': raw_relation[0],
+                            'entity_type_id': raw_relation[1],
+                            'entity_id': raw_relation[2],
+                            'old_value': json.dumps(raw_relation[3]),
+                            'new_value': json.dumps(raw_relation[4]),
+                        }
+                        for raw_relation in raw_relations
                     ],
                     connection,
                 )

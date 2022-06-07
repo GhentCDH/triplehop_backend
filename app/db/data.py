@@ -244,10 +244,10 @@ class DataRepository(BaseRepository):
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
-            f'$$MATCH ()-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->() '
+            f'$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) '
             f'SET {set_clause} '
-            f'return e$$, :params'
-            f') as (e agtype);'
+            f'return d, e, r$$, :params'
+            f') as (d agtype, e agtype, r agtype);'
         )
 
         record = await self.fetchrow(
@@ -256,6 +256,39 @@ class DataRepository(BaseRepository):
                 'params': json.dumps({
                     'relation_id': relation_id,
                     **input,
+                })
+            },
+            age=True,
+            connection=connection,
+        )
+
+        return record
+
+    async def delete_relation(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        relation_id: int,
+        input: typing.Dict,
+        connection: asyncpg.connection.Connection = None,
+    ) -> typing.Dict:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        query = (
+            f'SELECT * FROM cypher('
+            f'\'{project_id}\', '
+            f'$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) '
+            f'DELETE e '
+            f'RETURN d, e, r$$, :params'
+            f') as (d agtype, e agtype, r agtype);'
+        )
+
+        record = await self.fetchrow(
+            query,
+            {
+                'params': json.dumps({
+                    'relation_id': relation_id,
                 })
             },
             age=True,
