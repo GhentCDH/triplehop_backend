@@ -74,6 +74,8 @@ class DataManager:
                     DataManager.raise_validation_exception(validator, 'This field is required.')
 
             if validator['type'] == 'edtf_year':
+                if prop_value == '':
+                    return
                 try:
                     # edtf module needs to be updated to the newest revision
                     # https://github.com/ixc/python-edtf/issues/24
