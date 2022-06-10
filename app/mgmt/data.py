@@ -584,26 +584,26 @@ class DataManager:
                         'id': old_relation_props['id'],
                     }
 
-                new_raw_relation = await self._data_repo.put_relation(
+                raw_data = await self._data_repo.put_relation(
                     await self._get_project_id(),
                     relation_type_id,
                     relation_id,
                     db_input,
                     connection
                 )
-                if new_raw_relation is None:
+                if raw_data is None:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
                 # strip off ::edge
-                new_relation_props = json.loads(new_raw_relation['e'][:-6])['properties']
+                new_relation_props = json.loads(raw_data['e'][:-6])['properties']
                 # strip of ::vertex
-                start_entity_data = json.loads(new_raw_relation['d'][:-8])
+                start_entity_data = json.loads(raw_data['d'][:-8])
                 start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
                     self._project_name,
                     utd(start_entity_data['label'][2:]),
                 )
                 start_entity_id = start_entity_data['properties']['id']
                 # strip of ::vertex
-                end_entity_data = json.loads(new_raw_relation['r'][:-8])
+                end_entity_data = json.loads(raw_data['r'][:-8])
                 end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
                     self._project_name,
                     utd(end_entity_data['label'][2:]),
@@ -664,28 +664,47 @@ class DataManager:
                 )
                 if old_raw_relation is None or old_raw_relation['id'] != relation_id:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                old_relation = old_raw_relation['properties']
+                old_relation_props = old_raw_relation['properties']
 
-                return_data = await self._data_repo.delete_relation(
+                await connection.execute(
+                    '''
+                    update revision.count
+                    set current_id = 666
+                    where project_id = 'ff68a2f1-1b08-4034-92fb-c3ecc1ce2cb3';
+                    '''
+                )
+
+                raw_data = await self._data_repo.delete_relation(
                     await self._get_project_id(),
                     relation_type_id,
                     relation_id,
                     connection
                 )
-                print(return_data)
-                # TODO
-                if new_raw_relation is None:
+
+                if raw_data is None:
                     raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                # strip off ::edge
-                new_relation = json.loads(new_raw_relation['e'][:-6])['properties']
+                # strip of ::vertex
+                start_entity_data = json.loads(raw_data['d'][:-8])
+                start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                    self._project_name,
+                    utd(start_entity_data['label'][2:]),
+                )
+                start_entity_id = start_entity_data['properties']['id']
+                # strip of ::vertex
+                end_entity_data = json.loads(raw_data['r'][:-8])
+                end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                    self._project_name,
+                    utd(end_entity_data['label'][2:]),
+                )
+                end_entity_id = end_entity_data['properties']['id']
 
                 await self._revision_manager.post_revision(
                     {
                         'relations': {
                             relation_type_name: {
                                 relation_id: [
-                                    old_relation,
-                                    new_relation,
+                                    old_relation_props,
+                                    None,
                                     start_entity_type_name,
                                     start_entity_id,
                                     end_entity_type_name,
@@ -701,13 +720,9 @@ class DataManager:
                     'relations',
                     relation_type_name,
                     relation_id,
-                    dictdiffer.diff(old_relation, new_relation),
+                    dictdiffer.diff(old_relation_props, {}),
                     connection
                 )
-
-        rtpm = await self._config_manager.get_relation_type_property_mapping(self._project_name, relation_type_name)
-
-        return {rtpm[k]: v for k, v in new_relation.items() if k in rtpm}
 
     async def get_entity_ids_by_type_name(
         self,
@@ -827,13 +842,31 @@ class DataManager:
                 type_name,
             )
 
-        diff_field_ids = []
+        p_diff_field_ids = set()
         for diff in diff_gen:
-            # When processing list values, the dictdiffer key is a list
-            if isinstance(diff[1], list):
-                diff_field_ids.append(f'${utd(diff[1][0][2:])}')
+            print(diff)
+            # add or remove on root
+            if diff[1] == '':
+                property_names = [alter[0] for alter in diff[2]]
+                if 'id' in property_names:
+                    # relation is being added or deleted
+                    print('relation')
+                else:
+                    for property_name in property_names:
+                        p_diff_field_ids.add(property_name)
+            # When processing list value changes, the dictdiffer key is a list
+            elif isinstance(diff[1], list):
+                p_diff_field_ids.add(diff[1][0])
             else:
-                diff_field_ids.append(f'${utd(diff[1][2:])}')
+                p_diff_field_ids.add(diff[1])
+
+        # add $, strip p_, replace underscores with dashes
+        diff_field_ids = [
+            f'${utd(p_diff_field_id[2:])}'
+            for p_diff_field_id
+            in p_diff_field_ids
+        ]
+        print(diff_field_ids)
 
         fields_to_update = {}
 
@@ -905,6 +938,8 @@ class DataManager:
                                 )
 
         entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
+
+        print(fields_to_update)
 
         for es_entity_type_id in fields_to_update:
             entity_type_config = entity_types_config[
