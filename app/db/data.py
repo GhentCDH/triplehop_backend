@@ -119,13 +119,24 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
 
-        set_clause = ', '.join([f'n.{k} = ${k}' for k in input.keys()])
+        set = {k: v for k, v in input.items() if len(v) != 0}
+        remove = [k for k, v in input.items() if len(v) == 0]
+
+        set_clause = ''
+        if set:
+            set_content = ', '.join([f'n.{k} = ${k}' for k in set.keys()])
+            set_clause = f'SET {set_content} '
+
+        remove_clause = ''
+        if remove:
+            remove_clause = ''.join(f'REMOVE n.{k} ' for k in remove)
 
         query = (
             f'SELECT * FROM cypher('
             f'\'{project_id}\', '
             f'$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) '
-            f'SET {set_clause} '
+            f'{set_clause}'
+            f'{remove_clause}'
             f'return n$$, :params'
             f') as (n agtype);'
         )
