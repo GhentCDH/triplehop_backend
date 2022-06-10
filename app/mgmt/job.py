@@ -42,6 +42,7 @@ class JobManager:
 
         return await self._job_repo.create(type, self._user.id, project_id, entity_type_id)
 
+    # TODO: set edit prohibited mode, allowing end user warnings when indexing
     async def es_index(self, job_id: uuid.UUID, project_name: str, entity_type_name: str):
         data_manager = app.mgmt.data.DataManager(self._request, self._user)
         entity_ids = await data_manager.get_entity_ids_by_type_name(entity_type_name)
