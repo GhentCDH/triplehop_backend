@@ -303,7 +303,7 @@ class GraphQLDataBuilder:
             return
 
         self._add_mutation_to_type_defs_and_query()
-        for etn, allowed_props in allowed.items():
+        for etn in allowed:
             self._type_defs_dict['Mutation'].append(
                 [
                     (
@@ -312,7 +312,7 @@ class GraphQLDataBuilder:
                         f'input: {first_cap(perm)}{first_cap(etn)}Input'
                         f')'
                     ),
-                    'IdObject',
+                    first_cap(etn),
                 ]
             )
             self._query_dict['Mutation'].set_field(
@@ -320,15 +320,8 @@ class GraphQLDataBuilder:
                 getattr(self, f'_{perm}_entity_resolver_wrapper')(etn),
             )
 
-            props = self._calc_props(
-                'entity',
-                etn,
-                allowed_props,
-                add_id=False,
-                input=True,
-            )
-            self._add_additional_props(props, True)
-            self._input_type_defs_dict[f'{first_cap(perm)}{first_cap(etn)}Input'] = props
+            # TODO: don't accept stringified JSON, use detailed GraphQL schema
+            self._input_type_defs_dict[f'{first_cap(perm)}{first_cap(etn)}Input'] = [['entity', 'String']]
 
     def _add_get_relation_schema_parts(self) -> None:
         # TODO: cardinality
@@ -348,13 +341,13 @@ class GraphQLDataBuilder:
             range_names = self._relation_types_config[rtn]['range_names']
 
             for domain_name in domain_names:
-                self._type_defs_dict[first_cap(domain_name)].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
+                self._type_defs_dict[first_cap(domain_name)].append([f'r_{rtn}_s', f'[getR_{rtn}!]!'])
                 self._query_dict[first_cap(domain_name)].set_field(
                     f'r_{rtn}_s',
                     self._get_relation_resolver_wrapper(rtn)
                 )
             for range_name in range_names:
-                self._type_defs_dict[first_cap(range_name)].append([f'ri_{rtn}_s', f'[Ri_{rtn}!]!'])
+                self._type_defs_dict[first_cap(range_name)].append([f'ri_{rtn}_s', f'[getRi_{rtn}!]!'])
                 self._query_dict[first_cap(range_name)].set_field(
                     f'ri_{rtn}_s',
                     self._get_relation_resolver_wrapper(rtn, True)
@@ -373,95 +366,48 @@ class GraphQLDataBuilder:
             self._unions.add(f'union Ri_{rtn}_domain = {" | ".join([first_cap(dn) for dn in domain_names])}')
             self._unions.add(f'union R_{rtn}_range = {" | ".join([first_cap(rn) for rn in range_names])}')
 
-            self._type_defs_dict[f'R_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
-            self._type_defs_dict[f'Ri_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
+            self._type_defs_dict[f'getR_{rtn}'] = props + [['entity', f'R_{rtn}_range']]
+            self._type_defs_dict[f'getRi_{rtn}'] = props + [['entity', f'Ri_{rtn}_domain']]
 
     def _add_post_put_relation_schema_parts(self, perm) -> None:
-        allowed = allowed_entities_or_relations_and_properties(
+        # TODO: fix so perm actually means relation permission, not entity permission
+        allowed_relations = allowed_entities_or_relations_and_properties(
             self._user,
             self._project_name,
             'relations',
             'data',
             perm,
         )
-
-        if not allowed:
-            return
-
-        self._add_mutation_to_type_defs_and_query()
-
-        for rtn, allowed_props in allowed.items():
-            if not allowed_props:
-                continue
-            self._type_defs_dict['Mutation'].append(
-                [
-                    f'{perm}R_{rtn}('
-                    f'{"id: Int!, " if perm == "put" else ""}'
-                    f'input: {first_cap(perm)}R_{rtn}Input'
-                    f')',
-                    'IdObject',
-                ]
-            )
-            self._type_defs_dict['Mutation'].append(
-                [
-                    f'{perm}Ri_{rtn}(id: Int!, input: {first_cap(perm)}Ri_{rtn}Input)',
-                    f'Ri_{rtn}',
-                ]
-            )
-            self._query_dict['Mutation'].set_field(
-                f'{perm}R_{rtn}',
-                getattr(self, f'_{perm}_relation_resolver_wrapper')(rtn),
-            )
-            self._query_dict['Mutation'].set_field(
-                f'{perm}Ri_{rtn}',
-                getattr(self, f'_{perm}_relation_resolver_wrapper')(rtn),
-            )
-
-            props = self._calc_props(
-                'relation',
-                rtn,
-                allowed_props,
-                False,
-                True,
-            )
-            self._add_additional_props(props, True)
-            self._input_type_defs_dict[f'{first_cap(perm)}R_{rtn}Input'] = props
-            self._input_type_defs_dict[f'{first_cap(perm)}Ri_{rtn}Input'] = props
-
-    def _add_delete_relation_schema_parts(self) -> None:
-        allowed = allowed_entities_or_relations_and_properties(
+        allowed_entities = allowed_entities_or_relations_and_properties(
             self._user,
             self._project_name,
-            'relations',
+            'entities',
             'data',
-            'delete',
+            perm,
         )
 
-        if not allowed:
+        if not allowed_relations or not allowed_entities:
             return
 
-        self._add_mutation_to_type_defs_and_query()
-        for rtn in allowed:
-            self._type_defs_dict['Mutation'].append(
-                [
-                    f'deleteR_{rtn}(id: Int!)',
-                    'IdObject',
-                ]
-            )
-            self._type_defs_dict['Mutation'].append(
-                [
-                    f'deleteRi_{rtn}(id: Int!)',
-                    'IdObject',
-                ]
-            )
-            self._query_dict['Mutation'].set_field(
-                f'deleteR_{rtn}',
-                self._delete_relation_resolver_wrapper(rtn),
-            )
-            self._query_dict['Mutation'].set_field(
-                f'deleteRi_{rtn}',
-                self._delete_relation_resolver_wrapper(rtn),
-            )
+        for rtn in allowed_relations:
+            # Source
+            if rtn == '_source_':
+                continue
+            domain_names = self._relation_types_config[rtn]['domain_names']
+            range_names = self._relation_types_config[rtn]['range_names']
+
+            for domain_name in domain_names:
+                if domain_name not in allowed_entities:
+                    continue
+                self._input_type_defs_dict[f'{first_cap(perm)}{first_cap(domain_name)}Input'].append(
+                    [f'r_{rtn}_s', 'String'],
+                )
+            for range_name in range_names:
+                if range_name not in allowed_entities:
+                    continue
+                self._input_type_defs_dict[f'{first_cap(perm)}{first_cap(range_name)}Input'].append(
+                    [f'ri_{rtn}_s', 'String'],
+                )
 
     # TODO: reset cache when project is updated or user permissions have been updated
     @aiocache.cached(key_builder=create_schema_key_builder)
@@ -501,14 +447,13 @@ class GraphQLDataBuilder:
         # Then add entity parts: relations are later added to these
         self._add_get_entity_schema_parts()
 
-        self._add_post_put_entity_schema_parts('post')
+        # self._add_post_put_entity_schema_parts('post')
         self._add_post_put_entity_schema_parts('put')
 
         self._add_get_relation_schema_parts()
 
-        self._add_post_put_relation_schema_parts('post')
+        # self._add_post_put_relation_schema_parts('post')
         self._add_post_put_relation_schema_parts('put')
-        self._add_delete_relation_schema_parts()
 
         type_defs_array = [
             construct_def('type', type, props)

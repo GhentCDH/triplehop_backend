@@ -242,80 +242,81 @@ class DataManager:
         entity_id: int,
         input: typing.Dict,
     ):
-        await self._check_permission('put', 'entities', entity_type_name, input.keys())
-
-        await self._validate_input('entities', entity_type_name, input)
-
-        # Insert in database
-        entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
-        etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
-        db_input = {
-            etipm[k]: v
-            for k, v in input.items()
-        }
-
         # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
+        if 'entity' in input:
+            entity_input = json.loads(input['entity'])
+            await self._check_permission('put', 'entities', entity_type_name, entity_input.keys())
 
-        async with self._data_repo.connection() as connection:
-            async with connection.transaction():
-                old_raw_entities = await self._data_repo.get_entities(
-                    await self._get_project_id(),
-                    entity_type_id,
-                    [entity_id],
-                    connection
-                )
-                if len(old_raw_entities) != 1 or old_raw_entities[0]['id'] != entity_id:
-                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
-                old_entity = json.loads(old_raw_entities[0]['properties'])
+            await self._validate_input('entities', entity_type_name, entity_input)
 
-                # check if there are any changes
-                # TODO: respond with no changes
-                changes = False
-                for k, v in db_input.items():
-                    if k not in old_entity:
-                        changes = True
-                        break
-                    if old_entity[k] != v:
-                        changes = True
-                        break
-                if not changes:
-                    return {
-                        'id': old_entity['id'],
-                    }
+            # Insert in database
+            entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
+            etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
+            db_input = {
+                etipm[k]: v
+                for k, v in entity_input.items()
+            }
 
-                new_raw_entity = await self._data_repo.put_entity(
-                    await self._get_project_id(),
-                    entity_type_id,
-                    entity_id,
-                    db_input,
-                    connection
-                )
-                if new_raw_entity is None:
-                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
-                # strip off ::vertex
-                new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
+            async with self._data_repo.connection() as connection:
+                async with connection.transaction():
+                    old_raw_entities = await self._data_repo.get_entities(
+                        await self._get_project_id(),
+                        entity_type_id,
+                        [entity_id],
+                        connection
+                    )
+                    if len(old_raw_entities) != 1 or old_raw_entities[0]['id'] != entity_id:
+                        raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
+                    old_entity = json.loads(old_raw_entities[0]['properties'])
 
-                await self._revision_manager.post_revision(
-                    {
-                        'entities': {
-                            entity_type_name: {
-                                entity_id: [
-                                    old_entity,
-                                    new_entity,
-                                ]
-                            }
+                    # check if there are any changes
+                    # TODO: respond with no changes
+                    changes = False
+                    for k, v in db_input.items():
+                        if k not in old_entity:
+                            changes = True
+                            break
+                        if old_entity[k] != v:
+                            changes = True
+                            break
+                    if not changes:
+                        return {
+                            'id': old_entity['id'],
                         }
-                    },
-                    connection,
-                )
 
-                await self.update_es(
-                    'entities',
-                    entity_type_name,
-                    entity_id,
-                    dictdiffer.diff(old_entity, new_entity),
-                    connection
-                )
+                    new_raw_entity = await self._data_repo.put_entity(
+                        await self._get_project_id(),
+                        entity_type_id,
+                        entity_id,
+                        db_input,
+                        connection
+                    )
+                    if new_raw_entity is None:
+                        raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
+                    # strip off ::vertex
+                    new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
+
+                    await self._revision_manager.post_revision(
+                        {
+                            'entities': {
+                                entity_type_name: {
+                                    entity_id: [
+                                        old_entity,
+                                        new_entity,
+                                    ]
+                                }
+                            }
+                        },
+                        connection,
+                    )
+
+                    await self.update_es(
+                        'entities',
+                        entity_type_name,
+                        entity_id,
+                        dictdiffer.diff(old_entity, new_entity),
+                        connection
+                    )
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
@@ -843,6 +844,7 @@ class DataManager:
             )
 
         p_diff_field_ids = set()
+        # relation_ids =
         for diff in diff_gen:
             print(diff)
             # add or remove on root
