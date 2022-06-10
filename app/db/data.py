@@ -269,7 +269,6 @@ class DataRepository(BaseRepository):
         project_id: str,
         relation_type_id: str,
         relation_id: int,
-        input: typing.Dict,
         connection: asyncpg.connection.Connection = None,
     ) -> typing.Dict:
         self.__class__._check_valid_label(project_id)
