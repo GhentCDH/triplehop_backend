@@ -243,22 +243,72 @@ class DataManager:
         input: typing.Dict,
     ):
         # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
+
+        # Validate data
+        entity_input = {}
         if 'entity' in input:
-            entity_input = json.loads(input['entity'])
+            entity_input = json.loads(input.pop('entity'))
             await self._check_permission('put', 'entities', entity_type_name, entity_input.keys())
 
             await self._validate_input('entities', entity_type_name, entity_input)
 
-            # Insert in database
+        # TODO: check if a relation is not put and deleted in a single mutation
+        relations_data = {}
+        if input:
+            for relation_type_name, relation_data_as_json in input.items():
+                # strip r_ or ri_ and _s
+                clean_relation_type_name = '_'.join(relation_type_name.split('_')[1:-1])
+                relation_data = json.loads(relation_data_as_json)
+
+                relations_data[clean_relation_type_name] = {}
+
+                for operation, operation_data in relation_data.items():
+                    await self._check_permission(operation, 'relations', clean_relation_type_name)
+
+                    if operation == 'put':
+                        relations_data[clean_relation_type_name]['put'] = {}
+                        for relation_id, relation_input_wrapper in operation_data.items():
+                            await self._validate_input(
+                                'relations',
+                                clean_relation_type_name,
+                                relation_input_wrapper['relation'],
+                            )
+                            relations_data[clean_relation_type_name]['put'][relation_id] = \
+                                relation_input_wrapper['relation']
+
+        # Prepare data
+        db_inputs = {}
+        if entity_input:
             entity_type_id = await self._config_manager.get_entity_type_id_by_name(self._project_name, entity_type_name)
             etipm = await self._config_manager.get_entity_type_i_property_mapping(self._project_name, entity_type_name)
-            db_input = {
+            db_inputs['entity'] = {
                 etipm[k]: v
                 for k, v in entity_input.items()
             }
+        for relation_type_name, relation_type_data in relations_data.items():
+            relation_type_id = await self._config_manager.get_relation_type_id_by_name(
+                self._project_name,
+                relation_type_name,
+            )
+            db_inputs[relation_type_id] = {}
+            if 'put' in relation_type_data:
+                rtipm = await self._config_manager.get_relation_type_i_property_mapping(
+                    self._project_name, relation_type_name
+                )
+                db_inputs[relation_type_id]['put'] = {}
+                for relation_id, relation_input in relation_type_data['put'].items():
+                    db_inputs[relation_type_id]['put'][relation_id] = {
+                        rtipm[k]: v
+                        for k, v in relation_input.items()
+                    }
 
-            async with self._data_repo.connection() as connection:
-                async with connection.transaction():
+        # Insert in database and update Elasticsearch
+        es_query = {}
+        revisions = {}
+        async with self._data_repo.connection() as connection:
+            async with connection.transaction():
+                if 'entity' in db_inputs:
+                    db_input = db_inputs.pop('entity')
                     old_raw_entities = await self._data_repo.get_entities(
                         await self._get_project_id(),
                         entity_type_id,
@@ -296,27 +346,108 @@ class DataManager:
                     # strip off ::vertex
                     new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
 
-                    await self._revision_manager.post_revision(
-                        {
-                            'entities': {
-                                entity_type_name: {
-                                    entity_id: [
-                                        old_entity,
-                                        new_entity,
-                                    ]
-                                }
-                            }
-                        },
-                        connection,
-                    )
+                    revisions['entities'] = {
+                        entity_type_name: {
+                            entity_id: [
+                                old_entity,
+                                new_entity,
+                            ]
+                        }
+                    }
 
-                    await self.update_es(
+                    await self.update_es_query(
+                        es_query,
                         'entities',
                         entity_type_name,
                         entity_id,
                         dictdiffer.diff(old_entity, new_entity),
                         connection
                     )
+                for relation_type_id, relation_data in db_inputs.items():
+                    if 'put' in relation_data:
+                        for relation_id, db_input in relation_data['put'].items():
+                            print(relation_type_id)
+                            print(relation_id)
+                            old_raw_relation = await self._data_repo.get_relation(
+                                await self._get_project_id(),
+                                relation_type_id,
+                                relation_id,
+                                connection
+                            )
+                            print(old_raw_relation)
+                            if old_raw_relation is None or old_raw_relation['id'] != relation_id:
+                                raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                            old_relation_props = old_raw_relation['properties']
+
+                            # check if there are any changes
+                            # TODO: respond with no changes
+                            changes = False
+                            for k, v in db_input.items():
+                                if k not in old_relation_props:
+                                    changes = True
+                                    break
+                                if old_relation_props[k] != v:
+                                    changes = True
+                                    break
+                            if not changes:
+                                return {
+                                    'id': old_relation_props['id'],
+                                }
+
+                            raw_data = await self._data_repo.put_relation(
+                                await self._get_project_id(),
+                                relation_type_id,
+                                relation_id,
+                                db_input,
+                                connection
+                            )
+                            if raw_data is None:
+                                raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                            # strip off ::edge
+                            new_relation_props = json.loads(raw_data['e'][:-6])['properties']
+                            # strip of ::vertex
+                            start_entity_data = json.loads(raw_data['d'][:-8])
+                            start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name,
+                                utd(start_entity_data['label'][2:]),
+                            )
+                            start_entity_id = start_entity_data['properties']['id']
+                            # strip of ::vertex
+                            end_entity_data = json.loads(raw_data['r'][:-8])
+                            end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name,
+                                utd(end_entity_data['label'][2:]),
+                            )
+                            end_entity_id = end_entity_data['properties']['id']
+
+                            if 'relations' not in revisions:
+                                revisions['relations'] = {}
+                            if relation_type_name not in revisions['relations']:
+                                revisions['relations'][relation_type_name] = {}
+                            revisions['relations'][relation_type_name][relation_id] = [
+                                old_relation_props,
+                                new_relation_props,
+                                start_entity_type_name,
+                                start_entity_id,
+                                end_entity_type_name,
+                                end_entity_id,
+                            ]
+
+                            await self.update_es_query(
+                                es_query,
+                                'relations',
+                                relation_type_name,
+                                relation_id,
+                                dictdiffer.diff(old_relation_props, new_relation_props),
+                                connection
+                            )
+
+                await self._revision_manager.post_revision(
+                    revisions,
+                    connection,
+                )
+
+                await self.update_es(es_query, connection)
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
 
@@ -542,7 +673,7 @@ class DataManager:
         relation_id: int,
         input: typing.Dict,
     ) -> int:
-        await self._check_permission('delete', 'relations', relation_type_name)
+        await self._check_permission('put', 'relations', relation_type_name)
 
         await self._validate_input('relations', relation_type_name, input)
 
@@ -824,8 +955,9 @@ class DataManager:
 
         return results
 
-    async def update_es(
+    async def update_es_query(
         self,
+        es_query: typing.Dict,
         entities_or_relations: str,
         type_name: str,
         id: int,
@@ -870,8 +1002,6 @@ class DataManager:
         ]
         print(diff_field_ids)
 
-        fields_to_update = {}
-
         async def add_entities_and_field_to_update(
             es_entity_type_id: str,
             selector_value: str,
@@ -889,12 +1019,12 @@ class DataManager:
             )
 
             if entity_ids:
-                if es_entity_type_id not in fields_to_update:
-                    fields_to_update[es_entity_type_id] = {}
+                if es_entity_type_id not in es_query:
+                    es_query[es_entity_type_id] = {}
                 for e_id in entity_ids:
-                    if e_id not in fields_to_update[es_entity_type_id]:
-                        fields_to_update[es_entity_type_id][e_id] = set()
-                    fields_to_update[es_entity_type_id][e_id].add(es_field_system_name)
+                    if e_id not in es_query[es_entity_type_id]:
+                        es_query[es_entity_type_id][e_id] = set()
+                    es_query[es_entity_type_id][e_id].add(es_field_system_name)
 
         for es_etn, etd in (await self._get_entity_types_config()).items():
             if 'config' in etd and 'es_data' in etd['config']:
@@ -939,25 +1069,30 @@ class DataManager:
                                     es_field_def['system_name'],
                                 )
 
+        print(es_query)
+
+    async def update_es(
+        self,
+        es_query: typing.Dict,
+        connection: asyncpg.Connection,
+    ) -> None:
         entity_types_config = await self._config_manager.get_entity_types_config(self._project_name)
 
-        print(fields_to_update)
-
-        for es_entity_type_id in fields_to_update:
+        for es_entity_type_id in es_query:
             entity_type_config = entity_types_config[
                 await self._config_manager.get_entity_type_name_by_id(self._project_name, es_entity_type_id)
             ]
             # Batch entities in lists with the same entity type and the same required fields
-            while fields_to_update[es_entity_type_id]:
+            while es_query[es_entity_type_id]:
                 batch_entity_ids = []
-                [e_id, es_field_system_names] = fields_to_update[es_entity_type_id].popitem()
+                [e_id, es_field_system_names] = es_query[es_entity_type_id].popitem()
                 batch_entity_ids = [
                     i
-                    for i in fields_to_update[es_entity_type_id]
-                    if fields_to_update[es_entity_type_id][i] == es_field_system_names
+                    for i in es_query[es_entity_type_id]
+                    if es_query[es_entity_type_id][i] == es_field_system_names
                 ]
                 for other_e_id in batch_entity_ids:
-                    del fields_to_update[es_entity_type_id][other_e_id]
+                    del es_query[es_entity_type_id][other_e_id]
 
                 batch_entity_ids.append(e_id)
 
