@@ -221,6 +221,9 @@ class DataRepository(BaseRepository):
             connection=connection,
         )
 
+        if record is None:
+            return None
+
         # strip off ::edge
         properties = json.loads(record[:-6])['properties']
         return {
