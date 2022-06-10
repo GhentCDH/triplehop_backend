@@ -221,6 +221,9 @@ class DataManager:
     ) -> typing.Dict:
         await self._check_permission('get', 'entities', entity_type_name, props)
 
+        # TODO: only return requested props
+        # -> change dataloader in graphql/data
+        # -> change return value of put_entity
         crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name=entity_type_name)
         if len(crdb_results) == 0:
             return {}
@@ -273,7 +276,7 @@ class DataManager:
                                 clean_relation_type_name,
                                 relation_input_wrapper['relation'],
                             )
-                            relations_data[clean_relation_type_name]['put'][relation_id] = \
+                            relations_data[clean_relation_type_name]['put'][int(relation_id)] = \
                                 relation_input_wrapper['relation']
 
         # Prepare data
@@ -329,52 +332,45 @@ class DataManager:
                         if old_entity[k] != v:
                             changes = True
                             break
-                    if not changes:
-                        return {
-                            'id': old_entity['id'],
+                    if changes:
+                        new_raw_entity = await self._data_repo.put_entity(
+                            await self._get_project_id(),
+                            entity_type_id,
+                            entity_id,
+                            db_input,
+                            connection
+                        )
+                        if new_raw_entity is None:
+                            raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
+                        # strip off ::vertex
+                        new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
+
+                        revisions['entities'] = {
+                            entity_type_name: {
+                                entity_id: [
+                                    old_entity,
+                                    new_entity,
+                                ]
+                            }
                         }
 
-                    new_raw_entity = await self._data_repo.put_entity(
-                        await self._get_project_id(),
-                        entity_type_id,
-                        entity_id,
-                        db_input,
-                        connection
-                    )
-                    if new_raw_entity is None:
-                        raise fastapi.exceptions.HTTPException(status_code=404, detail="Entity not found")
-                    # strip off ::vertex
-                    new_entity = json.loads(new_raw_entity['n'][:-8])['properties']
-
-                    revisions['entities'] = {
-                        entity_type_name: {
-                            entity_id: [
-                                old_entity,
-                                new_entity,
-                            ]
-                        }
-                    }
-
-                    await self.update_es_query(
-                        es_query,
-                        'entities',
-                        entity_type_name,
-                        entity_id,
-                        dictdiffer.diff(old_entity, new_entity),
-                        connection
-                    )
+                        await self.update_es_query(
+                            es_query,
+                            'entities',
+                            entity_type_name,
+                            entity_id,
+                            dictdiffer.diff(old_entity, new_entity),
+                            connection
+                        )
                 for relation_type_id, relation_data in db_inputs.items():
                     if 'put' in relation_data:
                         for relation_id, db_input in relation_data['put'].items():
-                            print(relation_type_id)
-                            print(relation_id)
                             old_raw_relation = await self._data_repo.get_relation(
                                 await self._get_project_id(),
                                 relation_type_id,
                                 relation_id,
                                 connection
                             )
-                            print(old_raw_relation)
                             if old_raw_relation is None or old_raw_relation['id'] != relation_id:
                                 raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
                             old_relation_props = old_raw_relation['properties']
@@ -389,58 +385,54 @@ class DataManager:
                                 if old_relation_props[k] != v:
                                     changes = True
                                     break
-                            if not changes:
-                                return {
-                                    'id': old_relation_props['id'],
-                                }
+                            if changes:
+                                raw_data = await self._data_repo.put_relation(
+                                    await self._get_project_id(),
+                                    relation_type_id,
+                                    relation_id,
+                                    db_input,
+                                    connection
+                                )
+                                if raw_data is None:
+                                    raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
+                                # strip off ::edge
+                                new_relation_props = json.loads(raw_data['e'][:-6])['properties']
+                                # strip of ::vertex
+                                start_entity_data = json.loads(raw_data['d'][:-8])
+                                start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(start_entity_data['label'][2:]),
+                                )
+                                start_entity_id = start_entity_data['properties']['id']
+                                # strip of ::vertex
+                                end_entity_data = json.loads(raw_data['r'][:-8])
+                                end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(end_entity_data['label'][2:]),
+                                )
+                                end_entity_id = end_entity_data['properties']['id']
 
-                            raw_data = await self._data_repo.put_relation(
-                                await self._get_project_id(),
-                                relation_type_id,
-                                relation_id,
-                                db_input,
-                                connection
-                            )
-                            if raw_data is None:
-                                raise fastapi.exceptions.HTTPException(status_code=404, detail="Relation not found")
-                            # strip off ::edge
-                            new_relation_props = json.loads(raw_data['e'][:-6])['properties']
-                            # strip of ::vertex
-                            start_entity_data = json.loads(raw_data['d'][:-8])
-                            start_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
-                                self._project_name,
-                                utd(start_entity_data['label'][2:]),
-                            )
-                            start_entity_id = start_entity_data['properties']['id']
-                            # strip of ::vertex
-                            end_entity_data = json.loads(raw_data['r'][:-8])
-                            end_entity_type_name = await self._config_manager.get_entity_type_name_by_id(
-                                self._project_name,
-                                utd(end_entity_data['label'][2:]),
-                            )
-                            end_entity_id = end_entity_data['properties']['id']
+                                if 'relations' not in revisions:
+                                    revisions['relations'] = {}
+                                if relation_type_name not in revisions['relations']:
+                                    revisions['relations'][relation_type_name] = {}
+                                revisions['relations'][relation_type_name][relation_id] = [
+                                    old_relation_props,
+                                    new_relation_props,
+                                    start_entity_type_name,
+                                    start_entity_id,
+                                    end_entity_type_name,
+                                    end_entity_id,
+                                ]
 
-                            if 'relations' not in revisions:
-                                revisions['relations'] = {}
-                            if relation_type_name not in revisions['relations']:
-                                revisions['relations'][relation_type_name] = {}
-                            revisions['relations'][relation_type_name][relation_id] = [
-                                old_relation_props,
-                                new_relation_props,
-                                start_entity_type_name,
-                                start_entity_id,
-                                end_entity_type_name,
-                                end_entity_id,
-                            ]
-
-                            await self.update_es_query(
-                                es_query,
-                                'relations',
-                                relation_type_name,
-                                relation_id,
-                                dictdiffer.diff(old_relation_props, new_relation_props),
-                                connection
-                            )
+                                await self.update_es_query(
+                                    es_query,
+                                    'relations',
+                                    relation_type_name,
+                                    relation_id,
+                                    dictdiffer.diff(old_relation_props, new_relation_props),
+                                    connection
+                                )
 
                 await self._revision_manager.post_revision(
                     revisions,
@@ -449,9 +441,12 @@ class DataManager:
 
                 await self.update_es(es_query, connection)
 
-        etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
-
-        return {etpm[k]: v for k, v in new_entity.items() if k in etpm}
+        # TODO: replace with actual props when _get_entities gives minimal result
+        return (await self.get_entities(
+            entity_type_name,
+            [],
+            [entity_id],
+        ))[entity_id]
 
     async def _get_relations_crdb(
         self,

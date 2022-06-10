@@ -38,6 +38,7 @@ class BaseRepository:
 
         return [query, args]
 
+    # TODO: only initialize age once (e.g., by subclassing asyncpg.connection.Connection and adding an attribute)
     @staticmethod
     async def _init_age(connection: asyncpg.connection.Connection) -> None:
         """Set ag_catalog as search_path and load the Apache AGE library file.
