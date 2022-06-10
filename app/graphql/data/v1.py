@@ -94,7 +94,7 @@ class GraphQLDataBuilder:
 
         return resolver
 
-    def _relation_resolver_wrapper(
+    def _get_relation_resolver_wrapper(
         self,
         relation_type_name: str,
         inverse: bool = False,
@@ -281,7 +281,7 @@ class GraphQLDataBuilder:
                 self._type_defs_dict[first_cap(etn)].append(['_source_', '[Source_!]!'])
                 self._query_dict[first_cap(etn)].set_field(
                     '_source_',
-                    self._relation_resolver_wrapper('_source_')
+                    self._get_relation_resolver_wrapper('_source_')
                 )
 
     def _add_mutation_to_type_defs_and_query(self) -> None:
@@ -351,13 +351,13 @@ class GraphQLDataBuilder:
                 self._type_defs_dict[first_cap(domain_name)].append([f'r_{rtn}_s', f'[R_{rtn}!]!'])
                 self._query_dict[first_cap(domain_name)].set_field(
                     f'r_{rtn}_s',
-                    self._relation_resolver_wrapper(rtn)
+                    self._get_relation_resolver_wrapper(rtn)
                 )
             for range_name in range_names:
                 self._type_defs_dict[first_cap(range_name)].append([f'ri_{rtn}_s', f'[Ri_{rtn}!]!'])
                 self._query_dict[first_cap(range_name)].set_field(
                     f'ri_{rtn}_s',
-                    self._relation_resolver_wrapper(rtn, True)
+                    self._get_relation_resolver_wrapper(rtn, True)
                 )
 
             props = self._calc_props(
