@@ -105,7 +105,6 @@ class DataRepository(BaseRepository):
             connection=connection,
         )
 
-
         return records
 
     async def put_entity(
