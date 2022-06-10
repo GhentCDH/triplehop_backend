@@ -223,7 +223,6 @@ class DataManager:
 
         # TODO: only return requested props
         # -> change dataloader in graphql/data
-        # -> change return value of put_entity
         crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name=entity_type_name)
         if len(crdb_results) == 0:
             return {}
@@ -244,6 +243,7 @@ class DataManager:
         entity_type_name: str,
         entity_id: int,
         input: typing.Dict,
+        props: typing.List[str],
     ):
         # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
 
@@ -441,10 +441,9 @@ class DataManager:
 
                 await self.update_es(es_query, connection)
 
-        # TODO: replace with actual props when _get_entities gives minimal result
         return (await self.get_entities(
             entity_type_name,
-            [],
+            props,
             [entity_id],
         ))[entity_id]
 

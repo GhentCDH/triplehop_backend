@@ -86,11 +86,12 @@ class GraphQLDataBuilder:
         self,
         entity_type_name: str,
     ):
-        async def put_entity(entity_id: int, input: typing.Dict):
-            return await self._data_manager.put_entity(entity_type_name, entity_id, input)
+        async def put_entity(entity_id: int, input: typing.Dict, props: typing.List[str]):
+            return await self._data_manager.put_entity(entity_type_name, entity_id, input, props)
 
         async def resolver(_, info, id, input):
-            return await put_entity(id, input)
+            props = self.__class__._get_requested_entity_props(info)
+            return await put_entity(id, input, props)
 
         return resolver
 
