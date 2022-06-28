@@ -54,7 +54,7 @@ class JobManager:
 
             entity_type_config = entity_types_config[entity_type_name]
             es_data_config = entity_type_config['config']['es_data']['fields']
-            crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
+            triplehop_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
             new_index_name = await self._es.create_new_index(es_data_config)
 
             batch_counter = 0
@@ -62,7 +62,7 @@ class JobManager:
                 batch_ids = entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
                 batch_entities = await data_manager.get_entity_data(
                     batch_ids,
-                    crdb_query,
+                    triplehop_query,
                     entity_type_name=entity_type_name,
                 )
 

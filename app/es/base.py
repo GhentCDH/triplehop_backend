@@ -31,7 +31,7 @@ class BaseElasticsearch:
 
     @staticmethod
     def extract_query_from_es_data_config(es_data_config: typing.List) -> typing.Dict:
-        # TODO: document crdb_query format
+        # TODO: document triplehop_query format
         # get all requested fields
         requested_fields = set()
         for es_field_conf in es_data_config:

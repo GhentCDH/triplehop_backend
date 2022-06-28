@@ -182,7 +182,7 @@ class DataManager:
                 prop_validators = prop_config['validators']
             self.__class__.validate_prop_value(prop_value, prop_config['type'], prop_validators)
 
-    async def _get_entities_crdb(
+    async def _get_entities_triplehop(
         self,
         entity_ids: typing.List[int],
         entity_type_name: typing.Optional[str] = None,
@@ -223,8 +223,8 @@ class DataManager:
 
         # TODO: only return requested props
         # -> change dataloader in graphql/data
-        crdb_results = await self._get_entities_crdb(entity_ids, entity_type_name=entity_type_name)
-        if len(crdb_results) == 0:
+        triplehop_results = await self._get_entities_triplehop(entity_ids, entity_type_name=entity_type_name)
+        if len(triplehop_results) == 0:
             return {}
 
         etpm = await self._config_manager.get_entity_type_property_mapping(self._project_name, entity_type_name)
@@ -232,10 +232,10 @@ class DataManager:
         return {
             entity_id: {
                 etpm[k]: v
-                for k, v in crdb_result['e_props'].items()
+                for k, v in triplehop_result['e_props'].items()
                 if k in etpm
             }
-            for entity_id, crdb_result in crdb_results.items()
+            for entity_id, triplehop_result in triplehop_results.items()
         }
 
     async def put_entity(
@@ -512,7 +512,7 @@ class DataManager:
             [entity_id],
         ))[entity_id]
 
-    async def _get_relations_crdb(
+    async def _get_relations_triplehop(
         self,
         entity_ids: typing.List[int],
         inverse: bool = False,
@@ -593,17 +593,17 @@ class DataManager:
         # TODO: check permission for requested properties
         await self._check_permission('get', 'relations', relation_type_name, {})
 
-        crdb_results = await self._get_relations_crdb(
+        triplehop_results = await self._get_relations_triplehop(
             entity_ids,
             inverse,
             entity_type_name=entity_type_name,
             relation_type_name=relation_type_name
         )
 
-        if len(crdb_results) == 0:
+        if len(triplehop_results) == 0:
             return {}
 
-        relation_ids = [rid for eid in crdb_results for rid in crdb_results[eid]]
+        relation_ids = [rid for eid in triplehop_results for rid in triplehop_results[eid]]
         relation_type_id = await self._config_manager.get_relation_type_id_by_name(
             self._project_name,
             relation_type_name,
@@ -640,9 +640,9 @@ class DataManager:
         etd = {}
 
         results = {}
-        for entity_id, crdb_result in crdb_results.items():
+        for entity_id, triplehop_result in triplehop_results.items():
             results[entity_id] = []
-            for rel_id, rel_result in crdb_result.items():
+            for rel_id, rel_result in triplehop_result.items():
                 etid = rel_result['entity_type_id']
                 # keep a dict of entity type definitions
                 if etid not in etd:
@@ -738,7 +738,7 @@ class DataManager:
     async def get_entity_data(
         self,
         entity_ids: typing.List[int],
-        crdb_query: typing.Dict,
+        triplehop_query: typing.Dict,
         first_iteration: bool = True,
         entity_type_name: typing.Optional[str] = None,
         entity_type_id: typing.Optional[str] = None,
@@ -747,7 +747,7 @@ class DataManager:
         if not entity_ids:
             return {}
 
-        if not crdb_query:
+        if not triplehop_query:
             raise Exception('Empty query')
 
         self.__class__._require_entity_type_name_or_entity_type_id(entity_type_name, entity_type_id)
@@ -762,12 +762,12 @@ class DataManager:
         # start entity
         if first_iteration:
             # check if entity props are requested
-            if crdb_query['e_props']:
-                results = await self._get_entities_crdb(entity_ids, **entity_type_name_or_id, connection=connection)
+            if triplehop_query['e_props']:
+                results = await self._get_entities_triplehop(entity_ids, **entity_type_name_or_id, connection=connection)
 
-        for relation_type_id in crdb_query['relations']:
+        for relation_type_id in triplehop_query['relations']:
             # get relation data
-            raw_results = await self._get_relations_crdb(
+            raw_results = await self._get_relations_triplehop(
                 entity_ids,
                 relation_type_id.split('_')[0] == 'ri',
                 **entity_type_name_or_id,
@@ -787,7 +787,7 @@ class DataManager:
             # mapping so results (identified by entity_type_name, entity_id)
             # can be added in the right place (identified by relation_type_id, relation_id)
             mapping = {}
-            if crdb_query['relations'][relation_type_id]['relations']:
+            if triplehop_query['relations'][relation_type_id]['relations']:
                 for entity_id, raw_relation_results in raw_results.items():
                     for relation_id, raw_result in raw_relation_results.items():
                         rel_entity_type_id = raw_result['entity_type_id']
@@ -808,7 +808,7 @@ class DataManager:
                 for rel_entity_type_id, rel_entity_ids in rel_entities.items():
                     raw_rel_results_per_entity_type_id[rel_entity_type_id] = await self.get_entity_data(
                         list(rel_entity_ids),
-                        crdb_query['relations'][relation_type_id],
+                        triplehop_query['relations'][relation_type_id],
                         False,
                         **entity_type_name_or_id,
                         connection=connection,
@@ -979,14 +979,14 @@ class DataManager:
                     for field_def in entity_type_config['config']['es_data']['fields']
                     if field_def['system_name'] in es_field_system_names
                 ]
-                crdb_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
+                triplehop_query = BaseElasticsearch.extract_query_from_es_data_config(es_data_config)
 
                 batch_counter = 0
                 while True:
                     batch_ids = batch_entity_ids[batch_counter * BATCH_SIZE:(batch_counter + 1) * BATCH_SIZE]
                     batch_entities = await self.get_entity_data(
                         batch_ids,
-                        crdb_query,
+                        triplehop_query,
                         entity_type_id=es_entity_type_id,
                         connection=connection,
                     )
