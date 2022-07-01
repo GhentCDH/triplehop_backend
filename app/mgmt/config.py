@@ -1,10 +1,10 @@
+import json
+import typing
+
 import aiocache
 import asyncpg
 import fastapi
-import json
 import starlette
-import typing
-
 from app.cache.core import no_arg_key_builder, skip_first_arg_key_builder
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
@@ -28,10 +28,10 @@ class ConfigManager:
 
         result = {}
         for record in records:
-            result[record['system_name']] = {
-                'id': record['id'],
-                'system_name': record['system_name'],
-                'display_name': record['display_name'],
+            result[record["system_name"]] = {
+                "id": record["id"],
+                "system_name": record["system_name"],
+                "display_name": record["display_name"],
             }
 
         return result
@@ -42,7 +42,7 @@ class ConfigManager:
         project_config = await self.get_projects_config()
 
         try:
-            return project_config[project_name]['id']
+            return project_config[project_name]["id"]
         except KeyError:
             # TODO log message
             raise fastapi.exceptions.HTTPException(
@@ -71,27 +71,33 @@ class ConfigManager:
         project_name: str,
         connection: asyncpg.Connection = None,
     ) -> typing.Dict:
-        records = await self._config_repo.get_entity_types_config(project_name, connection=connection)
+        records = await self._config_repo.get_entity_types_config(
+            project_name, connection=connection
+        )
 
         result = {}
         for record in records:
-            result[record['system_name']] = {
-                'id': record['id'],
-                'display_name': record['display_name'],
-                'config': json.loads(record['config']),
+            result[record["system_name"]] = {
+                "id": record["id"],
+                "display_name": record["display_name"],
+                "config": json.loads(record["config"]),
             }
 
         return result
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_entity_type_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
+    async def get_entity_type_property_mapping(
+        self, project_name: str, entity_type_name: str
+    ) -> typing.Dict:
         entity_types_config = await self.get_entity_types_config(project_name)
 
-        if entity_type_name == '__all__':
+        if entity_type_name == "__all__":
             result = {}
             for etn in entity_types_config:
-                result.update(await self.get_entity_type_property_mapping(project_name, etn))
+                result.update(
+                    await self.get_entity_type_property_mapping(project_name, etn)
+                )
             return result
 
         try:
@@ -104,25 +110,30 @@ class ConfigManager:
             )
 
         if (
-            'data' in entity_type_config['config']
-            and 'fields' in entity_type_config['config']['data']
+            "data" in entity_type_config["config"]
+            and "fields" in entity_type_config["config"]["data"]
         ):
-            properties_config = entity_type_config['config']['data']['fields']
+            properties_config = entity_type_config["config"]["data"]["fields"]
         else:
             properties_config = {}
 
         # leave the id property intact
-        result = {'id': 'id'}
+        result = {"id": "id"}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
+            result[f"p_{dtu(property_config_id)}"] = property_config["system_name"]
 
         return result
 
-    async def get_entity_type_i_property_mapping(self, project_name: str, entity_type_name: str) -> typing.Dict:
+    async def get_entity_type_i_property_mapping(
+        self, project_name: str, entity_type_name: str
+    ) -> typing.Dict:
         return {
             v: k
-            for k, v
-            in (await self.get_entity_type_property_mapping(project_name, entity_type_name)).items()
+            for k, v in (
+                await self.get_entity_type_property_mapping(
+                    project_name, entity_type_name
+                )
+            ).items()
         }
 
     # TODO: delete cache on entity config update
@@ -133,10 +144,12 @@ class ConfigManager:
         entity_type_name: str,
         connection: asyncpg.Connection = None,
     ) -> str:
-        entity_types_config = await self.get_entity_types_config(project_name, connection=connection)
+        entity_types_config = await self.get_entity_types_config(
+            project_name, connection=connection
+        )
 
         try:
-            return entity_types_config[entity_type_name]['id']
+            return entity_types_config[entity_type_name]["id"]
         except KeyError:
             # TODO log message
             raise fastapi.exceptions.HTTPException(
@@ -146,19 +159,27 @@ class ConfigManager:
 
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_current_entity_type_revision_id_by_name(self, project_name: str, entity_type_name: str) -> str:
-        entity_type_id = await self.get_entity_type_id_by_name(project_name, entity_type_name)
+    async def get_current_entity_type_revision_id_by_name(
+        self, project_name: str, entity_type_name: str
+    ) -> str:
+        entity_type_id = await self.get_entity_type_id_by_name(
+            project_name, entity_type_name
+        )
 
-        return await self._config_repo.get_current_entity_type_revision_id(entity_type_id)
+        return await self._config_repo.get_current_entity_type_revision_id(
+            entity_type_id
+        )
 
     # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_entity_type_name_by_id(self, project_name: str, entity_type_id: str) -> str:
+    async def get_entity_type_name_by_id(
+        self, project_name: str, entity_type_id: str
+    ) -> str:
         entity_types_config = await self.get_entity_types_config(project_name)
 
         for entity_type_name in entity_types_config:
-            if entity_types_config[entity_type_name]['id'] == entity_type_id:
+            if entity_types_config[entity_type_name]["id"] == entity_type_id:
                 return entity_type_name
 
         # TODO log message
@@ -174,40 +195,46 @@ class ConfigManager:
         project_name: str,
         connection: asyncpg.Connection = None,
     ) -> typing.Dict:
-        records = await self._config_repo.get_relation_types_config(project_name, connection=connection)
+        records = await self._config_repo.get_relation_types_config(
+            project_name, connection=connection
+        )
 
         result = {}
         for record in records:
-            result[record['system_name']] = {
-                'id': record['id'],
-                'display_name': record['display_name'],
-                'config': json.loads(record['config']),
-                'domain_names': list(set(record['domain_names'])),
-                'range_names': list(set(record['range_names'])),
+            result[record["system_name"]] = {
+                "id": record["id"],
+                "display_name": record["display_name"],
+                "config": json.loads(record["config"]),
+                "domain_names": list(set(record["domain_names"])),
+                "range_names": list(set(record["range_names"])),
             }
 
         return result
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_relation_type_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
+    async def get_relation_type_property_mapping(
+        self, project_name: str, relation_type_name: str
+    ) -> typing.Dict:
         # Special case: '_source_'
-        if relation_type_name == '_source_':
+        if relation_type_name == "_source_":
             return {
-                'id': 'id',
-                'properties': 'properties',
-                'source_props': 'source_props',
+                "id": "id",
+                "properties": "properties",
+                "source_props": "source_props",
             }
 
         relation_types_config = await self.get_relation_types_config(project_name)
 
-        if relation_type_name == '__all__':
+        if relation_type_name == "__all__":
             result = {
                 # Used to indicate a source is relevant an entire relation
-                'p___rel__': '__rel__',
+                "p___rel__": "__rel__",
             }
             for rtn in relation_types_config:
-                result.update(await self.get_relation_type_property_mapping(project_name, rtn))
+                result.update(
+                    await self.get_relation_type_property_mapping(project_name, rtn)
+                )
             return result
 
         try:
@@ -220,25 +247,30 @@ class ConfigManager:
             )
 
         if (
-            'data' in relation_type_config['config']
-            and 'fields' in relation_type_config['config']['data']
+            "data" in relation_type_config["config"]
+            and "fields" in relation_type_config["config"]["data"]
         ):
-            properties_config = relation_type_config['config']['data']['fields']
+            properties_config = relation_type_config["config"]["data"]["fields"]
         else:
             properties_config = {}
 
         # leave the id property intact
-        result = {'id': 'id'}
+        result = {"id": "id"}
         for property_config_id, property_config in properties_config.items():
-            result[f'p_{dtu(property_config_id)}'] = property_config['system_name']
+            result[f"p_{dtu(property_config_id)}"] = property_config["system_name"]
 
         return result
 
-    async def get_relation_type_i_property_mapping(self, project_name: str, relation_type_name: str) -> typing.Dict:
+    async def get_relation_type_i_property_mapping(
+        self, project_name: str, relation_type_name: str
+    ) -> typing.Dict:
         return {
             v: k
-            for k, v
-            in (await self.get_relation_type_property_mapping(project_name, relation_type_name)).items()
+            for k, v in (
+                await self.get_relation_type_property_mapping(
+                    project_name, relation_type_name
+                )
+            ).items()
         }
 
     # TODO: delete cache on relation config update
@@ -250,13 +282,15 @@ class ConfigManager:
         connection: asyncpg.Connection = None,
     ) -> int:
         # Special case '_source__'
-        if relation_type_name == '_source_':
-            return '_source_'
+        if relation_type_name == "_source_":
+            return "_source_"
 
-        relation_types_config = await self.get_relation_types_config(project_name, connection=connection)
+        relation_types_config = await self.get_relation_types_config(
+            project_name, connection=connection
+        )
 
         try:
-            return relation_types_config[relation_type_name]['id']
+            return relation_types_config[relation_type_name]["id"]
         except KeyError:
             # TODO log message
             raise fastapi.exceptions.HTTPException(
@@ -266,7 +300,13 @@ class ConfigManager:
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def get_current_relation_type_revision_id_by_name(self, project_name: str, relation_type_name: str) -> str:
-        relation_type_id = await self.get_relation_type_id_by_name(project_name, relation_type_name)
+    async def get_current_relation_type_revision_id_by_name(
+        self, project_name: str, relation_type_name: str
+    ) -> str:
+        relation_type_id = await self.get_relation_type_id_by_name(
+            project_name, relation_type_name
+        )
 
-        return await self._config_repo.get_current_relation_type_revision_id(relation_type_id)
+        return await self._config_repo.get_current_relation_type_revision_id(
+            relation_type_id
+        )

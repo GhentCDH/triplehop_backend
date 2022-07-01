@@ -1,19 +1,21 @@
-import asyncpg
 import typing
 
+import asyncpg
 from app.db.base import BaseRepository
 
 
 class ConfigRepository(BaseRepository):
-    async def get_projects_config(self, connection: asyncpg.Connection = None) -> typing.List[asyncpg.Record]:
+    async def get_projects_config(
+        self, connection: asyncpg.Connection = None
+    ) -> typing.List[asyncpg.Record]:
         return await self.fetch(
-            '''
+            """
                 SELECT
                     project.id::text,
                     project.system_name,
                     project.display_name
                 FROM app.project;
-            ''',
+            """,
             connection=connection,
         )
 
@@ -23,7 +25,7 @@ class ConfigRepository(BaseRepository):
         connection: asyncpg.Connection = None,
     ) -> typing.List[asyncpg.Record]:
         return await self.fetch(
-            '''
+            """
                 SELECT
                     entity.id::text,
                     entity.system_name,
@@ -33,9 +35,9 @@ class ConfigRepository(BaseRepository):
                 INNER JOIN app.project ON entity.project_id = project.id
                 WHERE project.system_name = :project_name
                 AND entity.system_name != '__all__';
-            ''',
+            """,
             {
-                'project_name': project_name,
+                "project_name": project_name,
             },
             connection=connection,
         )
@@ -46,26 +48,24 @@ class ConfigRepository(BaseRepository):
         connection: asyncpg.Connection = None,
     ) -> str:
         return await self.fetchval(
-            '''
+            """
                 SELECT id::text
                 FROM app.entity_revision
                 WHERE entity_id = :entity_type_id
                 ORDER BY created DESC
                 LIMIT 1;
-            ''',
+            """,
             {
-                'entity_type_id': entity_type_id,
+                "entity_type_id": entity_type_id,
             },
             connection=connection,
         )
 
     async def get_relation_types_config(
-        self,
-        project_name: str,
-        connection: asyncpg.Connection = None
+        self, project_name: str, connection: asyncpg.Connection = None
     ) -> typing.List[asyncpg.Record]:
         return await self.fetch(
-            '''
+            """
                 SELECT
                     relation.id::text,
                     relation.system_name,
@@ -81,9 +81,9 @@ class ConfigRepository(BaseRepository):
                 INNER JOIN app.entity range ON relation_range.entity_id = range.id
                 WHERE project.system_name = :project_name
                 GROUP BY (relation.id);
-            ''',
+            """,
             {
-                'project_name': project_name,
+                "project_name": project_name,
             },
             connection=connection,
         )
@@ -94,15 +94,15 @@ class ConfigRepository(BaseRepository):
         connection: asyncpg.Connection = None,
     ) -> str:
         return await self.fetchval(
-            '''
+            """
                 SELECT id::text
                 FROM app.relation_revision
                 WHERE relation_id = :relation_type_id
                 ORDER BY created DESC
                 LIMIT 1;
-            ''',
+            """,
             {
-                'relation_type_id': relation_type_id,
+                "relation_type_id": relation_type_id,
             },
             connection=connection,
         )

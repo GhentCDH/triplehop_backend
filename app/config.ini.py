@@ -1,17 +1,17 @@
 ALLOWED_ORIGINS = []
 
 DATABASE = {
-    'host': '',
-    'database': '',
-    'user': '',
-    'password': '',
+    "host": "",
+    "database": "",
+    "user": "",
+    "password": "",
 }
 
 ELASTICSEARCH = {
-    'hosts': [],
-    'prefix': '',
+    "hosts": [],
+    "prefix": "",
 }
 
-JWT_ENCODING_ALGORITHM = 'HS256'
+JWT_ENCODING_ALGORITHM = "HS256"
 
-SECRET_KEY = ''
+SECRET_KEY = ""

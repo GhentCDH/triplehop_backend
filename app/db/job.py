@@ -1,13 +1,13 @@
-import asyncpg
 import uuid
 
+import asyncpg
 from app.db.base import BaseRepository
 
 
 class JobRepository(BaseRepository):
     async def get_by_project(self, id: str, project_name: str) -> asyncpg.Record:
         return await self.fetchrow(
-            '''
+            """
                 SELECT
                     job.id,
                     "user".display_name as user_name,
@@ -31,78 +31,90 @@ class JobRepository(BaseRepository):
                 LEFT JOIN app.relation ON job.relation_id = relation.id
                 WHERE job.id = :id
                 AND project.system_name = :project_name
-            ''', {
-                'id': str(id),
-                'project_name': project_name,
-            }
+            """,
+            {
+                "id": str(id),
+                "project_name": project_name,
+            },
         )
 
-    async def create(self, type: str, user_id: str, project_id: str = None, entity_type_id: str = None) -> uuid.UUID:
+    async def create(
+        self,
+        type: str,
+        user_id: str,
+        project_id: str = None,
+        entity_type_id: str = None,
+    ) -> uuid.UUID:
         return await self.fetchval(
-            '''
+            """
                 INSERT INTO app.job(user_id, project_id, entity_id, type, status)
                 VALUES (:user_id, :project_id, :entity_id, :type, :status)
                 RETURNING id
-            ''', {
-                'user_id': user_id,
-                'project_id': project_id,
-                'entity_id': entity_type_id,
-                'type': type,
-                'status': 'created',
-            }
+            """,
+            {
+                "user_id": user_id,
+                "project_id": project_id,
+                "entity_id": entity_type_id,
+                "type": type,
+                "status": "created",
+            },
         )
 
     async def start(self, id: uuid.UUID, total: int = None) -> str:
         return await self.execute(
-            '''
+            """
                 UPDATE app.job
                 SET status = :status,
                     counter = 0,
                     total = :total,
                     started = NOW()
                 WHERE id = :job_id
-            ''', {
-                'status': 'started',
-                'total': total,
-                'job_id': id,
-            }
+            """,
+            {
+                "status": "started",
+                "total": total,
+                "job_id": id,
+            },
         )
 
     async def update_counter(self, id: uuid.UUID, counter: int = None) -> str:
         return await self.execute(
-            '''
+            """
                 UPDATE app.job
                 SET counter = :counter
                 WHERE id = :job_id
-            ''', {
-                'counter': counter,
-                'job_id': id,
-            }
+            """,
+            {
+                "counter": counter,
+                "job_id": id,
+            },
         )
 
     async def end_with_success(self, id: uuid.UUID) -> str:
         return await self.execute(
-            '''
+            """
                 UPDATE app.job
                 SET status = :status,
                     counter = total,
                     ended = NOW()
                 WHERE id = :job_id
-            ''', {
-                'status': 'success',
-                'job_id': id,
-            }
+            """,
+            {
+                "status": "success",
+                "job_id": id,
+            },
         )
 
     async def end_with_error(self, id: uuid.UUID) -> str:
         return await self.execute(
-            '''
+            """
                 UPDATE app.job
                 SET status = :status,
                     ended = NOW()
                 WHERE id = :job_id
-            ''', {
-                'status': 'error',
-                'job_id': id,
-            }
+            """,
+            {
+                "status": "error",
+                "job_id": id,
+            },
         )

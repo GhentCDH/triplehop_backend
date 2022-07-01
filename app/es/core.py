@@ -16,8 +16,6 @@ async def es_disconnect(app: fastapi.FastAPI) -> None:
 
 
 def get_es_from_request(
-    request: starlette.requests.Request,
-    repo_type: typing.Type[BaseElasticsearch],
-    *_
+    request: starlette.requests.Request, repo_type: typing.Type[BaseElasticsearch], *_
 ) -> BaseElasticsearch:
     return repo_type(request.app.state.es, *_)

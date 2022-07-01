@@ -1,5 +1,6 @@
-import pydantic
 import typing
+
+import pydantic
 
 
 class ElasticSearchBody(pydantic.BaseModel):
@@ -22,11 +23,11 @@ class ElasticSearchBody(pydantic.BaseModel):
     class Config:
         fields = {
             # from is a python keyword
-            'from_': 'from',
+            "from_": "from",
         }
 
     def dict(self, *args, **kwargs):
         d = super().dict(*args, **kwargs)
         # from is a python keyword
-        d['from'] = d.pop('from_')
+        d["from"] = d.pop("from_")
         return d

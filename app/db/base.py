@@ -1,14 +1,14 @@
-import asyncpg
-import buildpg
 import typing
 import uuid
 from contextlib import asynccontextmanager
 
+import asyncpg
+import buildpg
 from app.exceptions import InvalidUUIdException
 
 # Specify regex with negative lookbehind
 # Prevent conversion of Apache Age vertices or edges with label
-RENDERER = buildpg.Renderer(regex=r'(?<![a-z\\:]):([a-z][a-z0-9_]*)')
+RENDERER = buildpg.Renderer(regex=r"(?<![a-z\\:]):([a-z][a-z0-9_]*)")
 
 
 class BaseRepository:
@@ -34,7 +34,7 @@ class BaseRepository:
         else:
             query, args = RENDERER(query_template, **params)
 
-        query = query.replace('\\:', ':')
+        query = query.replace("\\:", ":")
 
         return [query, args]
 
@@ -59,7 +59,7 @@ class BaseRepository:
 
     @staticmethod
     def _check_valid_label(uuid_to_test, version=4) -> None:
-        if uuid_to_test == '_source_':
+        if uuid_to_test == "_source_":
             return
 
         try:
@@ -77,25 +77,27 @@ class BaseRepository:
             await self._pool.release(connection)
 
     async def execute(self, *args, **kwargs):
-        return await self._db_call('execute', *args, **kwargs)
+        return await self._db_call("execute", *args, **kwargs)
 
     async def executemany(self, *args, **kwargs):
-        return await self._db_call('executemany', *args, **kwargs)
+        return await self._db_call("executemany", *args, **kwargs)
 
     async def fetch(self, *args, **kwargs):
-        return await self._db_call('fetch', *args, **kwargs)
+        return await self._db_call("fetch", *args, **kwargs)
 
     async def fetchrow(self, *args, **kwargs):
-        return await self._db_call('fetchrow', *args, **kwargs)
+        return await self._db_call("fetchrow", *args, **kwargs)
 
     async def fetchval(self, *args, **kwargs):
-        return await self._db_call('fetchval', *args, **kwargs)
+        return await self._db_call("fetchval", *args, **kwargs)
 
     async def _db_call(
         self,
         method: str,
         query_template: str,
-        params: typing.Union[typing.Dict[str, typing.Any], typing.List[typing.Dict[str, typing.Any]]] = None,
+        params: typing.Union[
+            typing.Dict[str, typing.Any], typing.List[typing.Dict[str, typing.Any]]
+        ] = None,
         age: bool = False,
         connection: asyncpg.connection.Connection = None,
     ):
@@ -110,12 +112,10 @@ class BaseRepository:
             age (bool, optional): Indicates whether Apache AGE is used in the query.
             connection (asyncpg.connection.Connection, optional):
         """
-        if method == 'executemany':
+        if method == "executemany":
             query, _ = self.__class__._render(query_template, params[0])
             # Additional list to allow unpack operation when calling the corresponding asyncpg method
-            args = [
-                [self.__class__._render(query_template, p)[1] for p in params]
-            ]
+            args = [[self.__class__._render(query_template, p)[1] for p in params]]
         else:
             query, args = self.__class__._render(query_template, params)
 

@@ -1,12 +1,11 @@
+from app.models.auth import UserWithPermissions
+from app.utils import nested_key_exists
 from fastapi import HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
 
-from app.models.auth import UserWithPermissions
-from app.utils import nested_key_exists
-
 
 def _raise_unauthorized_exception():
-    raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail='Unauthorized')
+    raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Unauthorized")
 
 
 def require_user(
@@ -25,7 +24,9 @@ def require_entity_type_permission(
 ) -> None:
     require_user(user)
 
-    if not nested_key_exists(user.permissions, project_name, 'entities', entity_type_name, scope, permission):
+    if not nested_key_exists(
+        user.permissions, project_name, "entities", entity_type_name, scope, permission
+    ):
         _raise_unauthorized_exception()
 
 
@@ -35,4 +36,4 @@ def require_project_permission(
     permission: str,
 ) -> None:
     # TODO: implement
-    raise Exception('Not implemented yet.')
+    raise Exception("Not implemented yet.")
