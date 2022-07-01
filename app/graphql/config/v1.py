@@ -50,10 +50,11 @@ class GraphQLConfigBuilder:
                         )
                         break
                     # entity property
-                    result = result.replace(
-                        p,
-                        entity_field_lookup[p]
-                    )
+                    if p != 'id':
+                        result = result.replace(
+                            p,
+                            entity_field_lookup[p]
+                        )
                     break
                 # not last element => p = relation
                 result = result.replace(
