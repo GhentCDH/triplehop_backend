@@ -120,9 +120,7 @@ class GraphQLConfigBuilder:
                 filter_conf = {
                     "system_name": es_data_conf[filter["filter"][1:]]["system_name"],
                     "display_name": es_data_conf[filter["filter"][1:]]["display_name"],
-                    "type": filter["type"]
-                    if "type" in filter
-                    else es_data_conf[filter["filter"][1:]]["type"],
+                    "type": filter.get("type", es_data_conf[filter["filter"][1:]]["type"]),
                 }
                 if "interval" in filter:
                     filter_conf["interval"] = filter["interval"]
