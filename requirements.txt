@@ -38,6 +38,7 @@ PyJWT==1.7.1
 pyparsing==3.0.9
 python-dateutil==2.8.2
 python-multipart==0.0.5
+roman==3.3
 six==1.16.0
 sniffio==1.2.0
 starlette==0.19.1

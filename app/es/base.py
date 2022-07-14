@@ -1,3 +1,4 @@
+import json
 import re
 import time
 import typing
@@ -6,6 +7,7 @@ from datetime import date, datetime
 
 import edtf
 import elasticsearch
+import roman
 from app.config import ELASTICSEARCH
 from app.utils import RE_FIELD_CONVERSION, dtu
 from elasticsearch.helpers import async_bulk
@@ -116,7 +118,7 @@ class BaseElasticsearch:
         data: typing.Dict,
     ) -> typing.List[str]:
         """
-        Always returns a string because of the usage of str.replace().
+        Always returns an array of strings because of the usage of str.replace().
         """
         # Split concatenate cases
         if " $||$ " in input:
@@ -207,7 +209,8 @@ class BaseElasticsearch:
                         break
                     key = "id" if p == "id" else f"p_{dtu(p)}"
                     results = [
-                        result.replace(match, str(current_level["e_props"][key]))
+                        # Replace single quotes with double quotes so lists can be loaded as json
+                        result.replace(match, str(current_level["e_props"][key]).replace('\'', '"'))
                         for result in results
                         for current_level in current_levels
                         if key in current_level["e_props"]
@@ -448,6 +451,28 @@ class BaseElasticsearch:
 
             return result
 
+        if es_field_conf["type"] == "uncertain_centuries":
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
+                es_field_conf["selector_value"],
+                data,
+            )
+            if len(str_values) > 1:
+                raise Exception("Not implemented")
+            if not str_values:
+                return None
+
+            values_list = json.loads(str_values[0])
+
+            integer_list = [roman.fromRoman(roman_val.replace("?", "")) for roman_val in values_list]
+            return {
+                "text": ', '.join(values_list),
+                "dropdown_list": [roman_val.replace("?", "") for roman_val in values_list],
+                "lower": min(integer_list),
+                "upper": max(integer_list),
+            }
+
         if es_field_conf["type"] == "nested":
             # TODO: relation properties of base?
             datas = BaseElasticsearch.get_datas_for_base(
@@ -641,6 +666,32 @@ class BaseElasticsearch:
                     },
                     "year_range": {
                         "type": "integer_range",
+                    },
+                }
+            elif es_field_conf["type"] == "uncertain_centuries":
+                mapping["type"] = "object"
+                mapping["properties"] = {
+                    "text": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                            },
+                        },
+                    },
+                    "dropdown_list": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                            },
+                        },
+                    },
+                    "lower": {
+                        "type": "integer",
+                    },
+                    "upper": {
+                        "type": "integer",
                     },
                 }
             elif es_field_conf["type"] == "nested":

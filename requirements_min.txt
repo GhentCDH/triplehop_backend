@@ -14,5 +14,6 @@ gunicorn
 msgpack
 passlib
 python-multipart
+roman
 ujson
 uvicorn
