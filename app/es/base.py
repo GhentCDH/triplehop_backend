@@ -172,10 +172,13 @@ class BaseElasticsearch:
                                 if rel_type_id == "":
                                     if key not in current_level["r_props"]:
                                         continue
+                                    # Replace single quotes with double quotes so lists can be loaded as json
                                     new_results.append(
-                                        result.replace(
-                                            match, str(current_level["r_props"][key])
-                                        )
+                                        result
+                                            .replace(
+                                                match, str(current_level["r_props"][key])
+                                            )
+                                            .replace('\'', '"')
                                     )
                                 else:
                                     if "relations" not in current_level:
@@ -187,10 +190,13 @@ class BaseElasticsearch:
                                     ].values():
                                         if key not in relation["r_props"]:
                                             continue
+                                        # Replace single quotes with double quotes so lists can be loaded as json
                                         new_results.append(
-                                            result.replace(
-                                                match, str(relation["r_props"][key])
-                                            )
+                                            result
+                                                .replace(
+                                                    match, str(relation["r_props"][key])
+                                                )
+                                                .replace('\'', '"')
                                         )
                         results = new_results
                         break
@@ -279,7 +285,11 @@ class BaseElasticsearch:
             )
             if not str_values:
                 return None
-            return list(set(str_values))
+
+            flattened_values = [val for vals in str_values for val in json.loads(vals)]
+            unique_values = list(set(flattened_values))
+
+            return unique_values
 
         if es_field_conf["type"] == "text":
             str_values = BaseElasticsearch.replace(
@@ -463,12 +473,13 @@ class BaseElasticsearch:
             if not str_values:
                 return None
 
-            values_list = json.loads(str_values[0])
+            flattened_values = [val for vals in str_values for val in json.loads(vals)]
+            unique_values = list(set(flattened_values))
 
-            integer_list = [roman.fromRoman(roman_val.replace("?", "")) for roman_val in values_list]
+            integer_list = [roman.fromRoman(roman_val.replace("?", "")) for roman_val in unique_values]
             return {
-                "text": ', '.join(values_list),
-                "dropdown_list": [roman_val.replace("?", "") for roman_val in values_list],
+                "text": ', '.join(unique_values),
+                "dropdown_list": [roman_val.replace("?", "") for roman_val in unique_values],
                 "lower": min(integer_list),
                 "upper": max(integer_list),
             }
