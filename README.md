@@ -46,12 +46,16 @@
     sudo -u postgres psql -d triplehop -c "CREATE EXTENSION pgcrypto;"
     ```
 
-* A virtualenv running with requirements installed
+* Poetry
 
     ```sh
-    virtualenv -p python3 venv
-    source venv/bin/activate
-    pip install -r requirements.txt
+    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+    ```
+
+* Python dependencies
+
+    ```sh
+    poetry install --no-dev
     ```
 
 * An elasticsearch server with the ICU Analysis Plugin
@@ -72,7 +76,7 @@
 * Run backend in develop mode
 
     ```sh
-    uvicorn app.main:app --reload --host 0.0.0.0
+    poetry run uvicorn app.main:app --reload --host 0.0.0.0
     ```
 
 ## Restrictions resulting from the GraphQL conventions that are used
