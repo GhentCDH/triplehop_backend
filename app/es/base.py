@@ -290,7 +290,9 @@ class BaseElasticsearch:
                     val for vals in str_values for val in json.loads(vals)
                 ]
                 unique_values = list(set(flattened_values))
-            except json.decoder.JSONDecodeError:
+            except (json.decoder.JSONDecodeError, TypeError):
+                # process as a list of text strings if impossible to decode as Json
+                # or impossible to iterate (integers can be decoded as Json)
                 unique_values = list(set(str_values))
 
             return unique_values
