@@ -174,11 +174,9 @@ class BaseElasticsearch:
                                         continue
                                     # Replace single quotes with double quotes so lists can be loaded as json
                                     new_results.append(
-                                        result
-                                            .replace(
-                                                match, str(current_level["r_props"][key])
-                                            )
-                                            .replace('\'', '"')
+                                        result.replace(
+                                            match, str(current_level["r_props"][key])
+                                        ).replace("'", '"')
                                     )
                                 else:
                                     if "relations" not in current_level:
@@ -192,11 +190,9 @@ class BaseElasticsearch:
                                             continue
                                         # Replace single quotes with double quotes so lists can be loaded as json
                                         new_results.append(
-                                            result
-                                                .replace(
-                                                    match, str(relation["r_props"][key])
-                                                )
-                                                .replace('\'', '"')
+                                            result.replace(
+                                                match, str(relation["r_props"][key])
+                                            ).replace("'", '"')
                                         )
                         results = new_results
                         break
@@ -216,7 +212,9 @@ class BaseElasticsearch:
                     key = "id" if p == "id" else f"p_{dtu(p)}"
                     results = [
                         # Replace single quotes with double quotes so lists can be loaded as json
-                        result.replace(match, str(current_level["e_props"][key]).replace('\'', '"'))
+                        result.replace(
+                            match, str(current_level["e_props"][key]).replace("'", '"')
+                        )
                         for result in results
                         for current_level in current_levels
                         if key in current_level["e_props"]
@@ -482,10 +480,15 @@ class BaseElasticsearch:
             flattened_values = [val for vals in str_values for val in json.loads(vals)]
             unique_values = list(set(flattened_values))
 
-            integer_list = [roman.fromRoman(roman_val.replace("?", "")) for roman_val in unique_values]
+            integer_list = [
+                roman.fromRoman(roman_val.replace("?", ""))
+                for roman_val in unique_values
+            ]
             return {
-                "text": ', '.join(unique_values),
-                "dropdown_list": [roman_val.replace("?", "") for roman_val in unique_values],
+                "text": ", ".join(unique_values),
+                "dropdown_list": [
+                    roman_val.replace("?", "") for roman_val in unique_values
+                ],
                 "lower": min(integer_list),
                 "upper": max(integer_list),
             }
