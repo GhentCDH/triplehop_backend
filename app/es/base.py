@@ -286,8 +286,14 @@ class BaseElasticsearch:
             if not str_values:
                 return None
 
-            flattened_values = [val for vals in str_values for val in json.loads(vals)]
-            unique_values = list(set(flattened_values))
+            try:
+                # try if values are a list of json encoded lists
+                flattened_values = [
+                    val for vals in str_values for val in json.loads(vals)
+                ]
+                unique_values = list(set(flattened_values))
+            except json.decoder.JSONDecodeError:
+                unique_values = list(set(str_values))
 
             return unique_values
 
