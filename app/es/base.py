@@ -482,18 +482,17 @@ class BaseElasticsearch:
             flattened_values = [val for vals in str_values for val in json.loads(vals)]
             unique_values = list(set(flattened_values))
 
-            integer_list = [
-                roman.fromRoman(roman_val.replace("?", ""))
-                for roman_val in unique_values
-            ]
-            return {
-                "text": ", ".join(unique_values),
-                "dropdown_list": [
-                    roman_val.replace("?", "") for roman_val in unique_values
+            return sorted(
+                [
+                    {
+                        "display": roman_val,
+                        "withoutUncertain": roman_val.replace("?", ""),
+                        "numeric": roman.fromRoman(roman_val.replace("?", "")),
+                    }
+                    for roman_val in unique_values
                 ],
-                "lower": min(integer_list),
-                "upper": max(integer_list),
-            }
+                key=lambda v: v["numeric"]
+            )
 
         if es_field_conf["type"] == "nested":
             # TODO: relation properties of base?
@@ -693,7 +692,10 @@ class BaseElasticsearch:
             elif es_field_conf["type"] == "uncertain_centuries":
                 mapping["type"] = "object"
                 mapping["properties"] = {
-                    "text": {
+                    "display": {
+                        "type": "text",
+                    },
+                    "withoutUncertain": {
                         "type": "text",
                         "fields": {
                             "keyword": {
@@ -701,18 +703,7 @@ class BaseElasticsearch:
                             },
                         },
                     },
-                    "dropdown_list": {
-                        "type": "text",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword",
-                            },
-                        },
-                    },
-                    "lower": {
-                        "type": "integer",
-                    },
-                    "upper": {
+                    "numeric": {
                         "type": "integer",
                     },
                 }
