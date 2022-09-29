@@ -101,7 +101,7 @@ class GraphQLConfigBuilder:
                 "type": es_data_conf[column["column"][1:]]["type"],
                 "sortable": column["sortable"],
             }
-            for key in ["main_link", "link", "sub_field", "sub_field_type"]:
+            for key in ["searchable", "main_link", "link", "sub_field", "sub_field_type"]:
                 if key in column:
                     result[key] = column[key]
             results.append(result)
@@ -404,6 +404,7 @@ class GraphQLConfigBuilder:
                     ["display_name", "String!"],
                     ["type", "String!"],
                     ["sortable", "Boolean!"],
+                    ["searchable", "Boolean"],
                     ["main_link", "Boolean"],
                     ["link", "Boolean"],
                     ["sub_field", "String"],
