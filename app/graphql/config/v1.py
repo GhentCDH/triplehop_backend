@@ -23,8 +23,8 @@ class GraphQLConfigBuilder:
     def _replace_field_ids_by_system_names(
         input: str,
         entity_field_lookup: typing.Dict,
-        relation_lookup: typing.Dict,
         relation_field_lookup: typing.Dict,
+        relation_lookup: typing.Dict,
     ) -> str:
         result = input
         for match in RE_FIELD_CONVERSION.finditer(input):
@@ -57,13 +57,25 @@ class GraphQLConfigBuilder:
 
         return result
 
+    @staticmethod
+    def _replace_show_condition(
+        input: str,
+        entity_lookup: typing.Dict,
+    ) -> str:
+        result = input
+        for entity_type_id, entity_type_name in entity_lookup.items():
+            result = result.replace(f"${entity_type_id}", f"${entity_type_name}")
+
+        return result
+
     # Relation layouts can only have data from their own data fields, this is passed as entity_field_lookup.
     @staticmethod
     def _layout_field_converter(
         layout: typing.List,
-        entity_field_lookup: typing.Dict,
-        relation_lookup: typing.Dict = None,
+        entity_field_lookup: typing.Dict = None,
         relation_field_lookup: typing.Dict = None,
+        entity_lookup: typing.Dict = None,
+        relation_lookup: typing.Dict = None,
     ) -> typing.List:
         result = copy.deepcopy(layout)
         for panel in result:
@@ -71,19 +83,26 @@ class GraphQLConfigBuilder:
                 field[
                     "field"
                 ] = GraphQLConfigBuilder._replace_field_ids_by_system_names(
-                    field["field"],
-                    entity_field_lookup,
-                    relation_lookup,
-                    relation_field_lookup,
+                    input=field["field"],
+                    entity_field_lookup=entity_field_lookup,
+                    relation_field_lookup=relation_field_lookup,
+                    relation_lookup=relation_lookup,
                 )
                 if "base_layer" in field:
                     field[
                         "base_layer"
                     ] = GraphQLConfigBuilder._replace_field_ids_by_system_names(
-                        field["base_layer"],
-                        entity_field_lookup,
-                        relation_lookup,
-                        relation_field_lookup,
+                        input=field["base_layer"],
+                        entity_field_lookup=entity_field_lookup,
+                        relation_field_lookup=relation_field_lookup,
+                        relation_lookup=relation_lookup,
+                    )
+                if "show_condition" in field:
+                    field[
+                        "show_condition"
+                    ] = GraphQLConfigBuilder._replace_show_condition(
+                        input=field["show_condition"],
+                        entity_lookup=entity_lookup,
                     )
         return result
 
@@ -101,7 +120,13 @@ class GraphQLConfigBuilder:
                 "type": es_data_conf[column["column"][1:]]["type"],
                 "sortable": column["sortable"],
             }
-            for key in ["searchable", "main_link", "link", "sub_field", "sub_field_type"]:
+            for key in [
+                "searchable",
+                "main_link",
+                "link",
+                "sub_field",
+                "sub_field_type",
+            ]:
                 if key in column:
                     result[key] = column[key]
             results.append(result)
@@ -120,7 +145,9 @@ class GraphQLConfigBuilder:
                 filter_conf = {
                     "system_name": es_data_conf[filter["filter"][1:]]["system_name"],
                     "display_name": es_data_conf[filter["filter"][1:]]["display_name"],
-                    "type": filter.get("type", es_data_conf[filter["filter"][1:]]["type"]),
+                    "type": filter.get(
+                        "type", es_data_conf[filter["filter"][1:]]["type"]
+                    ),
                 }
                 if "interval" in filter:
                     filter_conf["interval"] = filter["interval"]
@@ -193,27 +220,27 @@ class GraphQLConfigBuilder:
                         config_item["display"][
                             "title"
                         ] = self.__class__._replace_field_ids_by_system_names(
-                            entity_config["config"]["display"]["title"],
-                            entity_field_lookup,
-                            relation_lookup,
-                            relation_field_lookup,
+                            input=entity_config["config"]["display"]["title"],
+                            entity_field_lookup=entity_field_lookup,
+                            relation_field_lookup=relation_field_lookup,
+                            relation_lookup=relation_lookup,
                         )
                     if "layout" in entity_config["config"]["display"]:
                         config_item["display"][
                             "layout"
                         ] = self.__class__._layout_field_converter(
-                            entity_config["config"]["display"]["layout"],
-                            entity_field_lookup,
-                            relation_lookup,
-                            relation_field_lookup,
+                            layout=entity_config["config"]["display"]["layout"],
+                            entity_field_lookup=entity_field_lookup,
+                            relation_field_lookup=relation_field_lookup,
+                            relation_lookup=relation_lookup,
                         )
                 if "edit" in entity_config["config"]:
                     config_item["edit"] = {
                         "layout": self.__class__._layout_field_converter(
-                            entity_config["config"]["edit"]["layout"],
-                            entity_field_lookup,
-                            relation_lookup,
-                            relation_field_lookup,
+                            layout=entity_config["config"]["edit"]["layout"],
+                            entity_field_lookup=entity_field_lookup,
+                            relation_field_lookup=relation_field_lookup,
+                            relation_lookup=relation_lookup,
                         ),
                     }
                 if (
@@ -243,9 +270,16 @@ class GraphQLConfigBuilder:
 
     def _get_relation_configs_resolver_wrapper(self):
         async def resolver(*_):
+            entity_types_config = await self._config_manager.get_entity_types_config(
+                self._project_name
+            )
             relation_types_config = (
                 await self._config_manager.get_relation_types_config(self._project_name)
             )
+
+            entity_lookup = {}
+            for entity_system_name, entity_config in entity_types_config.items():
+                entity_lookup[entity_config["id"]] = entity_system_name
 
             relation_lookup = {}
             relation_field_lookup = {}
@@ -288,8 +322,10 @@ class GraphQLConfigBuilder:
                         config_item["display"][
                             "layout"
                         ] = self.__class__._layout_field_converter(
-                            relation_config["config"]["display"]["layout"],
-                            relation_field_lookup,
+                            layout=relation_config["config"]["display"]["layout"],
+                            # use relation_field_lookup as entity_field_lookup
+                            entity_field_lookup=relation_field_lookup,
+                            entity_lookup=entity_lookup,
                         )
                 if "edit" in relation_config["config"]:
                     config_item["edit"] = {}
@@ -305,8 +341,9 @@ class GraphQLConfigBuilder:
                         config_item["edit"][
                             "layout"
                         ] = self.__class__._layout_field_converter(
-                            relation_config["config"]["edit"]["layout"],
-                            relation_field_lookup,
+                            layout=relation_config["config"]["edit"]["layout"],
+                            # use relation_field_lookup as entity_field_lookup
+                            entity_field_lookup=relation_field_lookup,
                         )
                 results.append(config_item)
 
@@ -356,6 +393,7 @@ class GraphQLConfigBuilder:
                     # TODO: add overlays
                     ["base_layer", "String"],
                     ["base_url", "String"],
+                    ["show_condition", "String"],
                 ],
                 "Edit_panel_config": [
                     ["label", "String"],
