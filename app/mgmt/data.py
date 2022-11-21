@@ -913,7 +913,7 @@ class DataManager:
                         list(rel_entity_ids),
                         triplehop_query["relations"][relation_type_id],
                         False,
-                        **entity_type_name_or_id,
+                        entity_type_id=rel_entity_type_id,
                         connection=connection,
                     )
 
