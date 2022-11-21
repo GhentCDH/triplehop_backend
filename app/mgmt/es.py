@@ -403,9 +403,12 @@ class ElasticsearchManager:
         aggregations = raw_result["aggregations"]
         results = {}
         for agg_key, agg_values in aggregations.items():
-            results[agg_key] = datetime.datetime.strptime(
-                agg_values["value_as_string"], "%Y-%m-%dT%H:%M:%S.%f%z"
-            ).year
+            if "value_as_string" in agg_values:
+                results[agg_key] = datetime.datetime.strptime(
+                    agg_values["value_as_string"], "%Y-%m-%dT%H:%M:%S.%f%z"
+                ).year
+            else:
+                results[agg_key] = None
 
         return results
 
@@ -856,12 +859,17 @@ class ElasticsearchManager:
 
     async def search(self, body: typing.Dict) -> typing.Dict:
         es_config = await self._get_es_config()
-        # Clean filters
-        filters = {
-            key: value for (key, value) in body["filters"].items() if value is not None
-        }
 
-        if not len(filters):
+        # Clean filters
+        if body["filters"]:
+            filters = {
+                key: value
+                for (key, value) in body["filters"].items()
+                if value is not None
+            }
+            if not len(filters):
+                filters = None
+        else:
             filters = None
 
         # Min and max data ranges
@@ -965,21 +973,23 @@ class ElasticsearchManager:
                 status_code=404, detail="Suggest field not found"
             )
 
+        request_body = {
+            "_source": False,
+            "suggest": {
+                "autocomplete": {
+                    "prefix": body["value"],
+                    "completion": {
+                        "field": f"{body['field']}.completion",
+                        "skip_duplicates": True,
+                        "size": 10,
+                    },
+                }
+            },
+        }
+
         raw_result = await self._es.search(
             index=await self._get_alias_name(),
-            body={
-                "_source": False,
-                "suggest": {
-                    "autocomplete": {
-                        "prefix": body["value"],
-                        "completion": {
-                            "field": f"{body['field']}.completion",
-                            "skip_duplicates": True,
-                            "size": 10,
-                        },
-                    }
-                },
-            },
+            body=request_body,
         )
         return [
             suggestion["text"]
