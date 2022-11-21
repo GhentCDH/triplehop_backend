@@ -214,10 +214,38 @@ class ElasticsearchManager:
                 or type == "nested_multi_type"
                 or type == "uncertain_centuries"
             ):
+                if (
+                    type == "nested"
+                    and "type" in es_config["filters"][filterKey]
+                    and es_config["filters"][filterKey]["type"] == "nested_present"
+                ):
+                    # To be included in global filter for aggregations
+                    if aggregation is not None:
+                        continue
+                    if filterValues["key"] == 0:
+                        occur = "must_not"
+                    else:
+                        occur = "should"
+                    queryPart = {
+                        "bool": {
+                            occur: {
+                                "nested": {
+                                    "path": filterKey,
+                                    "query": {"exists": {"field": filterKey}},
+                                }
+                            }
+                        }
+                    }
+                    if not "must" in query["bool"]:
+                        query["bool"]["must"] = []
+                    query["bool"]["must"].append(queryPart)
+                    continue
+
                 if global_aggs:
                     continue
                 if aggregation == filterKey:
                     continue
+
                 queryPart = {
                     "nested": {
                         "path": filterKey,
@@ -410,6 +438,33 @@ class ElasticsearchManager:
         for filterKey in es_config["filters"]:
             type = es_config["base"][filterKey]["type"]
             if type == "nested":
+                if (
+                    "type" in es_config["filters"][filterKey]
+                    and es_config["filters"][filterKey]["type"] == "nested_present"
+                ):
+                    aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
+                        es_config,
+                        filterKey,
+                        {
+                            "nested": {
+                                "path": filterKey,
+                            },
+                        },
+                        filters,
+                    )
+                    aggs[
+                        f"{filterKey}_missing"
+                    ] = ElasticsearchManager._construct_filter_agg(
+                        es_config,
+                        filterKey,
+                        {
+                            "missing": {
+                                "field": filterKey,
+                            },
+                        },
+                        filters,
+                    )
+                    continue
                 aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
                     es_config,
                     filterKey,
@@ -472,10 +527,7 @@ class ElasticsearchManager:
                     filters,
                 )
                 continue
-            if type == "text":
-                if es_config["filters"][filterKey]["type"] == "autocomplete":
-                    continue
-            if type == "[text]":
+            if type == "text" or type == "[text]":
                 if es_config["filters"][filterKey]["type"] == "dropdown":
                     aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
                         es_config,
@@ -585,9 +637,16 @@ class ElasticsearchManager:
             "edtf",
             "edtf_interval",
         ]:
+            if (
+                type == "nested"
+                and "type" in es_config["filters"][filterKey]
+                and es_config["filters"][filterKey]["type"] == "nested_present"
+            ):
+                return False
             return True
-        if type == "[text]" and es_config["filters"][filterKey]["type"] == "dropdown":
-            return True
+        if type == "text" or type == "[text]":
+            if es_config["filters"][filterKey]["type"] == "dropdown":
+                return True
         return False
 
     @staticmethod
@@ -601,9 +660,16 @@ class ElasticsearchManager:
             "nested_multi_type",
             "uncertain_centuries",
         ]:
+            if (
+                type == "nested"
+                and "type" in es_config["filters"][filterKey]
+                and es_config["filters"][filterKey]["type"] == "nested_present"
+            ):
+                return False
             return True
-        if type == "[text]" and es_config["filters"][filterKey]["type"] == "dropdown":
-            return True
+        if type == "text" or type == "[text]":
+            if es_config["filters"][filterKey]["type"] == "dropdown":
+                return True
         return False
 
     @staticmethod
@@ -652,6 +718,23 @@ class ElasticsearchManager:
                 filter_values = []
 
             if type == "nested":
+                if (
+                    "type" in es_config["filters"][filterKey]
+                    and es_config["filters"][filterKey]["type"] == "nested_present"
+                ):
+                    results[filterKey] = [
+                        {
+                            "key": 0,
+                            "value": "No",
+                            "count": aggregations[f"{filterKey}_missing"]["doc_count"],
+                        },
+                        {
+                            "key": 1,
+                            "value": "Yes",
+                            "count": agg_values["doc_count"],
+                        },
+                    ]
+                    continue
                 if not sort:
                     results[filterKey] = ElasticsearchManager._extract_agg(
                         agg_values["id_value"]["buckets"],
@@ -732,7 +815,7 @@ class ElasticsearchManager:
                         filter_values=filter_values,
                     )
                     continue
-            if type == "[text]":
+            if type == "text" or type == "[text]":
                 if not sort:
                     results[filterKey] = ElasticsearchManager._extract_agg(
                         agg_values["buckets"],
