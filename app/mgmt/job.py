@@ -1,7 +1,8 @@
 import uuid
 
-import app.mgmt.data
 import starlette
+
+import app.mgmt.data
 from app.db.core import get_repository_from_request
 from app.db.job import JobRepository
 from app.es.base import BaseElasticsearch

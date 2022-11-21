@@ -22,6 +22,7 @@ passlib = "^1.7.4"
 python-multipart = "^0.0.5"
 roman = "^3.3"
 uvicorn = "^0.18.2"
+typing-extensions = "^4.4.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.6.0"

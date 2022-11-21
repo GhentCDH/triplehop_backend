@@ -1,14 +1,13 @@
-from app.auth.permission import require_entity_type_permission
-from app.es.base import BaseElasticsearch
-from app.es.core import get_es_from_request
-from app.mgmt.auth import get_current_active_user_with_permissions
-from app.mgmt.config import ConfigManager
-from app.mgmt.job import JobManager
-from app.models.auth import UserWithPermissions
-from app.models.es import ElasticSearchBody
-from app.models.job import JobId
 from fastapi import APIRouter, BackgroundTasks, Depends
 from starlette.requests import Request
+
+from app.auth.permission import require_entity_type_permission
+from app.mgmt.auth import get_current_active_user_with_permissions
+from app.mgmt.es import ElasticsearchManager
+from app.mgmt.job import JobManager
+from app.models.auth import UserWithPermissions
+from app.models.es import ElasticSearchBody, ElasticSuggestBody
+from app.models.job import JobId
 
 router = APIRouter()
 
@@ -17,15 +16,28 @@ router = APIRouter()
 async def search(
     project_name: str,
     entity_type_name: str,
-    es_body: ElasticSearchBody,
+    body: ElasticSearchBody,
     request: Request,
+    user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
 ):
-    config_manager = ConfigManager(request)
-    entity_type_id = await config_manager.get_entity_type_id_by_name(
-        project_name, entity_type_name
+    elasticsearch_manager = ElasticsearchManager(
+        project_name, entity_type_name, request, user
     )
-    es = get_es_from_request(request, BaseElasticsearch)
-    return await es.search(entity_type_id, es_body.dict())
+    return await elasticsearch_manager.search(body.dict())
+
+
+@router.post("/{project_name}/{entity_type_name}/suggest")
+async def search(
+    project_name: str,
+    entity_type_name: str,
+    body: ElasticSuggestBody,
+    request: Request,
+    user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
+):
+    elasticsearch_manager = ElasticsearchManager(
+        project_name, entity_type_name, request, user
+    )
+    return await elasticsearch_manager.suggest(body.dict())
 
 
 @router.get("/{project_name}/{entity_type_name}/reindex", response_model=JobId)

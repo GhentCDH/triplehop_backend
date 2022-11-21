@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
@@ -13,6 +16,17 @@ from app.router.es.v1 import router as router_es_v1
 from app.router.job.v1 import router as router_job_v1
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(exc.errors())
+    print(exc.body)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -5,6 +5,7 @@ import typing
 
 import aiocache
 import asyncpg
+
 from app.cache.core import skip_first_arg_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository

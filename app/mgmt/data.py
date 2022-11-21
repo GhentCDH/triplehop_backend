@@ -7,6 +7,7 @@ import dictdiffer
 import edtf
 import fastapi
 import starlette
+
 from app.db.core import get_repository_from_request
 from app.db.data import DataRepository
 from app.es.base import BaseElasticsearch

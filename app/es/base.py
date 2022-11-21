@@ -7,14 +7,17 @@ from datetime import date, datetime
 
 import edtf
 import elasticsearch
+import fastapi
 import roman
-from app.config import ELASTICSEARCH
-from app.utils import RE_FIELD_CONVERSION, dtu
 from elasticsearch.helpers import async_bulk
 
+from app.config import ELASTICSEARCH
+from app.utils import RE_FIELD_CONVERSION, dtu
+
 MAX_RESULT_WINDOW = 10000
+MAX_INT = 2147483647
 DEFAULT_FROM = 0
-DEFAULT_SIZE = 10
+DEFAULT_SIZE = 25
 SCROLL_SIZE = 1000
 
 # https://stackoverflow.com/questions/3838242/minimum-date-in-java
@@ -36,11 +39,24 @@ class BaseElasticsearch:
         # get all requested fields
         requested_fields = set()
         for es_field_conf in es_data_config:
-            if es_field_conf["type"] == "nested":
+            if (
+                es_field_conf["type"] == "nested"
+                or es_field_conf["type"] == "nested_multi_type"
+            ):
                 for part in es_field_conf["parts"].values():
-                    requested_fields.add(part["selector_value"])
+                    if part[0] == ".":
+                        requested_fields.add(f"{es_field_conf['base']}{part}")
+                    else:
+                        requested_fields.add(f"{es_field_conf['base']}->{part}")
                 if "filter" in es_field_conf:
-                    requested_fields.add(es_field_conf["filter"])
+                    if es_field_conf["filter"][0] == ".":
+                        requested_fields.add(
+                            f"{es_field_conf['base']}{es_field_conf['filter']}"
+                        )
+                    else:
+                        requested_fields.add(
+                            f"{es_field_conf['base']}->{es_field_conf['filter']}"
+                        )
             elif es_field_conf["type"] == "edtf_interval":
                 requested_fields.add(es_field_conf["start"])
                 requested_fields.add(es_field_conf["end"])
@@ -204,6 +220,16 @@ class BaseElasticsearch:
                                 entity_types_config[
                                     entity_type_names[current_level["entity_type_id"]]
                                 ]["display_name"],
+                            )
+                            for result in results
+                            for current_level in current_levels
+                        ]
+                        break
+                    if p == "entity_type_name":
+                        results = [
+                            result.replace(
+                                match,
+                                entity_type_names[current_level["entity_type_id"]],
                             )
                             for result in results
                             for current_level in current_levels
@@ -482,20 +508,19 @@ class BaseElasticsearch:
             flattened_values = [val for vals in str_values for val in json.loads(vals)]
             unique_values = list(set(flattened_values))
 
-            return sorted(
-                [
-                    {
-                        "display": roman_val,
-                        "withoutUncertain": roman_val.replace("?", ""),
-                        "numeric": roman.fromRoman(roman_val.replace("?", "")),
-                    }
-                    for roman_val in unique_values
-                ],
-                key=lambda v: v["numeric"]
-            )
+            return [
+                {
+                    "display": roman_val,
+                    "withoutUncertain": roman_val.replace("?", ""),
+                    "numeric": roman.fromRoman(roman_val.replace("?", "")),
+                }
+                for roman_val in unique_values
+            ]
 
-        if es_field_conf["type"] == "nested":
-            # TODO: relation properties of base?
+        if (
+            es_field_conf["type"] == "nested"
+            or es_field_conf["type"] == "nested_multi_type"
+        ):
             datas = BaseElasticsearch.get_datas_for_base(
                 es_field_conf["base"],
                 data,
@@ -508,30 +533,52 @@ class BaseElasticsearch:
                     if BaseElasticsearch.replace(
                         entity_types_config,
                         entity_type_names,
-                        (
-                            filter_value.replace(
-                                f'{es_field_conf["base"]}->', ""
-                            ).replace(f'{es_field_conf["base"]}.', ".")
-                        ),
+                        (filter_value),
                         data,
                     )[0]
                     == comp_value
                 ]
             results = []
             for data in datas:
-                result = {"entity_type_name": entity_type_names[data["entity_type_id"]]}
-                for key, part_def in es_field_conf["parts"].items():
-                    part_def["selector_value"] = (
-                        part_def["selector_value"]
-                        .replace(f'{es_field_conf["base"]}->', "")
-                        .replace(f'{es_field_conf["base"]}.', ".")
-                    )
-                    result[key] = BaseElasticsearch.convert_field(
+                result = {
+                    "entity_type_name": BaseElasticsearch.convert_field(
                         entity_types_config,
                         entity_type_names,
-                        part_def,
+                        {
+                            "selector_value": es_field_conf["parts"][
+                                "entity_type_name"
+                            ],
+                            "type": "text",
+                        },
                         data,
-                    )
+                    ),
+                    "id": BaseElasticsearch.convert_field(
+                        entity_types_config,
+                        entity_type_names,
+                        {
+                            "selector_value": es_field_conf["parts"]["id"],
+                            "type": "integer",
+                        },
+                        data,
+                    ),
+                    "value": BaseElasticsearch.convert_field(
+                        entity_types_config,
+                        entity_type_names,
+                        {
+                            "selector_value": es_field_conf["parts"]["selector_value"],
+                            "type": "text",
+                        },
+                        data,
+                    ),
+                }
+                if es_field_conf["type"] == "nested":
+                    result["id_value"] = f"{result['id']}|{result['value']}"
+                elif es_field_conf["type"] == "nested_multi_type":
+                    result["type_id"] = f"{result['entity_type_name']}|{result['id']}"
+                    result[
+                        "type_id_value"
+                    ] = f"{result['entity_type_name']}|{result['id']}|{result['value']}"
+
                 results.append(result)
             return results
         raise Exception(f'Elastic type {es_field_conf["type"]} is not yet implemented')
@@ -690,46 +737,66 @@ class BaseElasticsearch:
                     },
                 }
             elif es_field_conf["type"] == "uncertain_centuries":
-                mapping["type"] = "object"
+                mapping["type"] = "nested"
                 mapping["properties"] = {
                     "display": {
                         "type": "text",
                     },
                     "withoutUncertain": {
+                        "type": "keyword",
+                    },
+                    "numeric": {
+                        "type": "integer",
+                    },
+                }
+            elif (
+                es_field_conf["type"] == "nested"
+                or es_field_conf["type"] == "nested_multi_type"
+            ):
+                mapping["type"] = "nested"
+                mapping["properties"] = {
+                    "entity_type_name": {
+                        "type": "text",
+                    },
+                    "id": {
+                        "type": "integer",
+                    },
+                    "value": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                            },
+                            # TODO: check if the normalized keyword can be retrieved
+                            # to aid sorting multiple values in a single nested field in clients
+                            "normalized_keyword": {
+                                "type": "keyword",
+                                "normalizer": "icu_normalizer",
+                            },
+                        },
+                    },
+                }
+                if es_field_conf["type"] == "nested":
+                    mapping["properties"]["id_value"] = {
                         "type": "text",
                         "fields": {
                             "keyword": {
                                 "type": "keyword",
                             },
                         },
-                    },
-                    "numeric": {
-                        "type": "integer",
-                    },
-                }
-            elif es_field_conf["type"] == "nested":
-                mapping["type"] = "nested"
-                mapping["properties"] = {
-                    "entity_type_name": {
-                        "type": "text",
-                    },
-                }
-                for key, part_def in es_field_conf["parts"].items():
-                    mapping["properties"][key] = {
-                        "type": part_def["type"],
                     }
-                    if mapping["properties"][key]["type"] == "text":
-                        mapping["properties"][key]["fields"] = {
+                elif es_field_conf["type"] == "nested_multi_type":
+                    mapping["properties"]["type_id"] = {
+                        "type": "keyword",
+                    }
+                    mapping["properties"]["type_id_value"] = {
+                        "type": "text",
+                        "fields": {
                             "keyword": {
                                 "type": "keyword",
                             },
-                            "normalized_keyword": {
-                                "type": "keyword",
-                                "normalizer": "icu_normalizer",
-                            },
-                        }
-                    # TODO: check if the normalized keyword can be retrieved
-                    # to aid sorting multiple values in a single nested field in clients
+                        },
+                    }
             else:
                 raise Exception(
                     f'Elastic type {es_field_conf["type"]} is not yet implemented'
@@ -813,52 +880,3 @@ class BaseElasticsearch:
             for i, v in data.items()
         ]
         await async_bulk(self._es, actions)
-
-    async def search(self, entity_type_id: str, body: typing.Dict) -> typing.Dict:
-        alias_name = f'{ELASTICSEARCH["prefix"]}_{dtu(entity_type_id)}'
-        body = {k: v for (k, v) in body.items() if v is not None}
-
-        es_from = body["from"] if "from" in body else DEFAULT_FROM
-        es_size = body["size"] if "size" in body else DEFAULT_SIZE
-        if es_from + es_size <= MAX_RESULT_WINDOW:
-            results = await self._es.search(
-                index=alias_name,
-                body=body,
-            )
-            return results
-        else:
-            # Use scroll API
-            results = {"hits": {"hits": []}}
-
-            if "from" in body:
-                del body["from"]
-            body["size"] = SCROLL_SIZE
-
-            data = await self._es.search(
-                index=alias_name,
-                body=body,
-                scroll="1m",
-            )
-            results["hits"]["total"] = data["hits"]["total"]
-
-            current_from = 0
-            sid = data["_scroll_id"]
-            scroll_size = len(data["hits"]["hits"])
-
-            while scroll_size > 0:
-                if es_from < current_from + SCROLL_SIZE:
-                    start = max(es_from - current_from, 0)
-                    if es_from + es_size < current_from + SCROLL_SIZE:
-                        results["hits"]["hits"] += data["hits"]["hits"][
-                            start : start + es_size
-                        ]
-                        break
-                    else:
-                        results["hits"]["hits"] += data["hits"]["hits"][start:]
-
-                data = await self._es.scroll(scroll_id=sid, scroll="1m")
-                sid = data["_scroll_id"]
-                scroll_size = len(data["hits"]["hits"])
-                current_from += SCROLL_SIZE
-
-            return results
