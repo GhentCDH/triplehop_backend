@@ -214,14 +214,16 @@ class ElasticsearchManager:
                 or type == "nested_multi_type"
                 or type == "uncertain_centuries"
             ):
+                if global_aggs:
+                    continue
+                if aggregation == filterKey:
+                    continue
+
                 if (
                     type == "nested"
                     and "type" in es_config["filters"][filterKey]
                     and es_config["filters"][filterKey]["type"] == "nested_present"
                 ):
-                    # To be included in global filter for aggregations
-                    if aggregation is not None:
-                        continue
                     if filterValues["key"] == 0:
                         occur = "must_not"
                     else:
@@ -239,11 +241,6 @@ class ElasticsearchManager:
                     if not "must" in query["bool"]:
                         query["bool"]["must"] = []
                     query["bool"]["must"].append(queryPart)
-                    continue
-
-                if global_aggs:
-                    continue
-                if aggregation == filterKey:
                     continue
 
                 queryPart = {
@@ -640,12 +637,6 @@ class ElasticsearchManager:
             "edtf",
             "edtf_interval",
         ]:
-            if (
-                type == "nested"
-                and "type" in es_config["filters"][filterKey]
-                and es_config["filters"][filterKey]["type"] == "nested_present"
-            ):
-                return False
             return True
         if type == "text" or type == "[text]":
             if es_config["filters"][filterKey]["type"] == "dropdown":
@@ -663,12 +654,6 @@ class ElasticsearchManager:
             "nested_multi_type",
             "uncertain_centuries",
         ]:
-            if (
-                type == "nested"
-                and "type" in es_config["filters"][filterKey]
-                and es_config["filters"][filterKey]["type"] == "nested_present"
-            ):
-                return False
             return True
         if type == "text" or type == "[text]":
             if es_config["filters"][filterKey]["type"] == "dropdown":
