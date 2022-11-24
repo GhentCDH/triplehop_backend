@@ -1,7 +1,9 @@
 import datetime
+import itertools
 import typing
 
 import aiocache
+import elasticsearch
 import fastapi
 import roman
 import starlette
@@ -9,7 +11,7 @@ import typing_extensions
 
 from app.cache.core import self_project_name_entity_type_name_key_builder
 from app.config import ELASTICSEARCH
-from app.es.base import DEFAULT_FROM, DEFAULT_SIZE, MAX_INT
+from app.es.base import AGG_SIZE, DEFAULT_FROM, DEFAULT_SIZE, MAX_INT
 from app.mgmt.config import ConfigManager
 from app.models.auth import UserWithPermissions
 from app.utils import dtu
@@ -195,6 +197,8 @@ class ElasticsearchManager:
         filters: typing.Dict = None,
         global_aggs: bool = False,
         aggregation: str = None,
+        suggest_field: str = None,
+        suggest_value: str = None,
     ) -> typing.Dict:
         """
         Construct the query for an elasticsearch query.
@@ -202,13 +206,107 @@ class ElasticsearchManager:
         In this case, nested filters, dropdown filters should be excluded as these will be added as filters to the separate aggregations to allow for a better doc_count.
         aggregation indicates the construction of a filter for an aggregation.
         All query parts included in the global query don't need to be added here. All other filters (except for the aggregation itself) should be added.
+        suggest_field indicates the query is being contructed for the creation of a suggestion list of an aggregation dropdown menu.
         """
-        if filters is None:
-            return None
+        query = None
+        # TODO: more elegant fix for unwanted nested aggregations
+        if suggest_field is not None:
+            type = es_config["base"][suggest_field]["type"]
+            if type == "nested" or type == "nested_multi_type":
+                queryPart = {
+                    "nested": {
+                        "path": suggest_field,
+                        "query": {
+                            "match_bool_prefix": {
+                                f"{suggest_field}.value.normalized_keyword": {
+                                    "query": suggest_value,
+                                    "operator": "and",
+                                },
+                            },
+                        },
+                    },
+                }
+            elif type == "uncertain_centuries":
+                queryPart = {
+                    "nested": {
+                        "path": suggest_field,
+                        "query": {
+                            "match_bool_prefix": {
+                                f"{suggest_field}.withoutUncertain": {
+                                    "query": suggest_value,
+                                    "operator": "and",
+                                },
+                            },
+                        },
+                    },
+                }
+            elif (type == "text" or type == "[text]") and es_config["filters"][
+                suggest_field
+            ]["type"] == "dropdown":
+                queryPart = {
+                    "match_bool_prefix": {
+                        f"{suggest_field}.normalized_keyword": {
+                            "query": suggest_value,
+                            "operator": "and",
+                        },
+                    },
+                }
+            else:
+                raise Exception(
+                    f"Aggregation suggestion filter of type {type} not yet implemented"
+                )
 
-        query = {"bool": {}}
-        for filterKey, filterValues in filters.items():
-            type = es_config["base"][filterKey]["type"]
+            query = {
+                "bool": {
+                    "filter": [
+                        queryPart,
+                    ],
+                },
+            }
+
+        if filters is None:
+            return query
+
+        if query is None:
+            query = {
+                "bool": {},
+            }
+
+        for filter_key, filter_values in filters.items():
+            type = es_config["base"][filter_key]["type"]
+
+            if (
+                type == "nested"
+                and "type" in es_config["filters"][filter_key]
+                and es_config["filters"][filter_key]["type"] == "nested_present"
+            ):
+                if global_aggs:
+                    continue
+                if aggregation == filter_key:
+                    continue
+
+                if filter_values["key"] == 0:
+                    occur = "must_not"
+                else:
+                    occur = "should"
+                queryPart = {
+                    "bool": {
+                        occur: {
+                            "nested": {
+                                "path": filter_key,
+                                "query": {
+                                    "exists": {
+                                        "field": filter_key,
+                                    },
+                                },
+                            }
+                        }
+                    }
+                }
+                if not "must" in query["bool"]:
+                    query["bool"]["must"] = []
+                query["bool"]["must"].append(queryPart)
+                continue
             if (
                 type == "nested"
                 or type == "nested_multi_type"
@@ -216,51 +314,27 @@ class ElasticsearchManager:
             ):
                 if global_aggs:
                     continue
-                if aggregation == filterKey:
-                    continue
-
-                if (
-                    type == "nested"
-                    and "type" in es_config["filters"][filterKey]
-                    and es_config["filters"][filterKey]["type"] == "nested_present"
-                ):
-                    if filterValues["key"] == 0:
-                        occur = "must_not"
-                    else:
-                        occur = "should"
-                    queryPart = {
-                        "bool": {
-                            occur: {
-                                "nested": {
-                                    "path": filterKey,
-                                    "query": {"exists": {"field": filterKey}},
-                                }
-                            }
-                        }
-                    }
-                    if not "must" in query["bool"]:
-                        query["bool"]["must"] = []
-                    query["bool"]["must"].append(queryPart)
+                if aggregation == filter_key:
                     continue
 
                 queryPart = {
                     "nested": {
-                        "path": filterKey,
+                        "path": filter_key,
                         "query": {"terms": {}},
                     }
                 }
                 if type == "nested":
                     queryPart["nested"]["query"]["terms"][
-                        f"{filterKey}.id"
-                    ] = filterValues
+                        f"{filter_key}.id"
+                    ] = filter_values
                 elif type == "nested_multi_type":
                     queryPart["nested"]["query"]["terms"][
-                        f"{filterKey}.type_id"
-                    ] = filterValues
+                        f"{filter_key}.type_id"
+                    ] = filter_values
                 elif type == "uncertain_centuries":
                     queryPart["nested"]["query"]["terms"][
-                        f"{filterKey}.withoutUncertain"
-                    ] = filterValues
+                        f"{filter_key}.withoutUncertain"
+                    ] = filter_values
                 if not "filter" in query["bool"]:
                     query["bool"]["filter"] = []
                 query["bool"]["filter"].append(queryPart)
@@ -270,26 +344,26 @@ class ElasticsearchManager:
                 if aggregation is not None:
                     continue
                 queryPart = {"range": {}}
-                queryPart["range"][f"{filterKey}.year_range"] = {}
-                if filterValues[0] is not None:
-                    queryPart["range"][f"{filterKey}.year_range"]["gte"] = filterValues[
-                        0
-                    ]
-                if filterValues[1] is not None:
-                    queryPart["range"][f"{filterKey}.year_range"]["lte"] = filterValues[
-                        1
-                    ]
+                queryPart["range"][f"{filter_key}.year_range"] = {}
+                if filter_values[0] is not None:
+                    queryPart["range"][f"{filter_key}.year_range"][
+                        "gte"
+                    ] = filter_values[0]
+                if filter_values[1] is not None:
+                    queryPart["range"][f"{filter_key}.year_range"][
+                        "lte"
+                    ] = filter_values[1]
                 if not "filter" in query["bool"]:
                     query["bool"]["filter"] = []
                 query["bool"]["filter"].append(queryPart)
                 continue
             if type == "text" or type == "[text]":
-                if es_config["filters"][filterKey]["type"] == "dropdown":
+                if es_config["filters"][filter_key]["type"] == "dropdown":
                     if global_aggs:
                         continue
-                    if aggregation == filterKey:
+                    if aggregation == filter_key:
                         continue
-                    queryPart = {"terms": {f"{filterKey}.keyword": filterValues}}
+                    queryPart = {"terms": {f"{filter_key}.keyword": filter_values}}
                     if not "filter" in query["bool"]:
                         query["bool"]["filter"] = []
                     query["bool"]["filter"].append(queryPart)
@@ -299,8 +373,8 @@ class ElasticsearchManager:
                     continue
                 queryPart = {
                     "match": {
-                        filterKey: {
-                            "query": filterValues,
+                        filter_key: {
+                            "query": filter_values,
                             "operator": "and",
                         }
                     }
@@ -384,14 +458,18 @@ class ElasticsearchManager:
         es_config: typing.Dict,
     ) -> typing.Dict:
         aggs = {}
-        for filterKey in es_config["filters"]:
+        for filter_key in es_config["filters"]:
             if (
-                es_config["base"][filterKey]["type"] == "edtf"
-                or es_config["base"][filterKey]["type"] == "edtf_interval"
+                es_config["base"][filter_key]["type"] == "edtf"
+                or es_config["base"][filter_key]["type"] == "edtf_interval"
             ):
-                if es_config["filters"][filterKey]["type"] == "histogram_slider":
-                    aggs[f"{filterKey}_min"] = {"min": {"field": f"{filterKey}.lower"}}
-                    aggs[f"{filterKey}_max"] = {"max": {"field": f"{filterKey}.upper"}}
+                if es_config["filters"][filter_key]["type"] == "histogram_slider":
+                    aggs[f"{filter_key}_min"] = {
+                        "min": {"field": f"{filter_key}.lower"}
+                    }
+                    aggs[f"{filter_key}_max"] = {
+                        "max": {"field": f"{filter_key}.upper"}
+                    }
 
         return aggs
 
@@ -412,21 +490,151 @@ class ElasticsearchManager:
     @staticmethod
     def _construct_filter_agg(
         es_config: typing.Dict,
-        filterKey: str,
+        filter_key: str,
         agg_construct: typing.Dict,
         filters: typing.Dict = None,
+        suggest_field: str = None,
+        suggest_value: str = None,
     ) -> typing.Dict:
         filter = ElasticsearchManager._construct_query(
-            es_config, filters, aggregation=filterKey
+            es_config,
+            filters,
+            aggregation=filter_key,
+            suggest_field=suggest_field,
+            suggest_value=suggest_value,
         )
         if filter:
             return {
                 "filter": filter,
                 "aggs": {
-                    filterKey: agg_construct,
+                    filter_key: agg_construct,
                 },
             }
         return agg_construct
+
+    @staticmethod
+    def _construct_suggest_agg(
+        es_config: typing.Dict,
+        filters: typing.Dict = None,
+        suggest_field: str = None,
+        suggest_value: str = None,
+    ):
+        type = es_config["base"][suggest_field]["type"]
+        if type == "nested":
+            return {
+                suggest_field: ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    suggest_field,
+                    {
+                        "nested": {
+                            "path": suggest_field,
+                        },
+                        "aggs": {
+                            "id_value": {
+                                "terms": {
+                                    "field": f"{suggest_field}.id_value.keyword",
+                                    "size": AGG_SIZE,
+                                },
+                                "aggs": {
+                                    "normalized": {
+                                        "terms": {
+                                            "field": f"{suggest_field}.value.normalized_keyword"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    },
+                    filters,
+                    suggest_field,
+                    suggest_value,
+                ),
+            }
+        if type == "nested_multi_type":
+            return {
+                suggest_field: ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    suggest_field,
+                    {
+                        "nested": {
+                            "path": suggest_field,
+                        },
+                        "aggs": {
+                            "type_id_value": {
+                                "terms": {
+                                    "field": f"{suggest_field}.type_id_value.keyword",
+                                    "size": AGG_SIZE,
+                                },
+                                "aggs": {
+                                    "normalized": {
+                                        "terms": {
+                                            "field": f"{suggest_field}.value.normalized_keyword"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    },
+                    filters,
+                    suggest_field,
+                    suggest_value,
+                ),
+            }
+        if type == "uncertain_century":
+            return {
+                suggest_field: ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    suggest_field,
+                    {
+                        "nested": {
+                            "path": suggest_field,
+                        },
+                        "aggs": {
+                            "type_id_value": {
+                                "terms": {
+                                    "field": f"{suggest_field}.withoutUncertain",
+                                    "size": AGG_SIZE,
+                                },
+                                "aggs": {
+                                    "normalized": {
+                                        "terms": {
+                                            "field": f"{suggest_field}.withoutUncertain.normalized_keyword"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    },
+                    filters,
+                    suggest_field,
+                    suggest_value,
+                ),
+            }
+        if type == "text" or type == "[text]":
+            return {
+                suggest_field: ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    suggest_field,
+                    {
+                        "terms": {
+                            "field": f"{suggest_field}.normalized_keyword",
+                            "size": AGG_SIZE,
+                        },
+                        "aggs": {
+                            "normalized": {
+                                "terms": {
+                                    "field": f"{suggest_field}.normalized_keyword"
+                                }
+                            }
+                        },
+                    },
+                    filters,
+                    suggest_field,
+                    suggest_value,
+                ),
+            }
+
+        raise Exception(f"Aggregations suggestion of type {type} not yet implemented")
 
     @staticmethod
     def _construct_aggs(
@@ -435,129 +643,135 @@ class ElasticsearchManager:
         full_range_aggs: typing.Dict = None,
     ) -> typing.Dict:
         aggs = {}
-        for filterKey in es_config["filters"]:
-            type = es_config["base"][filterKey]["type"]
+        for filter_key in es_config["filters"]:
+            type = es_config["base"][filter_key]["type"]
             if type == "nested":
                 if (
-                    "type" in es_config["filters"][filterKey]
-                    and es_config["filters"][filterKey]["type"] == "nested_present"
+                    "type" in es_config["filters"][filter_key]
+                    and es_config["filters"][filter_key]["type"] == "nested_present"
                 ):
-                    aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
+                    aggs[filter_key] = ElasticsearchManager._construct_filter_agg(
                         es_config,
-                        filterKey,
+                        filter_key,
                         {
                             "nested": {
-                                "path": filterKey,
+                                "path": filter_key,
                             },
                         },
                         filters,
                     )
                     aggs[
-                        f"{filterKey}_missing"
+                        f"{filter_key}_missing"
                     ] = ElasticsearchManager._construct_filter_agg(
                         es_config,
-                        filterKey,
+                        filter_key,
                         {
                             "missing": {
-                                "field": filterKey,
+                                "field": filter_key,
                             },
                         },
                         filters,
                     )
                     continue
-                aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
-                    es_config,
-                    filterKey,
-                    {
-                        "nested": {
-                            "path": filterKey,
-                        },
-                        "aggs": {
-                            "id_value": {
-                                "terms": {
-                                    "field": f"{filterKey}.id_value.keyword",
-                                    "size": MAX_INT,
-                                    "min_doc_count": 0,
-                                }
-                            },
+                nested_agg = {
+                    "nested": {
+                        "path": filter_key,
+                    },
+                    "aggs": {
+                        "id_value": {
+                            "terms": {
+                                "field": f"{filter_key}.id_value.keyword",
+                                "size": MAX_INT,
+                                "min_doc_count": 0,
+                            }
                         },
                     },
+                }
+                aggs[filter_key] = ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    filter_key,
+                    nested_agg,
                     filters,
                 )
                 continue
             if type == "nested_multi_type":
-                aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
-                    es_config,
-                    filterKey,
-                    {
-                        "nested": {
-                            "path": filterKey,
-                        },
-                        "aggs": {
-                            "type_id_value": {
-                                "terms": {
-                                    "field": f"{filterKey}.type_id_value.keyword",
-                                    "size": MAX_INT,
-                                    "min_doc_count": 0,
-                                }
-                            },
+                nested_multi_type_agg = {
+                    "nested": {
+                        "path": filter_key,
+                    },
+                    "aggs": {
+                        "type_id_value": {
+                            "terms": {
+                                "field": f"{filter_key}.type_id_value.keyword",
+                                "size": MAX_INT,
+                                "min_doc_count": 0,
+                            }
                         },
                     },
+                }
+                aggs[filter_key] = ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    filter_key,
+                    nested_multi_type_agg,
                     filters,
                 )
                 continue
             if type == "uncertain_centuries":
-                aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
-                    es_config,
-                    filterKey,
-                    {
-                        "nested": {
-                            "path": filterKey,
-                        },
-                        "aggs": {
-                            "withoutUncertain": {
-                                "terms": {
-                                    "field": f"{filterKey}.withoutUncertain",
-                                    "size": MAX_INT,
-                                    "min_doc_count": 0,
-                                }
-                            },
+                uncertain_centuries_agg = {
+                    "nested": {
+                        "path": filter_key,
+                    },
+                    "aggs": {
+                        "withoutUncertain": {
+                            "terms": {
+                                "field": f"{filter_key}.withoutUncertain",
+                                "size": MAX_INT,
+                                "min_doc_count": 0,
+                            }
                         },
                     },
+                }
+                aggs[filter_key] = ElasticsearchManager._construct_filter_agg(
+                    es_config,
+                    filter_key,
+                    uncertain_centuries_agg,
                     filters,
                 )
                 continue
             if type == "text" or type == "[text]":
-                if es_config["filters"][filterKey]["type"] == "dropdown":
-                    aggs[filterKey] = ElasticsearchManager._construct_filter_agg(
-                        es_config,
-                        filterKey,
-                        {
-                            "terms": {
-                                "field": f"{filterKey}.keyword",
-                                "size": MAX_INT,
-                                "min_doc_count": 0,
-                            },
+                if es_config["filters"][filter_key]["type"] == "dropdown":
+                    dropdown_agg = {
+                        "terms": {
+                            "field": f"{filter_key}.keyword",
+                            "size": MAX_INT,
+                            "min_doc_count": 0,
                         },
+                    }
+                    aggs[filter_key] = ElasticsearchManager._construct_filter_agg(
+                        es_config,
+                        filter_key,
+                        dropdown_agg,
                         filters,
                     )
                     continue
-                if es_config["filters"][filterKey]["type"] == "autocomplete":
+                if es_config["filters"][filter_key]["type"] == "autocomplete":
                     continue
             if type == "edtf" or type == "edtf_interval":
-                if es_config["filters"][filterKey]["type"] == "histogram_slider":
+                if es_config["filters"][filter_key]["type"] == "histogram_slider":
                     aggs[
-                        f"{filterKey}_hist"
+                        f"{filter_key}_hist"
                     ] = ElasticsearchManager._construct_filter_agg(
                         es_config,
-                        filterKey,
+                        filter_key,
                         {
                             "histogram": {
-                                "field": f"{filterKey}.year_range",
-                                "interval": es_config["filters"][filterKey]["interval"],
+                                "field": f"{filter_key}.year_range",
+                                "interval": es_config["filters"][filter_key][
+                                    "interval"
+                                ],
                                 "extended_bounds": {
-                                    "min": full_range_aggs[f"{filterKey}_min"],
-                                    "max": full_range_aggs[f"{filterKey}_max"],
+                                    "min": full_range_aggs[f"{filter_key}_min"],
+                                    "max": full_range_aggs[f"{filter_key}_max"],
                                 },
                                 "min_doc_count": 0,
                             },
@@ -567,7 +781,7 @@ class ElasticsearchManager:
                     continue
 
             raise Exception(
-                f"Filter {es_config['filters'][filterKey]['type']} of type {type} not yet implemented"
+                f"Filter {es_config['filters'][filter_key]['type']} of type {type} not yet implemented"
             )
         return aggs
 
@@ -577,14 +791,9 @@ class ElasticsearchManager:
         key_method: callable,
         value_method: callable,
         sort_value_method: callable = None,
-        filter_count_0: bool = False,
+        suggest: bool = False,
         filter_values: typing.List = None,
     ) -> typing.List[typing.Dict]:
-        if filter_values is None:
-            filter_values_set = set()
-        else:
-            filter_values_set = set(filter_values)
-
         if sort_value_method is None:
             buckets = [
                 {
@@ -605,15 +814,48 @@ class ElasticsearchManager:
                 for bucket in buckets
             ]
 
-        if filter_count_0:
-            buckets = [
-                bucket
-                for bucket in buckets
-                if bucket["count"] != 0 or bucket["key"] in filter_values_set
-            ]
-
         if sort_value_method:
             buckets.sort(key=lambda bucket: bucket["sort_value"])
+
+        if suggest:
+            return [
+                {
+                    "key": bucket["key"],
+                    "value": bucket["value"],
+                    "count": bucket["count"],
+                }
+                for bucket in buckets
+            ]
+
+        # Limit number of aggregations and place selected aggregations first
+        if filter_values is None:
+            filter_values = []
+        number_of_filter_values = len(filter_values)
+        number_of_additional_buckets = max(AGG_SIZE - number_of_filter_values, 0)
+        filter_values_set = set(filter_values)
+        selected_buckets = []
+        additional_buckets = []
+        skip_selected = False
+        skip_additional = False
+        for bucket in buckets:
+            if not skip_selected:
+                if bucket["key"] in filter_values_set:
+                    selected_buckets.append(bucket)
+                    if len(selected_buckets) == number_of_filter_values:
+                        skip_selected = True
+                elif not skip_additional:
+                    if bucket["count"] > 0:
+                        additional_buckets.append(bucket)
+                        if len(additional_buckets) == number_of_additional_buckets:
+                            skip_additional = True
+            elif not skip_additional:
+                # cannot be a filter value, since selected is being skipped
+                if bucket["count"] > 0:
+                    additional_buckets.append(bucket)
+                    if len(additional_buckets) == number_of_additional_buckets:
+                        skip_additional = True
+            if skip_selected and skip_additional:
+                break
 
         return [
             {
@@ -621,15 +863,15 @@ class ElasticsearchManager:
                 "value": bucket["value"],
                 "count": bucket["count"],
             }
-            for bucket in buckets
+            for bucket in itertools.chain(selected_buckets, additional_buckets)
         ]
 
     @staticmethod
     def _has_filtered_aggregation(
         es_config: typing.Dict,
-        filterKey: str,
+        filter_key: str,
     ) -> bool:
-        type = es_config["base"][filterKey]["type"]
+        type = es_config["base"][filter_key]["type"]
         if type in [
             "nested",
             "nested_multi_type",
@@ -639,16 +881,16 @@ class ElasticsearchManager:
         ]:
             return True
         if type == "text" or type == "[text]":
-            if es_config["filters"][filterKey]["type"] == "dropdown":
+            if es_config["filters"][filter_key]["type"] == "dropdown":
                 return True
         return False
 
     @staticmethod
     def _in_filtered_aggregation(
         es_config: typing.Dict,
-        filterKey: str,
+        filter_key: str,
     ) -> bool:
-        type = es_config["base"][filterKey]["type"]
+        type = es_config["base"][filter_key]["type"]
         if type in [
             "nested",
             "nested_multi_type",
@@ -656,9 +898,43 @@ class ElasticsearchManager:
         ]:
             return True
         if type == "text" or type == "[text]":
-            if es_config["filters"][filterKey]["type"] == "dropdown":
+            if es_config["filters"][filter_key]["type"] == "dropdown":
                 return True
         return False
+
+    @staticmethod
+    def _filter_suggest_aggs(
+        buckets: typing.List[typing.Dict],
+        suggest_value: str,
+    ) -> typing.List[typing.Dict]:
+        # Filter out unwanted results (added because of nested aggregation)
+        filtered_buckets = []
+        suggest_split = suggest_value.split(" ")
+        suggest_terms = suggest_split[:-1]
+        suggest_prefix = suggest_split[-1]
+        for bucket in buckets:
+            skip = False
+            result_split = bucket["normalized"]["buckets"][0]["key"].split(" ")
+            # First words: full term search
+            for suggest_term in suggest_terms:
+                if suggest_term not in result_split:
+                    skip = True
+                    break
+            if skip:
+                continue
+
+            skip = True
+            for result_part in result_split:
+                if suggest_prefix in result_part:
+                    skip = False
+                    break
+            if skip:
+                continue
+
+            del bucket["normalized"]
+            filtered_buckets.append(bucket)
+
+        return filtered_buckets
 
     @staticmethod
     def _extract_aggs(
@@ -666,17 +942,22 @@ class ElasticsearchManager:
         raw_result: typing.Dict,
         filters: typing.Dict = None,
         full_range_aggs: typing.Dict = None,
+        suggest_field: str = None,
+        suggest_value: str = None,
     ) -> typing.Dict[str, typing.List]:
         aggregations = raw_result["aggregations"]
         results = {}
-        for filterKey in es_config["filters"].keys():
-            type = es_config["base"][filterKey]["type"]
-            if "sort" not in es_config["filters"][filterKey]:
+        for filter_key in es_config["filters"].keys():
+            if suggest_field and filter_key != suggest_field:
+                continue
+
+            type = es_config["base"][filter_key]["type"]
+            if "sort" not in es_config["filters"][filter_key]:
                 sort = None
             else:
-                sort = es_config["filters"][filterKey]["sort"]
+                sort = es_config["filters"][filter_key]["sort"]
 
-            agg_key = filterKey
+            agg_key = filter_key
             if type == "edtf" or type == "edtf_interval":
                 agg_key = f"{agg_key}_hist"
 
@@ -685,36 +966,34 @@ class ElasticsearchManager:
 
             agg_values = aggregations[agg_key]
 
+            # Exctract values from subaggregation in case of aggregation suggestion
+            if suggest_field:
+                agg_values = agg_values[filter_key]
             # Exctract values from subaggregation in case of filtered aggregations
-            if filters is not None and ElasticsearchManager._has_filtered_aggregation(
-                es_config, filterKey
+            elif filters is not None and ElasticsearchManager._has_filtered_aggregation(
+                es_config, filter_key
             ):
-                for usedFilterKey in filters:
+                for usedfilter_key in filters:
                     # These cases don't lead to a filtered aggregation
                     if not ElasticsearchManager._in_filtered_aggregation(
-                        es_config, usedFilterKey
+                        es_config, usedfilter_key
                     ):
                         continue
                     # Only filtered aggregation different from current key lead to an actual filtered aggregation
-                    if usedFilterKey != filterKey:
-                        agg_values = agg_values[filterKey]
+                    if usedfilter_key != filter_key:
+                        agg_values = agg_values[filter_key]
                         break
-
-            if filters is not None and filterKey in filters:
-                filter_values = filters[filterKey]
-            else:
-                filter_values = []
 
             if type == "nested":
                 if (
-                    "type" in es_config["filters"][filterKey]
-                    and es_config["filters"][filterKey]["type"] == "nested_present"
+                    "type" in es_config["filters"][filter_key]
+                    and es_config["filters"][filter_key]["type"] == "nested_present"
                 ):
-                    results[filterKey] = [
+                    results[filter_key] = [
                         {
                             "key": 0,
                             "value": "No",
-                            "count": aggregations[f"{filterKey}_missing"]["doc_count"],
+                            "count": aggregations[f"{filter_key}_missing"]["doc_count"],
                         },
                         {
                             "key": 1,
@@ -723,110 +1002,115 @@ class ElasticsearchManager:
                         },
                     ]
                     continue
-                if not sort:
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["id_value"]["buckets"],
-                        key_method=lambda bucket: bucket["key"].split("|", maxsplit=1)[
-                            0
-                        ],
-                        value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=1
-                        )[1],
-                        filter_count_0=True,
-                        filter_values=filter_values,
+
+                kwargs = {
+                    "buckets": agg_values["id_value"]["buckets"],
+                    "key_method": lambda bucket: bucket["key"].split("|", maxsplit=1)[
+                        0
+                    ],
+                    "value_method": lambda bucket: bucket["key"].split("|", maxsplit=1)[
+                        1
+                    ],
+                }
+
+                if suggest_field:
+                    kwargs["suggest"] = True
+                    kwargs["buckets"] = ElasticsearchManager._filter_suggest_aggs(
+                        kwargs["buckets"], suggest_value
                     )
-                    continue
-                if sort == "alphabetically":
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["id_value"]["buckets"],
-                        key_method=lambda bucket: bucket["key"].split("|", maxsplit=1)[
-                            0
-                        ],
-                        value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=1
-                        )[1],
-                        sort_value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=1
-                        )[1],
-                        filter_count_0=True,
-                        filter_values=filter_values,
-                    )
-                    continue
+                if sort:
+                    if sort == "alphabetically":
+                        kwargs["sort_value_method"] = lambda bucket: bucket[
+                            "key"
+                        ].split("|", maxsplit=1)[1]
+                    else:
+                        raise Exception(
+                            f"Sorting {sort} of filters of type {type} not yet implemented"
+                        )
+                if filters and filter_key in filters:
+                    kwargs["filter_values"] = filters[filter_key]
+
+                results[filter_key] = ElasticsearchManager._extract_agg(**kwargs)
+                continue
             if type == "nested_multi_type":
-                if not sort:
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["type_id_value"]["buckets"],
-                        key_method=lambda bucket: "|".join(
-                            bucket["key"].split("|", maxsplit=2)[:2]
-                        ),
-                        value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=2
-                        )[2],
-                        filter_count_0=True,
-                        filter_values=filter_values,
+                kwargs = {
+                    "buckets": agg_values["type_id_value"]["buckets"],
+                    "key_method": lambda bucket: "|".join(
+                        bucket["key"].split("|", maxsplit=2)[:2]
+                    ),
+                    "value_method": lambda bucket: bucket["key"].split("|", maxsplit=2)[
+                        2
+                    ],
+                }
+
+                if suggest_field:
+                    kwargs["suggest"] = True
+                    kwargs["buckets"] = ElasticsearchManager._filter_suggest_aggs(
+                        kwargs["buckets"], suggest_value
                     )
-                    continue
-                if sort == "alphabetically":
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["type_id_value"]["buckets"],
-                        key_method=lambda bucket: "|".join(
-                            bucket["key"].split("|", maxsplit=2)[:2]
-                        ),
-                        value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=2
-                        )[2],
-                        sort_value_method=lambda bucket: bucket["key"].split(
-                            "|", maxsplit=2
-                        )[2],
-                        filter_count_0=True,
-                        filter_values=filter_values,
-                    )
-                    continue
+                if sort:
+                    if sort == "alphabetically":
+                        kwargs["sort_value_method"] = lambda bucket: bucket[
+                            "key"
+                        ].split("|", maxsplit=2)[2]
+                    else:
+                        raise Exception(
+                            f"Sorting {sort} of filters of type {type} not yet implemented"
+                        )
+
+                results[filter_key] = ElasticsearchManager._extract_agg(**kwargs)
+                continue
             if type == "uncertain_centuries":
-                if not sort:
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["withoutUncertain"]["buckets"],
-                        key_method=lambda bucket: bucket["key"],
-                        value_method=lambda bucket: bucket["key"],
-                        sort_method=lambda bucket: roman.fromRoman(bucket["key"]),
-                        filter_count_0=True,
-                        filter_values=filter_values,
+                kwargs = {
+                    "buckets": agg_values["withoutUncertain"]["buckets"],
+                    "key_method": lambda bucket: bucket["key"],
+                    "value_method": lambda bucket: bucket["key"],
+                }
+
+                if suggest_field:
+                    kwargs["suggest"] = True
+                    kwargs["buckets"] = ElasticsearchManager._filter_suggest_aggs(
+                        kwargs["buckets"], suggest_value
                     )
-                    continue
-                if sort == "chronologically":
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["withoutUncertain"]["buckets"],
-                        key_method=lambda bucket: bucket["key"],
-                        value_method=lambda bucket: bucket["key"],
-                        sort_value_method=lambda bucket: roman.fromRoman(bucket["key"]),
-                        filter_count_0=True,
-                        filter_values=filter_values,
-                    )
-                    continue
+                if sort:
+                    if sort == "chronologically":
+                        kwargs["sort_value_method"] = lambda bucket: roman.fromRoman(
+                            bucket["key"]
+                        )
+                    else:
+                        raise Exception(
+                            f"Sorting {sort} of filters of type {type} not yet implemented"
+                        )
+
+                results[filter_key] = ElasticsearchManager._extract_agg(**kwargs)
+                continue
             if type == "text" or type == "[text]":
-                if not sort:
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["buckets"],
-                        key_method=lambda bucket: bucket["key"],
-                        value_method=lambda bucket: bucket["key"],
-                        filter_count_0=True,
-                        filter_values=filter_values,
+                kwargs = {
+                    "buckets": agg_values["buckets"],
+                    "key_method": lambda bucket: bucket["key"],
+                    "value_method": lambda bucket: bucket["key"],
+                }
+
+                if suggest_field:
+                    kwargs["suggest"] = True
+                    kwargs["buckets"] = ElasticsearchManager._filter_suggest_aggs(
+                        kwargs["buckets"], suggest_value
                     )
-                    continue
-                if sort == "alphabetically":
-                    results[filterKey] = ElasticsearchManager._extract_agg(
-                        agg_values["buckets"],
-                        key_method=lambda bucket: bucket["key"],
-                        value_method=lambda bucket: bucket["key"],
-                        sort_value_method=lambda bucket: bucket["key"],
-                        filter_count_0=True,
-                        filter_values=filter_values,
-                    )
-                    continue
+
+                if sort:
+                    if sort == "alphabetically":
+                        kwargs["sort_value_method"] = lambda bucket: bucket["key"]
+                    else:
+                        raise Exception(
+                            f"Sorting {sort} of filters of type {type} not yet implemented"
+                        )
+
+                results[filter_key] = ElasticsearchManager._extract_agg(**kwargs)
+                continue
             if type == "edtf" or type == "edtf_interval":
-                results[f"{filterKey}_hist"] = agg_values["buckets"]
-                results[f"{filterKey}_min"] = full_range_aggs[f"{filterKey}_min"]
-                results[f"{filterKey}_max"] = full_range_aggs[f"{filterKey}_max"]
+                results[f"{filter_key}_hist"] = agg_values["buckets"]
+                results[f"{filter_key}_min"] = full_range_aggs[f"{filter_key}_min"]
+                results[f"{filter_key}_max"] = full_range_aggs[f"{filter_key}_max"]
                 continue
 
             if sort:
@@ -980,3 +1264,72 @@ class ElasticsearchManager:
             suggestion["text"]
             for suggestion in raw_result["suggest"]["autocomplete"][0]["options"]
         ]
+
+    async def get_normalized_value(self, value: str) -> str:
+        indices_client = elasticsearch.client.IndicesClient(self._es)
+        normalized = await indices_client.analyze(
+            index=await self._get_alias_name(),
+            body={
+                "normalizer": "icu_normalizer",
+                "text": value,
+            },
+        )
+        return normalized["tokens"][0]["token"]
+
+    async def aggregation_suggest(self, body: typing.Dict) -> typing.Dict:
+        es_config = await self._get_es_config()
+
+        # Clean filters
+        if body["filters"]:
+            filters = {
+                key: value
+                for (key, value) in body["filters"].items()
+                if value is not None
+            }
+            if not len(filters):
+                filters = None
+        else:
+            filters = None
+
+        # Aggregations
+        request_aggs = self.__class__._construct_suggest_agg(
+            es_config,
+            filters,
+            suggest_field=body["field"],
+            suggest_value=body["value"],
+        )
+
+        if request_aggs is not None:
+            request_body = {
+                # only aggregation
+                "size": 0,
+                "aggs": request_aggs,
+            }
+
+            request_query = self.__class__._construct_query(
+                es_config,
+                filters,
+                global_aggs=True,
+            )
+            if request_query is not None:
+                request_body["query"] = request_query
+
+            raw_aggs = await self._es.search(
+                index=await self._get_alias_name(),
+                body=request_body,
+            )
+
+            normalized_value = await self.get_normalized_value(
+                body["value"],
+            )
+
+            aggs = self._extract_aggs(
+                es_config,
+                raw_aggs,
+                suggest_field=body["field"],
+                suggest_value=normalized_value,
+            )
+
+            return aggs[body["field"]]
+        else:
+            return []

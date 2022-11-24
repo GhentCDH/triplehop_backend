@@ -6,7 +6,11 @@ from app.mgmt.auth import get_current_active_user_with_permissions
 from app.mgmt.es import ElasticsearchManager
 from app.mgmt.job import JobManager
 from app.models.auth import UserWithPermissions
-from app.models.es import ElasticSearchBody, ElasticSuggestBody
+from app.models.es import (
+    ElasticAggregationSuggestBody,
+    ElasticSearchBody,
+    ElasticSuggestBody,
+)
 from app.models.job import JobId
 
 router = APIRouter()
@@ -38,6 +42,20 @@ async def search(
         project_name, entity_type_name, request, user
     )
     return await elasticsearch_manager.suggest(body.dict())
+
+
+@router.post("/{project_name}/{entity_type_name}/aggregation_suggest")
+async def search(
+    project_name: str,
+    entity_type_name: str,
+    body: ElasticAggregationSuggestBody,
+    request: Request,
+    user: UserWithPermissions = Depends(get_current_active_user_with_permissions),
+):
+    elasticsearch_manager = ElasticsearchManager(
+        project_name, entity_type_name, request, user
+    )
+    return await elasticsearch_manager.aggregation_suggest(body.dict())
 
 
 @router.get("/{project_name}/{entity_type_name}/reindex", response_model=JobId)

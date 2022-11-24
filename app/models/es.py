@@ -40,3 +40,12 @@ class ElasticSuggestBody(pydantic.BaseModel):
     # TODO: add custom validator based on entity type config?
     field: str
     value: str
+
+
+class ElasticAggregationSuggestBody(pydantic.BaseModel):
+    # TODO: add custom validator based on entity type config?
+    # https://pydantic-docs.helpmanual.io/usage/validators/
+    filters: typing.Dict = None
+    # TODO: add custom validator based on entity type config?
+    field: str
+    value: str

@@ -7,7 +7,6 @@ from datetime import date, datetime
 
 import edtf
 import elasticsearch
-import fastapi
 import roman
 from elasticsearch.helpers import async_bulk
 
@@ -18,7 +17,7 @@ MAX_RESULT_WINDOW = 10000
 MAX_INT = 2147483647
 DEFAULT_FROM = 0
 DEFAULT_SIZE = 25
-SCROLL_SIZE = 1000
+AGG_SIZE = 200
 
 # https://stackoverflow.com/questions/3838242/minimum-date-in-java
 # https://github.com/elastic/elasticsearch/issues/43966
@@ -744,6 +743,12 @@ class BaseElasticsearch:
                     },
                     "withoutUncertain": {
                         "type": "keyword",
+                        "fields": {
+                            "normalized_keyword": {
+                                "type": "keyword",
+                                "normalizer": "icu_normalizer",
+                            },
+                        },
                     },
                     "numeric": {
                         "type": "integer",
