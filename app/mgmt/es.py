@@ -925,7 +925,7 @@ class ElasticsearchManager:
 
             skip = True
             for result_part in result_split:
-                if suggest_prefix in result_part:
+                if result_part.startswith(suggest_prefix):
                     skip = False
                     break
             if skip:
