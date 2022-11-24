@@ -580,7 +580,7 @@ class ElasticsearchManager:
                     suggest_value,
                 ),
             }
-        if type == "uncertain_century":
+        if type == "uncertain_centuries":
             return {
                 suggest_field: ElasticsearchManager._construct_filter_agg(
                     es_config,
@@ -590,7 +590,7 @@ class ElasticsearchManager:
                             "path": suggest_field,
                         },
                         "aggs": {
-                            "type_id_value": {
+                            "withoutUncertain": {
                                 "terms": {
                                     "field": f"{suggest_field}.withoutUncertain",
                                     "size": AGG_SIZE,
