@@ -218,7 +218,7 @@ class ElasticsearchManager:
                         "path": suggest_field,
                         "query": {
                             "match_bool_prefix": {
-                                f"{suggest_field}.value.normalized_keyword": {
+                                f"{suggest_field}.value.normalized_text": {
                                     "query": suggest_value,
                                     "operator": "and",
                                 },
@@ -245,7 +245,7 @@ class ElasticsearchManager:
             ]["type"] == "dropdown":
                 queryPart = {
                     "match_bool_prefix": {
-                        f"{suggest_field}.normalized_keyword": {
+                        f"{suggest_field}.normalized_text": {
                             "query": suggest_value,
                             "operator": "and",
                         },

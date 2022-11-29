@@ -657,6 +657,10 @@ class BaseElasticsearch:
                         "type": "keyword",
                         "normalizer": "icu_normalizer",
                     },
+                    "normalized_text": {
+                        "type": "text",
+                        "analyzer": "icu_analyzer",
+                    },
                     "completion": {"type": "completion"},
                 }
             elif es_field_conf["type"] == "integer":
@@ -777,6 +781,10 @@ class BaseElasticsearch:
                             "normalized_keyword": {
                                 "type": "keyword",
                                 "normalizer": "icu_normalizer",
+                            },
+                            "normalized_text": {
+                                "type": "text",
+                                "analyzer": "icu_analyzer",
                             },
                         },
                     },
