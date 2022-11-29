@@ -1,5 +1,9 @@
 # Back-end for TripleHop
 
+TripleHop is a platform that aims to facilitate collaborative research data creation and publication.
+
+![TripleHop screenshot](triplehop_screenshot.png)
+
 The back-end for TripleHop consists of a FastAPI web application connected to a PostgreSQL database with the Apache AGE extension as data storage and an Elasticsearch instance as search engine.
 
 ## Work in progress
