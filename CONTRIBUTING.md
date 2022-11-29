@@ -4,7 +4,7 @@ We're really excited that you are interested in contributing to TripleHop. Pleas
 
 Documentation is currently severely lacking. Please contact <https://github.ugent.be/pdpotter> to get started.
 
-## Development set-up (preferably in a Virtual Machine)
+## Development set-up (based on a Debian Virtual Machine)
 
 * A PostgreSQL server with the AGE extension running at localhost
 
