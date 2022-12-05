@@ -4,6 +4,7 @@ import typing
 import aiocache
 import ariadne
 import starlette
+
 from app.cache.core import create_schema_key_builder
 from app.graphql.base import construct_def
 from app.mgmt.config import ConfigManager
@@ -262,6 +263,8 @@ class GraphQLConfigBuilder:
                             es_data_conf,
                         ),
                     }
+                if "style" in entity_config["config"]:
+                    config_item["style"] = entity_config["config"]["style"]
                 results.append(config_item)
 
             return results
@@ -424,6 +427,7 @@ class GraphQLConfigBuilder:
                     ["display", "Entity_display_config"],
                     ["edit", "Entity_edit_config"],
                     ["elasticsearch", "Es_config"],
+                    ["style", "Style"],
                 ],
                 "Entity_display_config": [
                     ["title", "String!"],
@@ -456,6 +460,10 @@ class GraphQLConfigBuilder:
                     ["display_name", "String!"],
                     ["type", "String!"],
                     ["interval", "Int"],
+                ],
+                "Style": [
+                    ["search", "[String]"],
+                    ["detail", "[String]"],
                 ],
             }
         )
