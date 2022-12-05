@@ -617,7 +617,7 @@ class ElasticsearchManager:
                     suggest_field,
                     {
                         "terms": {
-                            "field": f"{suggest_field}.normalized_keyword",
+                            "field": f"{suggest_field}.keyword",
                             "size": AGG_SIZE,
                         },
                         "aggs": {
