@@ -540,7 +540,10 @@ class ElasticsearchManager:
                                         "terms": {
                                             "field": f"{suggest_field}.value.normalized_keyword"
                                         }
-                                    }
+                                    },
+                                    "reverse_nested": {
+                                        "reverse_nested": {},
+                                    },
                                 },
                             },
                         },
@@ -570,7 +573,10 @@ class ElasticsearchManager:
                                         "terms": {
                                             "field": f"{suggest_field}.value.normalized_keyword"
                                         }
-                                    }
+                                    },
+                                    "reverse_nested": {
+                                        "reverse_nested": {},
+                                    },
                                 },
                             },
                         },
@@ -600,7 +606,10 @@ class ElasticsearchManager:
                                         "terms": {
                                             "field": f"{suggest_field}.withoutUncertain.normalized_keyword"
                                         }
-                                    }
+                                    },
+                                    "reverse_nested": {
+                                        "reverse_nested": {},
+                                    },
                                 },
                             },
                         },
@@ -683,7 +692,12 @@ class ElasticsearchManager:
                                 "field": f"{filter_key}.id_value.keyword",
                                 "size": MAX_INT,
                                 "min_doc_count": 0,
-                            }
+                            },
+                            "aggs": {
+                                "reverse_nested": {
+                                    "reverse_nested": {},
+                                },
+                            },
                         },
                     },
                 }
@@ -705,7 +719,12 @@ class ElasticsearchManager:
                                 "field": f"{filter_key}.type_id_value.keyword",
                                 "size": MAX_INT,
                                 "min_doc_count": 0,
-                            }
+                            },
+                            "aggs": {
+                                "reverse_nested": {
+                                    "reverse_nested": {},
+                                },
+                            },
                         },
                     },
                 }
@@ -727,7 +746,12 @@ class ElasticsearchManager:
                                 "field": f"{filter_key}.withoutUncertain",
                                 "size": MAX_INT,
                                 "min_doc_count": 0,
-                            }
+                            },
+                            "aggs": {
+                                "reverse_nested": {
+                                    "reverse_nested": {},
+                                },
+                            },
                         },
                     },
                 }
@@ -794,12 +818,18 @@ class ElasticsearchManager:
         suggest: bool = False,
         filter_values: typing.List = None,
     ) -> typing.List[typing.Dict]:
+        count_method = (
+            lambda bucket: bucket["reverse_nested"]["doc_count"]
+            if "reverse_nested" in bucket
+            else bucket["doc_count"]
+        )
+
         if sort_value_method is None:
             buckets = [
                 {
                     "key": key_method(bucket),
                     "value": value_method(bucket),
-                    "count": bucket["doc_count"],
+                    "count": count_method(bucket),
                 }
                 for bucket in buckets
             ]
@@ -808,7 +838,7 @@ class ElasticsearchManager:
                 {
                     "key": key_method(bucket),
                     "value": value_method(bucket),
-                    "count": bucket["doc_count"],
+                    "count": count_method(bucket),
                     "sort_value": sort_value_method(bucket),
                 }
                 for bucket in buckets
