@@ -41,6 +41,7 @@ class BaseElasticsearch:
             if (
                 es_field_conf["type"] == "nested"
                 or es_field_conf["type"] == "nested_multi_type"
+                or es_field_conf["type"] == "nested_flatten"
             ):
                 for part in es_field_conf["parts"].values():
                     if part[0] == ".":
@@ -238,8 +239,8 @@ class BaseElasticsearch:
                     results = [
                         # Replace single quotes with double quotes so lists can be loaded as json
                         result.replace(
-                            match, str(current_level["e_props"][key]).replace("'", '"')
-                        )
+                            match, str(current_level["e_props"][key])
+                        ).replace("'", '"')
                         for result in results
                         for current_level in current_levels
                         if key in current_level["e_props"]
@@ -332,6 +333,29 @@ class BaseElasticsearch:
             if not str_values:
                 return None
             return str_values[0]
+
+        if es_field_conf["type"] == "text_flatten":
+            str_values = BaseElasticsearch.replace(
+                entity_types_config,
+                entity_type_names,
+                es_field_conf["selector_value"],
+                data,
+            )
+            if not str_values:
+                return None
+
+            try:
+                # try if values are a list of json encoded lists
+                flattened_values = [
+                    val for vals in str_values for val in json.loads(vals)
+                ]
+                unique_values = list(set(flattened_values))
+            except (json.decoder.JSONDecodeError, TypeError):
+                # process as a list of text strings if impossible to decode as Json
+                # or impossible to iterate (integers can be decoded as Json)
+                unique_values = list(set(str_values))
+
+            return ", ".join(unique_values)
 
         if es_field_conf["type"] == "edtf":
             str_values = BaseElasticsearch.replace(
@@ -519,6 +543,7 @@ class BaseElasticsearch:
         if (
             es_field_conf["type"] == "nested"
             or es_field_conf["type"] == "nested_multi_type"
+            or es_field_conf["type"] == "nested_flatten"
         ):
             datas = BaseElasticsearch.get_datas_for_base(
                 es_field_conf["base"],
@@ -565,12 +590,17 @@ class BaseElasticsearch:
                         entity_type_names,
                         {
                             "selector_value": es_field_conf["parts"]["selector_value"],
-                            "type": "text",
+                            "type": "text_flatten"
+                            if es_field_conf["type"] == "nested_flatten"
+                            else "text",
                         },
                         data,
                     ),
                 }
-                if es_field_conf["type"] == "nested":
+                if (
+                    es_field_conf["type"] == "nested"
+                    or es_field_conf["type"] == "nested_flatten"
+                ):
                     result["id_value"] = f"{result['id']}|{result['value']}"
                 elif es_field_conf["type"] == "nested_multi_type":
                     result["type_id"] = f"{result['entity_type_name']}|{result['id']}"
@@ -761,6 +791,7 @@ class BaseElasticsearch:
             elif (
                 es_field_conf["type"] == "nested"
                 or es_field_conf["type"] == "nested_multi_type"
+                or es_field_conf["type"] == "nested_flatten"
             ):
                 mapping["type"] = "nested"
                 mapping["properties"] = {
@@ -789,7 +820,10 @@ class BaseElasticsearch:
                         },
                     },
                 }
-                if es_field_conf["type"] == "nested":
+                if (
+                    es_field_conf["type"] == "nested"
+                    or es_field_conf["type"] == "nested_flatten"
+                ):
                     mapping["properties"]["id_value"] = {
                         "type": "text",
                         "fields": {

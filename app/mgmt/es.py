@@ -139,7 +139,7 @@ class ElasticsearchManager:
                     }
                 }
             ]
-        if type == "nested" or type == "nested_multi_type":
+        if type == "nested" or type == "nested_multi_type" or type == "nested_flatten":
             if sort_order == "asc":
                 mode = "min"
             else:
@@ -169,7 +169,11 @@ class ElasticsearchManager:
                 type = es_config["columns"][system_name]["sub_field_type"]
             else:
                 type = es_config["base"][system_name]["type"]
-            if type == "nested" or type == "nested_multi_type":
+            if (
+                type == "nested"
+                or type == "nested_multi_type"
+                or type == "nested_flatten"
+            ):
                 fields.append(f"{system_name}.entity_type_name")
                 fields.append(f"{system_name}.id")
                 fields.append(f"{system_name}.value")
@@ -212,7 +216,11 @@ class ElasticsearchManager:
         # TODO: more elegant fix for unwanted nested aggregations
         if suggest_field is not None:
             type = es_config["base"][suggest_field]["type"]
-            if type == "nested" or type == "nested_multi_type":
+            if (
+                type == "nested"
+                or type == "nested_multi_type"
+                or type == "nested_flatten"
+            ):
                 queryPart = {
                     "nested": {
                         "path": suggest_field,
@@ -310,6 +318,7 @@ class ElasticsearchManager:
             if (
                 type == "nested"
                 or type == "nested_multi_type"
+                or type == "nested_flatten"
                 or type == "uncertain_centuries"
             ):
                 if global_aggs:
@@ -323,7 +332,7 @@ class ElasticsearchManager:
                         "query": {"terms": {}},
                     }
                 }
-                if type == "nested":
+                if type == "nested" or type == "nested_flatten":
                     queryPart["nested"]["query"]["terms"][
                         f"{filter_key}.id"
                     ] = filter_values
@@ -415,7 +424,11 @@ class ElasticsearchManager:
                 else:
                     if column_key not in fields:
                         continue
-                if type == "nested" or type == "nested_multi_type":
+                if (
+                    type == "nested"
+                    or type == "nested_multi_type"
+                    or type == "nested_flatten"
+                ):
                     result[column_key] = [
                         {k: v[0] for k, v in value.items()}
                         for value in fields[column_key]
@@ -520,7 +533,7 @@ class ElasticsearchManager:
         suggest_value: str = None,
     ):
         type = es_config["base"][suggest_field]["type"]
-        if type == "nested":
+        if type == "nested" or type == "nested_flatten":
             return {
                 suggest_field: ElasticsearchManager._construct_filter_agg(
                     es_config,
@@ -654,7 +667,7 @@ class ElasticsearchManager:
         aggs = {}
         for filter_key in es_config["filters"]:
             type = es_config["base"][filter_key]["type"]
-            if type == "nested":
+            if type == "nested" or type == "nested_flatten":
                 if (
                     "type" in es_config["filters"][filter_key]
                     and es_config["filters"][filter_key]["type"] == "nested_present"
@@ -905,6 +918,7 @@ class ElasticsearchManager:
         if type in [
             "nested",
             "nested_multi_type",
+            "nested_flatten",
             "uncertain_centuries",
             "edtf",
             "edtf_interval",
@@ -924,6 +938,7 @@ class ElasticsearchManager:
         if type in [
             "nested",
             "nested_multi_type",
+            "nested_flatten",
             "uncertain_centuries",
         ]:
             return True
@@ -1014,7 +1029,7 @@ class ElasticsearchManager:
                         agg_values = agg_values[filter_key]
                         break
 
-            if type == "nested":
+            if type == "nested" or type == "nested_flatten":
                 if (
                     "type" in es_config["filters"][filter_key]
                     and es_config["filters"][filter_key]["type"] == "nested_present"
@@ -1210,6 +1225,7 @@ class ElasticsearchManager:
                 index=await self._get_alias_name(),
                 body=request_body,
             )
+
             aggs = self._extract_aggs(es_config, raw_aggs, filters, full_range_aggs)
         else:
             aggs = {}
