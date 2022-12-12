@@ -105,6 +105,15 @@ class GraphQLConfigBuilder:
                         input=field["show_condition"],
                         entity_lookup=entity_lookup,
                     )
+                if "search_value" in field:
+                    field[
+                        "search_value"
+                    ] = GraphQLConfigBuilder._replace_field_ids_by_system_names(
+                        input=field["search_value"],
+                        entity_field_lookup=entity_field_lookup,
+                        relation_field_lookup=relation_field_lookup,
+                        relation_lookup=relation_lookup,
+                    )
         return result
 
     @staticmethod
@@ -397,6 +406,9 @@ class GraphQLConfigBuilder:
                     ["base_layer", "String"],
                     ["base_url", "String"],
                     ["show_condition", "String"],
+                    ["searchable", "Boolean"],
+                    ["search_key", "String"],
+                    ["search_value", "String"],
                 ],
                 "Edit_panel_config": [
                     ["label", "String"],
