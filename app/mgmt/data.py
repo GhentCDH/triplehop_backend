@@ -1038,10 +1038,10 @@ class DataManager:
                     if es_field_def["type"] == "nested":
                         for part in es_field_def["parts"].values():
                             for diff_field_id in diff_field_ids:
-                                if diff_field_id in part["selector_value"]:
+                                if diff_field_id in part:
                                     await add_entities_and_field_to_update(
                                         es_entity_type_id,
-                                        part["selector_value"],
+                                        part,
                                         diff_field_id,
                                         es_field_def["system_name"],
                                     )
