@@ -1,6 +1,8 @@
 import json
+import jsonpath_ng
 import re
 import time
+import functools
 import typing
 import uuid
 from datetime import date, datetime
@@ -127,11 +129,27 @@ class BaseElasticsearch:
         ]
 
     @staticmethod
+    def _transform_prop(
+        prop: str,
+    ) -> str:
+        if prop == "id":
+            return "id"
+        return f"p_{dtu(prop)}"
+
+    @staticmethod
+    @functools.lru_cache(128)
+    def _parse_json_path(input: str) -> str:
+        return jsonpath_ng.parse(input)
+
+    # Try out jsonpath instead of looping ourselves. This is unfortunately 5 x slower.
+    # Objectpath and jsmespath have issues with wildcards following by further expressions
+    @staticmethod
     def replace(
         entity_types_config: typing.Dict,
         entity_type_names: typing.Dict,
         input: str,
         data: typing.Dict,
+        display_not_available: bool = False,
     ) -> typing.List[str]:
         """
         Always returns an array of strings because of the usage of str.replace().
@@ -146,6 +164,7 @@ class BaseElasticsearch:
                     entity_type_names,
                     input_part,
                     data,
+                    display_not_available,
                 )
             ]
 
@@ -153,7 +172,7 @@ class BaseElasticsearch:
 
         matches = RE_FIELD_CONVERSION.findall(input)
 
-        # Find common base in matches, preventing multiplying current_level numbers
+        # Find common base in matches, preventing multiplying result numbers
         if len(matches) > 1:
             (base, based_matches) = BaseElasticsearch.find_common_base_path(matches)
             if base != "":
@@ -167,6 +186,7 @@ class BaseElasticsearch:
                         entity_type_names,
                         input,
                         data,
+                        display_not_available,
                     )
                 ]
 
@@ -174,91 +194,227 @@ class BaseElasticsearch:
             if not match:
                 continue
 
-            current_levels = [data]
             path = [p.replace("$", "") for p in match.split("->")]
-            for i, p in enumerate(path):
-                if i == len(path) - 1:
-                    # relation property
-                    if "." in p:
-                        (rel_type_id, r_prop) = p.split(".")
-                        key = "id" if r_prop == "id" else f"p_{dtu(r_prop)}"
-                        new_results = []
-                        for result in results:
-                            for current_level in current_levels:
-                                if rel_type_id == "":
-                                    if key not in current_level["r_props"]:
-                                        continue
-                                    # Replace single quotes with double quotes so lists can be loaded as json
-                                    new_results.append(
-                                        result.replace(
-                                            match, str(current_level["r_props"][key])
-                                        ).replace("'", '"')
-                                    )
-                                else:
-                                    if "relations" not in current_level:
-                                        continue
-                                    if rel_type_id not in current_level["relations"]:
-                                        continue
-                                    for relation in current_level["relations"][
-                                        rel_type_id
-                                    ].values():
-                                        if key not in relation["r_props"]:
-                                            continue
-                                        # Replace single quotes with double quotes so lists can be loaded as json
-                                        new_results.append(
-                                            result.replace(
-                                                match, str(relation["r_props"][key])
-                                            ).replace("'", '"')
-                                        )
-                        results = new_results
-                        break
-                    # entity property
-                    if p == "display_name":
-                        results = [
-                            result.replace(
-                                match,
-                                entity_types_config[
-                                    entity_type_names[current_level["entity_type_id"]]
-                                ]["display_name"],
-                            )
-                            for result in results
-                            for current_level in current_levels
-                        ]
-                        break
-                    if p == "entity_type_name":
-                        results = [
-                            result.replace(
-                                match,
-                                entity_type_names[current_level["entity_type_id"]],
-                            )
-                            for result in results
-                            for current_level in current_levels
-                        ]
-                        break
-                    key = "id" if p == "id" else f"p_{dtu(p)}"
-                    results = [
-                        # Replace single quotes with double quotes so lists can be loaded as json
-                        result.replace(
-                            match, str(current_level["e_props"][key])
-                        ).replace("'", '"')
-                        for result in results
-                        for current_level in current_levels
-                        if key in current_level["e_props"]
+
+            relation_path_without_last = ""
+            if len(path) > 1:
+                relation_path_without_last = ".".join(
+                    [
+                        f".relations.{relation_type_id}.*"
+                        for relation_type_id in path[:-1]
                     ]
-                    break
-                # not last element => p = relation => travel
-                new_current_levels = []
-                for current_level in current_levels:
-                    if (
-                        "relations" not in current_level
-                        or p not in current_level["relations"]
-                    ):
-                        continue
-                    for new_current_level in current_level["relations"][p].values():
-                        new_current_levels.append(new_current_level)
-                current_levels = new_current_levels
+                )
+
+            if "." in path[-1]:
+                # relation_property
+                (rel_type_id, r_prop) = path[-1].split(".")
+                if rel_type_id == "":
+                    # relation_property where root is a relation
+                    finds = BaseElasticsearch._parse_json_path(
+                        f"$.r_props.{BaseElasticsearch._transform_prop(r_prop)}"
+                    ).find(data)
+                    results = [
+                        result.replace(match, str(find))
+                        for find in finds
+                        for result in results
+                    ]
+                    continue
+                finds = BaseElasticsearch._parse_json_path(
+                    f"${relation_path_without_last}.relations.rel_type_id.*.r_props.{r_prop}"
+                ).find(data)
+                results = [
+                    result.replace(match, str(find.value))
+                    for find in finds
+                    for result in results
+                ]
+                continue
+            # entity property
+            if path[-1] == "display_name":
+                finds = BaseElasticsearch._parse_json_path(
+                    f"${relation_path_without_last}.entity_type_id"
+                ).find(data)
+                results = [
+                    result.replace(
+                        match,
+                        entity_types_config[entity_type_names[find.value]][
+                            "display_name"
+                        ],
+                    )
+                    for find in finds
+                    for result in results
+                ]
+                continue
+            if path[-1] == "entity_type_name":
+                finds = BaseElasticsearch._parse_json_path(
+                    f"${relation_path_without_last}.entity_type_id"
+                ).find(data)
+                results = [
+                    result.replace(match, entity_type_names[find.value])
+                    for find in finds
+                    for result in results
+                ]
+                continue
+            finds = BaseElasticsearch._parse_json_path(
+                f"${relation_path_without_last}.e_props.{BaseElasticsearch._transform_prop(path[-1])}"
+            ).find(data)
+            if finds:
+                results = [
+                    result.replace(match, str(find.value))
+                    for find in finds
+                    for result in results
+                ]
+                continue
+            if display_not_available:
+                # Display N/A if
+                # * a property of the root element is requested
+                # * an unexisting property of an existing relation is requested
+                if len(path) == 1 or BaseElasticsearch._parse_json_path(
+                    f"${relation_path_without_last}.e_props"
+                ).find(data):
+                    results = [result.replace(match, "N/A") for result in results]
+                    continue
+            # No match => don't return results
+            return []
+
+        # Replace single quotes with double quotes so lists can be loaded as json
+        results = [result.replace("'", '"') for result in results]
 
         return results
+
+    # @staticmethod
+    # def replace(
+    #     entity_types_config: typing.Dict,
+    #     entity_type_names: typing.Dict,
+    #     input: str,
+    #     data: typing.Dict,
+    #     display_not_available: bool = False,
+    # ) -> typing.List[str]:
+    #     """
+    #     Always returns an array of strings because of the usage of str.replace().
+    #     """
+    #     # Split concatenate cases
+    #     if " $||$ " in input:
+    #         return [
+    #             result
+    #             for input_part in input.split(" $||$ ")
+    #             for result in BaseElasticsearch.replace(
+    #                 entity_types_config,
+    #                 entity_type_names,
+    #                 input_part,
+    #                 data,
+    #             )
+    #         ]
+
+    #     results = [input]
+
+    #     matches = RE_FIELD_CONVERSION.findall(input)
+
+    #     # Find common base in matches, preventing multiplying current_level numbers
+    #     if len(matches) > 1:
+    #         (base, based_matches) = BaseElasticsearch.find_common_base_path(matches)
+    #         if base != "":
+    #             for i, match in enumerate(matches):
+    #                 input = input.replace(match, based_matches[i], 1)
+    #             return [
+    #                 result
+    #                 for data in BaseElasticsearch.get_datas_for_base(base, data)
+    #                 for result in BaseElasticsearch.replace(
+    #                     entity_types_config,
+    #                     entity_type_names,
+    #                     input,
+    #                     data,
+    #                 )
+    #             ]
+
+    #     for match in matches:
+    #         if not match:
+    #             continue
+
+    #         current_levels = [data]
+    #         path = [p.replace("$", "") for p in match.split("->")]
+    #         for i, p in enumerate(path):
+    #             if i == len(path) - 1:
+    #                 # relation property
+    #                 if "." in p:
+    #                     (rel_type_id, r_prop) = p.split(".")
+    #                     key = "id" if r_prop == "id" else f"p_{dtu(r_prop)}"
+    #                     new_results = []
+    #                     for result in results:
+    #                         for current_level in current_levels:
+    #                             if rel_type_id == "":
+    #                                 if key not in current_level["r_props"]:
+    #                                     continue
+    #                                 # Replace single quotes with double quotes so lists can be loaded as json
+    #                                 new_results.append(
+    #                                     result.replace(
+    #                                         match, str(current_level["r_props"][key])
+    #                                     ).replace("'", '"')
+    #                                 )
+    #                             else:
+    #                                 if "relations" not in current_level:
+    #                                     continue
+    #                                 if rel_type_id not in current_level["relations"]:
+    #                                     continue
+    #                                 for relation in current_level["relations"][
+    #                                     rel_type_id
+    #                                 ].values():
+    #                                     if key not in relation["r_props"]:
+    #                                         continue
+    #                                     # Replace single quotes with double quotes so lists can be loaded as json
+    #                                     new_results.append(
+    #                                         result.replace(
+    #                                             match, str(relation["r_props"][key])
+    #                                         ).replace("'", '"')
+    #                                     )
+    #                     results = new_results
+    #                     break
+    #                 # entity property
+    #                 if p == "display_name":
+    #                     results = [
+    #                         result.replace(
+    #                             match,
+    #                             entity_types_config[
+    #                                 entity_type_names[current_level["entity_type_id"]]
+    #                             ]["display_name"],
+    #                         )
+    #                         for result in results
+    #                         for current_level in current_levels
+    #                     ]
+    #                     break
+    #                 if p == "entity_type_name":
+    #                     results = [
+    #                         result.replace(
+    #                             match,
+    #                             entity_type_names[current_level["entity_type_id"]],
+    #                         )
+    #                         for result in results
+    #                         for current_level in current_levels
+    #                     ]
+    #                     break
+    #                 key = "id" if p == "id" else f"p_{dtu(p)}"
+    #                 results = [
+    #                     # Replace single quotes with double quotes so lists can be loaded as json
+    #                     result.replace(
+    #                         match, str(current_level["e_props"][key])
+    #                     ).replace("'", '"')
+    #                     for result in results
+    #                     for current_level in current_levels
+    #                     if key in current_level["e_props"]
+    #                 ]
+    #                 break
+    #             # not last element => p = relation => travel
+    #             new_current_levels = []
+    #             for current_level in current_levels:
+    #                 if (
+    #                     "relations" not in current_level
+    #                     or p not in current_level["relations"]
+    #                 ):
+    #                     continue
+    #                 for new_current_level in current_level["relations"][p].values():
+    #                     new_current_levels.append(new_current_level)
+    #             current_levels = new_current_levels
+
+    #     return results
 
     @staticmethod
     def get_datas_for_base(base: str, data: typing.Dict) -> typing.List[typing.Dict]:
@@ -266,6 +422,16 @@ class BaseElasticsearch:
         Given a base path, return the data at this base level.
         As there might be multiple relations reaching to this level, there might be multiple results.
         """
+        # path = [p.replace("$", "") for p in base.split("->")]
+        # relation_path = ".".join(
+        #     [f".relations.{relation_type_id}.*" for relation_type_id in path]
+        # )
+        # return [
+        #     find.value
+        #     for find in BaseElasticsearch._parse_json_path(f"${relation_path}").find(
+        #         data
+        #     )
+        # ]
         current_levels = [data]
         path = [p.replace("$", "") for p in base.split("->")]
         for p in path:
@@ -329,6 +495,7 @@ class BaseElasticsearch:
                 entity_type_names,
                 es_field_conf["selector_value"],
                 data,
+                es_field_conf.get("display_not_available", False),
             )
             if not str_values:
                 return None
@@ -625,6 +792,7 @@ class BaseElasticsearch:
 
         docs = {}
         for entity_id, entity in entities.items():
+            print(entity)
             doc = {}
             for es_field_conf in es_data_config:
                 doc[es_field_conf["system_name"]] = BaseElasticsearch.convert_field(
@@ -642,7 +810,12 @@ class BaseElasticsearch:
         body = {
             "mappings": {
                 "dynamic": "strict",
-                "properties": {},
+                # Add title to display on edit pages when creating relations
+                "properties": {
+                    "edit_relation_title": {
+                        "type": "keyword",
+                    },
+                },
             },
             "settings": {
                 "analysis": {
