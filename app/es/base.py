@@ -132,6 +132,7 @@ class BaseElasticsearch:
         entity_type_names: typing.Dict,
         input: str,
         data: typing.Dict,
+        display_not_available: bool = False,
     ) -> typing.List[str]:
         """
         Always returns an array of strings because of the usage of str.replace().
@@ -146,6 +147,7 @@ class BaseElasticsearch:
                     entity_type_names,
                     input_part,
                     data,
+                    display_not_available,
                 )
             ]
 
@@ -167,15 +169,20 @@ class BaseElasticsearch:
                         entity_type_names,
                         input,
                         data,
+                        display_not_available,
                     )
                 ]
 
         for match in matches:
+            if not results:
+                break
+
             if not match:
                 continue
 
             current_levels = [data]
             path = [p.replace("$", "") for p in match.split("->")]
+
             for i, p in enumerate(path):
                 if i == len(path) - 1:
                     # relation property
@@ -188,11 +195,10 @@ class BaseElasticsearch:
                                 if rel_type_id == "":
                                     if key not in current_level["r_props"]:
                                         continue
-                                    # Replace single quotes with double quotes so lists can be loaded as json
                                     new_results.append(
                                         result.replace(
                                             match, str(current_level["r_props"][key])
-                                        ).replace("'", '"')
+                                        )
                                     )
                                 else:
                                     if "relations" not in current_level:
@@ -204,11 +210,10 @@ class BaseElasticsearch:
                                     ].values():
                                         if key not in relation["r_props"]:
                                             continue
-                                        # Replace single quotes with double quotes so lists can be loaded as json
                                         new_results.append(
                                             result.replace(
                                                 match, str(relation["r_props"][key])
-                                            ).replace("'", '"')
+                                            )
                                         )
                         results = new_results
                         break
@@ -236,16 +241,18 @@ class BaseElasticsearch:
                         ]
                         break
                     key = "id" if p == "id" else f"p_{dtu(p)}"
-                    results = [
-                        # Replace single quotes with double quotes so lists can be loaded as json
-                        result.replace(
-                            match, str(current_level["e_props"][key])
-                        ).replace("'", '"')
+                    new_results = [
+                        result.replace(match, str(current_level["e_props"][key]))
                         for result in results
                         for current_level in current_levels
                         if key in current_level["e_props"]
                     ]
-                    break
+                    if new_results:
+                        results = new_results
+                        break
+                    if not new_results and display_not_available:
+                        results = [result.replace(match, "N/A") for result in results]
+                        break
                 # not last element => p = relation => travel
                 new_current_levels = []
                 for current_level in current_levels:
@@ -257,6 +264,12 @@ class BaseElasticsearch:
                     for new_current_level in current_level["relations"][p].values():
                         new_current_levels.append(new_current_level)
                 current_levels = new_current_levels
+                if not current_levels:
+                    results = []
+                    break
+
+        # Replace single quotes with double quotes so lists can be loaded as json
+        results = [result.replace("'", '"') for result in results]
 
         return results
 
@@ -329,6 +342,7 @@ class BaseElasticsearch:
                 entity_type_names,
                 es_field_conf["selector_value"],
                 data,
+                es_field_conf.get("display_not_available"),
             )
             if not str_values:
                 return None

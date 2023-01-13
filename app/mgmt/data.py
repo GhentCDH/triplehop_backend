@@ -1034,6 +1034,18 @@ class DataManager:
                         es_etn,
                     )
                 )
+                # Add title to display on edit pages when creating relations
+                # For now, [id] display.title is being used
+                # If required, a more specific configuration option can be added later on
+                for diff_field_id in diff_field_ids:
+                    if diff_field_id in etd["config"]["display"]["title"]:
+                        await add_entities_and_field_to_update(
+                            es_entity_type_id,
+                            etd["config"]["display"]["title"],
+                            diff_field_id,
+                            "edit_relation_title",
+                        )
+
                 for es_field_def in etd["config"]["es_data"]["fields"]:
                     if es_field_def["type"] == "nested":
                         for part in es_field_def["parts"].values():
@@ -1081,11 +1093,10 @@ class DataManager:
         )
 
         for es_entity_type_id in es_query:
-            entity_type_config = entity_types_config[
-                await self._config_manager.get_entity_type_name_by_id(
-                    self._project_name, es_entity_type_id
-                )
-            ]
+            entity_type_name = await self._config_manager.get_entity_type_name_by_id(
+                self._project_name, es_entity_type_id
+            )
+            entity_type_config = entity_types_config[entity_type_name]
             # Batch entities in lists with the same entity type and the same required fields
             while es_query[es_entity_type_id]:
                 batch_entity_ids = []
@@ -1105,6 +1116,15 @@ class DataManager:
                     for field_def in entity_type_config["config"]["es_data"]["fields"]
                     if field_def["system_name"] in es_field_system_names
                 ]
+                if "edit_relation_title" in es_field_system_names:
+                    es_data_config.append(
+                        {
+                            "system_name": "edit_relation_title",
+                            "selector_value": f"[$id] {entity_type_config['config']['display']['title']}",
+                            "type": "text",
+                            "display_not_available": True,
+                        }
+                    )
                 triplehop_query = BaseElasticsearch.extract_query_from_es_data_config(
                     es_data_config
                 )
