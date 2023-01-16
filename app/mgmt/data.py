@@ -1027,61 +1027,82 @@ class DataManager:
                     es_query[es_entity_type_id][e_id].add(es_field_system_name)
 
         for es_etn, etd in (await self._get_entity_types_config()).items():
-            if "config" in etd and "es_data" in etd["config"]:
+            if "config" in etd:
                 es_entity_type_id = (
                     await self._config_manager.get_entity_type_id_by_name(
                         self._project_name,
                         es_etn,
                     )
                 )
-                # Add title to display on edit pages when creating relations
-                # For now, [id] display.title is being used
-                # If required, a more specific configuration option can be added later on
-                for diff_field_id in diff_field_ids:
-                    if diff_field_id in etd["config"]["display"]["title"]:
-                        await add_entities_and_field_to_update(
-                            es_entity_type_id,
-                            etd["config"]["display"]["title"],
-                            diff_field_id,
-                            "edit_relation_title",
-                        )
+                if "display" in etd["config"]:
+                    # Add title to display on edit pages when creating relations
+                    # For now, [id] display.title is being used
+                    # If required, a more specific configuration option can be added later on
+                    for diff_field_id in diff_field_ids:
+                        if diff_field_id in etd["config"]["display"]["title"]:
+                            await add_entities_and_field_to_update(
+                                es_entity_type_id,
+                                etd["config"]["display"]["title"],
+                                diff_field_id,
+                                "edit_relation_title",
+                            )
 
-                for es_field_def in etd["config"]["es_data"]["fields"]:
-                    if es_field_def["type"] == "nested":
-                        for part in es_field_def["parts"].values():
+                if "es_data" in etd["config"]:
+                    for es_field_def in etd["config"]["es_data"]["fields"]:
+                        if es_field_def["type"] in ["nested", "nested_flatten"]:
+                            for part in es_field_def["parts"].values():
+                                for diff_field_id in diff_field_ids:
+                                    if diff_field_id in part:
+                                        if diff_field_id[0] == ".":
+                                            selector_value = (
+                                                f"{es_field_def['base']}{part}"
+                                            )
+                                        else:
+                                            selector_value = (
+                                                f"{es_field_def['base']}->{part}"
+                                            )
+                                        await add_entities_and_field_to_update(
+                                            es_entity_type_id,
+                                            selector_value,
+                                            diff_field_id,
+                                            es_field_def["system_name"],
+                                        )
+                                        if "filter" in es_field_def:
+                                            if es_field_def["filter"][0] == ".":
+                                                selector_value = f"{es_field_def['base']}{es_field_def['filter']}"
+                                            else:
+                                                selector_value = f"{es_field_def['base']}->{es_field_def['filter']}"
+                                            await add_entities_and_field_to_update(
+                                                es_entity_type_id,
+                                                selector_value,
+                                                diff_field_id,
+                                                es_field_def["system_name"],
+                                            )
+                        elif es_field_def["type"] == "edtf_interval":
                             for diff_field_id in diff_field_ids:
-                                if diff_field_id in part:
+                                if diff_field_id in es_field_def["start"]:
                                     await add_entities_and_field_to_update(
                                         es_entity_type_id,
-                                        part,
+                                        es_field_def["start"],
                                         diff_field_id,
                                         es_field_def["system_name"],
                                     )
-                    elif es_field_def["type"] == "edtf_interval":
-                        for diff_field_id in diff_field_ids:
-                            if diff_field_id in es_field_def["start"]:
-                                await add_entities_and_field_to_update(
-                                    es_entity_type_id,
-                                    es_field_def["start"],
-                                    diff_field_id,
-                                    es_field_def["system_name"],
-                                )
-                            if diff_field_id in es_field_def["end"]:
-                                await add_entities_and_field_to_update(
-                                    es_entity_type_id,
-                                    es_field_def["end"],
-                                    diff_field_id,
-                                    es_field_def["system_name"],
-                                )
-                    else:
-                        for diff_field_id in diff_field_ids:
-                            if diff_field_id in es_field_def["selector_value"]:
-                                await add_entities_and_field_to_update(
-                                    es_entity_type_id,
-                                    es_field_def["selector_value"],
-                                    diff_field_id,
-                                    es_field_def["system_name"],
-                                )
+                                if diff_field_id in es_field_def["end"]:
+                                    await add_entities_and_field_to_update(
+                                        es_entity_type_id,
+                                        es_field_def["end"],
+                                        diff_field_id,
+                                        es_field_def["system_name"],
+                                    )
+                        else:
+                            for diff_field_id in diff_field_ids:
+                                if diff_field_id in es_field_def["selector_value"]:
+                                    await add_entities_and_field_to_update(
+                                        es_entity_type_id,
+                                        es_field_def["selector_value"],
+                                        diff_field_id,
+                                        es_field_def["system_name"],
+                                    )
 
     async def update_es(
         self,
