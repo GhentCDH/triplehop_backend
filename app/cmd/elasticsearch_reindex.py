@@ -1,13 +1,14 @@
-import typing
-import typer
-import time
 import asyncio
-import asyncpg
-import starlette
+import time
+import typing
 import uuid
-import fastapi
+
+import asyncpg
 import elasticsearch
+import fastapi
 import rich.progress
+import starlette
+import typer
 
 from app.config import DATABASE, ELASTICSEARCH
 from app.es.base import BaseElasticsearch
