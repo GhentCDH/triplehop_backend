@@ -3,6 +3,7 @@ import typing
 
 import asyncpg
 import starlette
+
 from app.db.core import get_repository_from_request
 from app.db.revision import RevisionRepository
 from app.mgmt.config import ConfigManager
@@ -60,7 +61,6 @@ class RevisionManager:
         connection: asyncpg.connection.Connection,
     ):
         project_id = await self._get_project_id()
-        # TODO: relations
         raw_entities = []
         raw_relations = []
 
