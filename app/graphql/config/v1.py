@@ -247,6 +247,7 @@ class GraphQLConfigBuilder:
                 if (
                     "es_data" in entity_config["config"]
                     and "fields" in entity_config["config"]["es_data"]
+                    and "es_display" in entity_config["config"]
                 ):
                     es_data_conf = {
                         esd["system_name"]: esd

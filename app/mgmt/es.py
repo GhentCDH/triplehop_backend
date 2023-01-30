@@ -63,21 +63,22 @@ class ElasticsearchManager:
         }
 
         column_defs = {}
-        for column_def in entity_type_config["es_display"]["columns"]:
-            column_system_name = column_def["column"].replace("$", "")
-            if "sub_field" in column_def:
-                column_defs[
-                    f"{column_system_name}.{column_def['sub_field']}"
-                ] = column_def
-            else:
-                column_defs[column_system_name] = column_def
-
-        # TODO: filter view permissions
         filter_defs = {}
-        for filter_section in entity_type_config["es_display"]["filters"]:
-            for filter_def in filter_section["filters"]:
-                filter_system_name = filter_def["filter"].replace("$", "")
-                filter_defs[filter_system_name] = filter_def
+        if "es_display" in entity_type_config:
+            for column_def in entity_type_config["es_display"]["columns"]:
+                column_system_name = column_def["column"].replace("$", "")
+                if "sub_field" in column_def:
+                    column_defs[
+                        f"{column_system_name}.{column_def['sub_field']}"
+                    ] = column_def
+                else:
+                    column_defs[column_system_name] = column_def
+
+            # TODO: filter view permissions
+            for filter_section in entity_type_config["es_display"]["filters"]:
+                for filter_def in filter_section["filters"]:
+                    filter_system_name = filter_def["filter"].replace("$", "")
+                    filter_defs[filter_system_name] = filter_def
 
         return {
             "base": base_defs,
@@ -534,33 +535,43 @@ class ElasticsearchManager:
     ):
         type = es_config["base"][suggest_field]["type"]
         if type == "nested" or type == "nested_flatten":
+            agg_construct = {
+                "nested": {
+                    "path": suggest_field,
+                },
+                "aggs": {
+                    "id_value": {
+                        "terms": {
+                            "field": f"{suggest_field}.id_value.keyword",
+                            "size": AGG_SIZE,
+                        },
+                        "aggs": {
+                            "normalized": {
+                                "terms": {
+                                    "field": f"{suggest_field}.value.normalized_keyword"
+                                }
+                            },
+                            "reverse_nested": {
+                                "reverse_nested": {},
+                            },
+                        },
+                    },
+                },
+            }
+            if suggest_field == "edit_relation_title":
+                agg_construct["aggs"]["id_value"]["terms"]["order"] = {"id": "asc"}
+                agg_construct["aggs"]["id_value"]["aggs"]["id"] = {
+                    "sum": {
+                        "field": "edit_relation_title.id",
+                    },
+                }
+            if suggest_value == "":
+                return {suggest_field: agg_construct}
             return {
                 suggest_field: ElasticsearchManager._construct_filter_agg(
                     es_config,
                     suggest_field,
-                    {
-                        "nested": {
-                            "path": suggest_field,
-                        },
-                        "aggs": {
-                            "id_value": {
-                                "terms": {
-                                    "field": f"{suggest_field}.id_value.keyword",
-                                    "size": AGG_SIZE,
-                                },
-                                "aggs": {
-                                    "normalized": {
-                                        "terms": {
-                                            "field": f"{suggest_field}.value.normalized_keyword"
-                                        }
-                                    },
-                                    "reverse_nested": {
-                                        "reverse_nested": {},
-                                    },
-                                },
-                            },
-                        },
-                    },
+                    agg_construct,
                     filters,
                     suggest_field,
                     suggest_value,
@@ -992,15 +1003,19 @@ class ElasticsearchManager:
     ) -> typing.Dict[str, typing.List]:
         aggregations = raw_result["aggregations"]
         results = {}
-        for filter_key in es_config["filters"].keys():
+        if suggest_field == "edit_relation_title":
+            es_filters = {"edit_relation_title": {"sort": "id"}}
+        else:
+            es_filters = es_config["filters"]
+        for filter_key in es_filters.keys():
             if suggest_field and filter_key != suggest_field:
                 continue
 
             type = es_config["base"][filter_key]["type"]
-            if "sort" not in es_config["filters"][filter_key]:
+            if "sort" not in es_filters[filter_key]:
                 sort = None
             else:
-                sort = es_config["filters"][filter_key]["sort"]
+                sort = es_filters[filter_key]["sort"]
 
             agg_key = filter_key
             if type == "edtf" or type == "edtf_interval":
@@ -1013,7 +1028,8 @@ class ElasticsearchManager:
 
             # Exctract values from subaggregation in case of aggregation suggestion
             if suggest_field:
-                agg_values = agg_values[filter_key]
+                if suggest_value != "":
+                    agg_values = agg_values[filter_key]
             # Exctract values from subaggregation in case of filtered aggregations
             elif filters is not None and ElasticsearchManager._has_filtered_aggregation(
                 es_config, filter_key
@@ -1031,8 +1047,8 @@ class ElasticsearchManager:
 
             if type == "nested" or type == "nested_flatten":
                 if (
-                    "type" in es_config["filters"][filter_key]
-                    and es_config["filters"][filter_key]["type"] == "nested_present"
+                    "type" in es_filters[filter_key]
+                    and es_filters[filter_key]["type"] == "nested_present"
                 ):
                     results[filter_key] = [
                         {
@@ -1068,6 +1084,10 @@ class ElasticsearchManager:
                         kwargs["sort_value_method"] = lambda bucket: bucket[
                             "key"
                         ].split("|", maxsplit=1)[1]
+                    elif sort == "id":
+                        kwargs["sort_value_method"] = lambda bucket: int(
+                            bucket["key"].split("|", maxsplit=1)[0]
+                        )
                     else:
                         raise Exception(
                             f"Sorting {sort} of filters of type {type} not yet implemented"

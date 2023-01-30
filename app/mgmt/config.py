@@ -5,6 +5,7 @@ import aiocache
 import asyncpg
 import fastapi
 import starlette
+
 from app.cache.core import no_arg_key_builder, skip_first_arg_key_builder
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
@@ -77,10 +78,38 @@ class ConfigManager:
 
         result = {}
         for record in records:
+            config = json.loads(record["config"])
+            # Add title to display on edit pages when creating relations
+            # For now, [id] display.title is being used
+            # If required, a more specific configuration option can be added later on
+            if "es_data" not in config:
+                config["es_data"] = {}
+            if not "fields" in config["es_data"]:
+                config["es_data"]["fields"] = []
+            config["es_data"]["fields"].append(
+                {
+                    "system_name": "edit_relation_title",
+                    "base": "",
+                    "parts": {
+                        "entity_type_name": record["system_name"],
+                        "id": "$id",
+                        "selector_value": " $||$ ".join(
+                            [
+                                f"[$id] {title_part}"
+                                for title_part in config["display"]["title"].split(
+                                    " $||$ "
+                                )
+                            ]
+                        ),
+                    },
+                    "type": "nested",
+                    "display_not_available": True,
+                }
+            )
             result[record["system_name"]] = {
                 "id": record["id"],
                 "display_name": record["display_name"],
-                "config": json.loads(record["config"]),
+                "config": config,
             }
 
         return result

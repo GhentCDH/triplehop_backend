@@ -63,29 +63,7 @@ class JobManager:
             )
 
             entity_type_config = entity_types_config[entity_type_name]
-            # Add title to display on edit pages when creating relations
-            # For now, [id] display.title is being used
-            # If required, a more specific configuration option can be added later on
-            es_data_config = [
-                {
-                    "system_name": "edit_relation_title",
-                    "selector_value": " $||$ ".join(
-                        [
-                            f"[$id] {title_part}"
-                            for title_part in entity_type_config["config"]["display"][
-                                "title"
-                            ].split(" $||$ ")
-                        ]
-                    ),
-                    "type": "text",
-                    "display_not_available": True,
-                }
-            ]
-            if "es_data" in entity_type_config["config"]:
-                es_data_config.extend(entity_type_config["config"]["es_data"]["fields"])
-            triplehop_query = BaseElasticsearch.extract_query_from_es_data_config(
-                es_data_config
-            )
+            es_data_config = entity_type_config["config"]["es_data"]["fields"]
             new_index_name = await self._es.create_new_index(es_data_config)
 
             batch_counter = 0
@@ -95,7 +73,7 @@ class JobManager:
                 ]
                 batch_entities = await data_manager.get_entity_data(
                     batch_ids,
-                    triplehop_query,
+                    BaseElasticsearch.extract_query_from_es_data_config(es_data_config),
                     entity_type_name=entity_type_name,
                 )
 
