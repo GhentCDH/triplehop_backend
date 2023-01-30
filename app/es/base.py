@@ -279,6 +279,8 @@ class BaseElasticsearch:
         Given a base path, return the data at this base level.
         As there might be multiple relations reaching to this level, there might be multiple results.
         """
+        if base == "":
+            return [data]
         current_levels = [data]
         path = [p.replace("$", "") for p in base.split("->")]
         for p in path:
