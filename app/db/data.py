@@ -240,6 +240,84 @@ class DataRepository(BaseRepository):
             "properties": properties,
         }
 
+    async def post_relation(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        start_entity_type_id: str,
+        start_entity_id: int,
+        end_entity_type_id: str,
+        end_entity_id: int,
+        input: typing.Dict,
+        connection: asyncpg.connection.Connection = None,
+    ) -> typing.Dict:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        async def execute_in_transaction(
+            inner_connection: asyncpg.connection.Connection,
+        ):
+            async with inner_connection.transaction():
+                id = await self.fetchval(
+                    """
+                        SELECT current_id
+                        FROM app.relation_count
+                        WHERE id = :relation_type_id;
+                    """,
+                    {"relation_type_id": relation_type_id},
+                    connection=inner_connection,
+                )
+
+                id += 1
+                input["id"] = id
+
+                create_clause = ", ".join([f"{k}:${k}" for k in input.keys()])
+
+                query = (
+                    f"SELECT * FROM cypher("
+                    f"'{project_id}', "
+                    f"$$MATCH (d:n_{dtu(start_entity_type_id)} {{id: $start_entity_id}}), "
+                    f"(r:n_{dtu(end_entity_type_id)} {{id: $end_entity_id}}) "
+                    f"CREATE (d)-[e:e_{dtu(relation_type_id)} {{{create_clause}}}]->(r) "
+                    f"return d, e, r$$, :params"
+                    f") as (d agtype, e agtype, r agtype);"
+                )
+
+                record = await self.fetchrow(
+                    query,
+                    {
+                        "params": json.dumps(
+                            {
+                                "start_entity_id": start_entity_id,
+                                "end_entity_id": end_entity_id,
+                                **input,
+                            }
+                        )
+                    },
+                    age=True,
+                    connection=inner_connection,
+                )
+
+                await self.execute(
+                    """
+                        UPDATE app.relation_count
+                        SET current_id = GREATEST(current_id, :relation_id)
+                        WHERE id = :relation_type_id;
+                    """,
+                    {"relation_id": id, "relation_type_id": relation_type_id},
+                    connection=inner_connection,
+                )
+
+                return record
+
+        # Make sure getting a new relation_id and inserting the relation
+        # with this new id are executed in a single transation.
+        if connection:
+            return await execute_in_transaction(connection)
+        else:
+            async with self.connection() as new_connection:
+                return await execute_in_transaction(new_connection)
+
     async def put_relation(
         self,
         project_id: str,
@@ -251,13 +329,24 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(relation_type_id)
 
-        set_clause = ", ".join([f"e.{k} = ${k}" for k in input.keys()])
+        set = {k: v for k, v in input.items() if len(v) != 0}
+        remove = [k for k, v in input.items() if len(v) == 0]
+
+        set_clause = ""
+        if set:
+            set_content = ", ".join([f"e.{k} = ${k}" for k in set.keys()])
+            set_clause = f"SET {set_content} "
+
+        remove_clause = ""
+        if remove:
+            remove_clause = "".join(f"REMOVE e.{k} " for k in remove)
 
         query = (
             f"SELECT * FROM cypher("
             f"'{project_id}', "
             f"$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) "
-            f"SET {set_clause} "
+            f"{set_clause}"
+            f"{remove_clause} "
             f"return d, e, r$$, :params"
             f") as (d agtype, e agtype, r agtype);"
         )

@@ -191,6 +191,9 @@ class DataManager:
         type_name: str,
         input: typing.Dict,
     ) -> None:
+        if not isinstance(input, dict):
+            DataManager.raise_validation_exception()
+
         if entities_or_relations == "entities":
             data_config = (await self._get_entity_types_config())[type_name]["config"][
                 "data"
@@ -283,6 +286,8 @@ class DataManager:
     ):
         # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
 
+        # Checking if the entity exists happens before actually updating the entity
+
         # Validate data
         entity_input = {}
         if "entity" in input:
@@ -300,6 +305,8 @@ class DataManager:
                 # strip r_ or ri_ and _s
                 clean_relation_type_name = "_".join(relation_type_name.split("_")[1:-1])
                 relation_data = json.loads(relation_data_as_json)
+                if not isinstance(relation_data, dict):
+                    DataManager.raise_validation_exception()
 
                 relations_data[clean_relation_type_name] = {}
 
@@ -308,12 +315,57 @@ class DataManager:
                         operation, "relations", clean_relation_type_name
                     )
 
+                    if operation == "post":
+                        if not isinstance(operation_data, list):
+                            DataManager.raise_validation_exception()
+
+                        relations_data[clean_relation_type_name]["post"] = []
+                        for relation_input_wrapper in operation_data:
+                            if not isinstance(relation_input_wrapper, dict):
+                                DataManager.raise_validation_exception()
+                            if not "entity" in relation_input_wrapper:
+                                DataManager.raise_validation_exception()
+                            if not isinstance(relation_input_wrapper["entity"], dict):
+                                DataManager.raise_validation_exception()
+                            if not "entityTypeName" in relation_input_wrapper["entity"]:
+                                DataManager.raise_validation_exception()
+                            if (
+                                relation_input_wrapper["entity"]["entityTypeName"]
+                                not in await self._get_entity_types_config()
+                            ):
+                                DataManager.raise_validation_exception()
+                            if not "id" in relation_input_wrapper["entity"]:
+                                DataManager.raise_validation_exception()
+                            if not relation_input_wrapper["entity"]["id"].isdigit():
+                                DataManager.raise_validation_exception()
+                            if not "relation" in relation_input_wrapper:
+                                DataManager.raise_validation_exception()
+                            await self._validate_input(
+                                "relations",
+                                clean_relation_type_name,
+                                relation_input_wrapper["relation"],
+                            )
+                            relations_data[clean_relation_type_name]["post"].append(
+                                relation_input_wrapper
+                            )
+                        continue
+
                     if operation == "put":
                         relations_data[clean_relation_type_name]["put"] = {}
+                        if not isinstance(operation_data, dict):
+                            DataManager.raise_validation_exception()
                         for (
                             relation_id,
                             relation_input_wrapper,
                         ) in operation_data.items():
+                            if not isinstance(relation_id, str):
+                                DataManager.raise_validation_exception()
+                            if not relation_id.isdigit():
+                                DataManager.raise_validation_exception()
+                            if not isinstance(relation_input_wrapper, dict):
+                                DataManager.raise_validation_exception()
+                            if not "relation" in relation_input_wrapper:
+                                DataManager.raise_validation_exception()
                             await self._validate_input(
                                 "relations",
                                 clean_relation_type_name,
@@ -322,11 +374,24 @@ class DataManager:
                             relations_data[clean_relation_type_name]["put"][
                                 int(relation_id)
                             ] = relation_input_wrapper["relation"]
+                        continue
 
                     if operation == "delete":
-                        relations_data[clean_relation_type_name]["delete"] = [
-                            int(relation_id) for relation_id in operation_data
-                        ]
+                        if not isinstance(operation_data, list):
+                            DataManager.raise_validation_exception()
+
+                        relations_data[clean_relation_type_name]["delete"] = []
+                        for relation_id in operation_data:
+                            if not isinstance(relation_id, str):
+                                DataManager.raise_validation_exception()
+                            if not relation_id.isdigit():
+                                DataManager.raise_validation_exception()
+
+                            # Checking if the relation exists happens before actually deleting the relation
+
+                            relations_data[clean_relation_type_name]["delete"].append(
+                                int(relation_id)
+                            )
 
         # Prepare data
         db_inputs = {}
@@ -344,10 +409,23 @@ class DataManager:
                 relation_type_name,
             )
             db_inputs[relation_type_id] = {}
-            if "put" in relation_type_data:
+            if "post" in relation_type_data or "put" in relation_type_data:
                 rtipm = await self._config_manager.get_relation_type_i_property_mapping(
                     self._project_name, relation_type_name
                 )
+            if "post" in relation_type_data:
+                db_inputs[relation_type_id]["post"] = []
+                for relation_input in relation_type_data["post"]:
+                    db_inputs[relation_type_id]["post"].append(
+                        {
+                            "entity": relation_input["entity"],
+                            "relation": {
+                                rtipm[k]: v
+                                for k, v in relation_input["relation"].items()
+                            },
+                        }
+                    )
+            if "put" in relation_type_data:
                 db_inputs[relation_type_id]["put"] = {}
                 for relation_id, relation_input in relation_type_data["put"].items():
                     db_inputs[relation_type_id]["put"][relation_id] = {
@@ -420,6 +498,74 @@ class DataManager:
                             connection,
                         )
                 for relation_type_id, relation_data in db_inputs.items():
+                    if "post" in relation_data:
+                        for db_input in relation_data["post"]:
+                            raw_data = await self._data_repo.post_relation(
+                                await self._get_project_id(),
+                                relation_type_id,
+                                await self._config_manager.get_entity_type_id_by_name(
+                                    self._project_name,
+                                    entity_type_name,
+                                ),
+                                entity_id,
+                                await self._config_manager.get_entity_type_id_by_name(
+                                    self._project_name,
+                                    db_input["entity"]["entityTypeName"],
+                                ),
+                                int(db_input["entity"]["id"]),
+                                db_input["relation"],
+                                connection,
+                            )
+                            if raw_data is None:
+                                raise fastapi.exceptions.HTTPException(
+                                    status_code=404, detail="Relation not found"
+                                )
+                            # strip off ::edge
+                            new_relation_props = json.loads(raw_data["e"][:-6])[
+                                "properties"
+                            ]
+                            relation_id = new_relation_props["id"]
+                            # strip of ::vertex
+                            start_entity_data = json.loads(raw_data["d"][:-8])
+                            start_entity_type_name = (
+                                await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(start_entity_data["label"][2:]),
+                                )
+                            )
+                            start_entity_id = start_entity_data["properties"]["id"]
+                            # strip of ::vertex
+                            end_entity_data = json.loads(raw_data["r"][:-8])
+                            end_entity_type_name = (
+                                await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(end_entity_data["label"][2:]),
+                                )
+                            )
+                            end_entity_id = end_entity_data["properties"]["id"]
+
+                            if "relations" not in revisions:
+                                revisions["relations"] = {}
+                            if relation_type_name not in revisions["relations"]:
+                                revisions["relations"][relation_type_name] = {}
+                            revisions["relations"][relation_type_name][relation_id] = [
+                                None,
+                                new_relation_props,
+                                start_entity_type_name,
+                                start_entity_id,
+                                end_entity_type_name,
+                                end_entity_id,
+                            ]
+
+                            await self.update_es_query(
+                                es_query,
+                                "relations",
+                                relation_type_name,
+                                relation_id,
+                                dictdiffer.diff({}, new_relation_props),
+                                connection,
+                            )
+
                     if "put" in relation_data:
                         for relation_id, db_input in relation_data["put"].items():
                             old_raw_relation = await self._data_repo.get_relation(
@@ -857,7 +1003,7 @@ class DataManager:
         elif entity_type_id is not None:
             entity_type_name_or_id["entity_type_id"] = entity_type_id
 
-        results = {}
+        results = {entity_id: {} for entity_id in entity_ids}
         # start entity
         if first_iteration:
             # check if entity props are requested
@@ -876,8 +1022,6 @@ class DataManager:
                 connection=connection,
             )
             for entity_id, raw_result in raw_results.items():
-                if entity_id not in results:
-                    results[entity_id] = {}
                 if "relations" not in results[entity_id]:
                     results[entity_id]["relations"] = {}
                 results[entity_id]["relations"][relation_type_id] = raw_result
@@ -995,9 +1139,9 @@ class DataManager:
 
         async def add_entities_and_field_to_update(
             es_entity_type_id: str,
-            selector_value: str,
             diff_field_id: str,
             es_field_system_name: str,
+            selector_value: str = None,
         ) -> None:
             if diff_field_id[:2] != "$r":
                 entity_ids = await self.find_entities_to_update(
@@ -1034,74 +1178,73 @@ class DataManager:
                         es_etn,
                     )
                 )
-                if "display" in etd["config"]:
-                    # Add title to display on edit pages when creating relations
-                    # For now, [id] display.title is being used
-                    # If required, a more specific configuration option can be added later on
-                    for diff_field_id in diff_field_ids:
-                        if diff_field_id in etd["config"]["display"]["title"]:
-                            await add_entities_and_field_to_update(
-                                es_entity_type_id,
-                                etd["config"]["display"]["title"],
-                                diff_field_id,
-                                "edit_relation_title",
-                            )
 
                 if "es_data" in etd["config"]:
                     for es_field_def in etd["config"]["es_data"]["fields"]:
                         if es_field_def["type"] in ["nested", "nested_flatten"]:
-                            for part in es_field_def["parts"].values():
-                                for diff_field_id in diff_field_ids:
-                                    if diff_field_id in part:
-                                        if diff_field_id[0] == ".":
-                                            selector_value = (
-                                                f"{es_field_def['base']}{part}"
-                                            )
-                                        else:
-                                            selector_value = (
-                                                f"{es_field_def['base']}->{part}"
-                                            )
-                                        await add_entities_and_field_to_update(
-                                            es_entity_type_id,
-                                            selector_value,
-                                            diff_field_id,
-                                            es_field_def["system_name"],
-                                        )
-                                        if "filter" in es_field_def:
-                                            if es_field_def["filter"][0] == ".":
-                                                selector_value = f"{es_field_def['base']}{es_field_def['filter']}"
+                            # If added or removed relation in base:
+                            # update complete nested field
+                            # diff_field_id will start with $r, so a selector_value is not needed
+                            for diff_field_id in diff_field_ids:
+                                if diff_field_id in es_field_def["base"]:
+                                    await add_entities_and_field_to_update(
+                                        es_entity_type_id,
+                                        diff_field_id,
+                                        es_field_def["system_name"],
+                                    )
+                            else:
+                                for part in es_field_def["parts"].values():
+                                    for diff_field_id in diff_field_ids:
+                                        if diff_field_id in part:
+                                            if part[0] == ".":
+                                                selector_value = (
+                                                    f"{es_field_def['base']}{part}"
+                                                )
                                             else:
-                                                selector_value = f"{es_field_def['base']}->{es_field_def['filter']}"
+                                                selector_value = (
+                                                    f"{es_field_def['base']}->{part}"
+                                                )
                                             await add_entities_and_field_to_update(
                                                 es_entity_type_id,
-                                                selector_value,
                                                 diff_field_id,
                                                 es_field_def["system_name"],
+                                                selector_value,
                                             )
+                                            if "filter" in es_field_def:
+                                                if es_field_def["filter"][0] == ".":
+                                                    selector_value = f"{es_field_def['base']}{es_field_def['filter']}"
+                                                else:
+                                                    selector_value = f"{es_field_def['base']}->{es_field_def['filter']}"
+                                                await add_entities_and_field_to_update(
+                                                    es_entity_type_id,
+                                                    diff_field_id,
+                                                    es_field_def["system_name"],
+                                                    selector_value,
+                                                )
                         elif es_field_def["type"] == "edtf_interval":
                             for diff_field_id in diff_field_ids:
                                 if diff_field_id in es_field_def["start"]:
                                     await add_entities_and_field_to_update(
                                         es_entity_type_id,
-                                        es_field_def["start"],
                                         diff_field_id,
                                         es_field_def["system_name"],
+                                        es_field_def["start"],
                                     )
                                 if diff_field_id in es_field_def["end"]:
                                     await add_entities_and_field_to_update(
                                         es_entity_type_id,
-                                        es_field_def["end"],
                                         diff_field_id,
                                         es_field_def["system_name"],
+                                        es_field_def["end"],
                                     )
                         else:
                             for diff_field_id in diff_field_ids:
                                 if diff_field_id in es_field_def["selector_value"]:
                                     await add_entities_and_field_to_update(
                                         es_entity_type_id,
-                                        es_field_def["selector_value"],
                                         diff_field_id,
                                         es_field_def["system_name"],
+                                        es_field_def["selector_value"],
                                     )
 
     async def update_es(
@@ -1137,15 +1280,6 @@ class DataManager:
                     for field_def in entity_type_config["config"]["es_data"]["fields"]
                     if field_def["system_name"] in es_field_system_names
                 ]
-                if "edit_relation_title" in es_field_system_names:
-                    es_data_config.append(
-                        {
-                            "system_name": "edit_relation_title",
-                            "selector_value": f"[$id] {entity_type_config['config']['display']['title']}",
-                            "type": "text",
-                            "display_not_available": True,
-                        }
-                    )
                 triplehop_query = BaseElasticsearch.extract_query_from_es_data_config(
                     es_data_config
                 )
