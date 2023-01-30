@@ -258,19 +258,20 @@ class DataRepository(BaseRepository):
             inner_connection: asyncpg.connection.Connection,
         ):
             async with inner_connection.transaction():
-                id = await self.fetchval(
-                    """
-                        SELECT current_id
-                        FROM app.relation_count
-                        WHERE id = :relation_type_id;
-                    """,
-                    {"relation_type_id": relation_type_id},
+                relation_id = await self.fetchval(
+                    (
+                        "UPDATE app.relation_count "
+                        "SET current_id = current_id + 1 "
+                        "WHERE id = :relation_type_id "
+                        "RETURNING current_id;"
+                    ),
+                    {
+                        "relation_type_id": relation_type_id,
+                    },
                     connection=inner_connection,
                 )
 
-                id += 1
-                input["id"] = id
-
+                input["id"] = relation_id
                 create_clause = ", ".join([f"{k}:${k}" for k in input.keys()])
 
                 query = (
@@ -295,16 +296,6 @@ class DataRepository(BaseRepository):
                         )
                     },
                     age=True,
-                    connection=inner_connection,
-                )
-
-                await self.execute(
-                    """
-                        UPDATE app.relation_count
-                        SET current_id = GREATEST(current_id, :relation_id)
-                        WHERE id = :relation_type_id;
-                    """,
-                    {"relation_id": id, "relation_type_id": relation_type_id},
                     connection=inner_connection,
                 )
 
