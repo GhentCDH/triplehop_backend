@@ -159,52 +159,6 @@ class GraphQLDataBuilder:
 
         return resolver
 
-    def _post_relation_resolver_wrapper(
-        self,
-        entity_type_name: str,
-        inverse: bool = False,
-    ):
-        # TODO
-        async def post_entity(entity_id: int, input: typing.Dict):
-            print("post_entity")
-            print(self._request)
-            return await self._data_manager.put_entity(
-                entity_type_name, entity_id, input
-            )
-
-        async def resolver(_, info, id, input):
-            return await post_entity(id, input)
-
-        return resolver
-
-    def _put_relation_resolver_wrapper(
-        self,
-        relation_type_name: str,
-    ):
-        async def put_relation(relation_id: int, input: typing.Dict):
-            return await self._data_manager.put_relation(
-                relation_type_name, relation_id, input
-            )
-
-        async def resolver(_, info, id, input):
-            return await put_relation(id, input)
-
-        return resolver
-
-    def _delete_relation_resolver_wrapper(
-        self,
-        relation_type_name: str,
-    ):
-        async def delete_relation(relation_id: int):
-            return await self._data_manager.delete_relation(
-                relation_type_name, relation_id
-            )
-
-        async def resolver(_, info, id):
-            return await delete_relation(id)
-
-        return resolver
-
     def _calc_props(
         self,
         entity_or_relation: str,
