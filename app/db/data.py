@@ -102,6 +102,77 @@ class DataRepository(BaseRepository):
 
         return records
 
+    async def post_entity(
+        self,
+        project_id: str,
+        entity_type_id: str,
+        input: typing.Dict,
+        connection: asyncpg.connection.Connection = None,
+    ) -> typing.Dict:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
+
+        async def execute_in_transaction(
+            inner_connection: asyncpg.connection.Connection,
+        ):
+            async with inner_connection.transaction():
+                relation_id = await self.fetchval(
+                    (
+                        "UPDATE app.entity_count "
+                        "SET current_id = current_id + 1 "
+                        "WHERE id = :entity_type_id "
+                        "RETURNING current_id;"
+                    ),
+                    {
+                        "entity_type_id": entity_type_id,
+                    },
+                    connection=inner_connection,
+                )
+
+                input["id"] = relation_id
+                create_clause = ", ".join([f"{k}:${k}" for k in input.keys()])
+
+                query = (
+                    f"SELECT * FROM cypher("
+                    f"'{project_id}', "
+                    f"$$CREATE (n:n_{dtu(entity_type_id)} {{{create_clause}}}) "
+                    f"return n$$, :params"
+                    f") as (n agtype);"
+                )
+
+                record = await self.fetchval(
+                    query,
+                    {"params": json.dumps(input)},
+                    age=True,
+                    connection=inner_connection,
+                )
+
+                # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
+                # strip off ::vertex
+                parsed_record = json.loads(record[:-8])
+                await self.execute(
+                    (
+                        f'INSERT INTO "{project_id}"._i_n_{dtu(entity_type_id)} '
+                        f"(id, nid) "
+                        f"VALUES (:id, :nid);"
+                    ),
+                    {
+                        "id": parsed_record["properties"]["id"],
+                        "nid": str(parsed_record["id"]),
+                    },
+                    connection=inner_connection,
+                )
+
+                return record
+
+        # Make sure getting a new relation_id and inserting the relation
+        # with this new id are executed in a single transation.
+        if connection:
+            return await execute_in_transaction(connection)
+        else:
+            async with self.connection() as new_connection:
+                return await execute_in_transaction(new_connection)
+
     async def put_entity(
         self,
         project_id: str,

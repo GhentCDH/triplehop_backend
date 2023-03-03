@@ -934,12 +934,15 @@ class BaseElasticsearch:
         if operation:
             common["_op_type"] = operation
 
-        actions = [
-            {
+        actions = []
+        for i, v in data.items():
+            action = {
                 **common,
                 "_id": i,
-                "doc": v,
             }
-            for i, v in data.items()
-        ]
+            if operation == "index":
+                action["_source"] = v
+            if operation == "update":
+                action["doc"] = v
+            actions.append(action)
         await async_bulk(self._es, actions)

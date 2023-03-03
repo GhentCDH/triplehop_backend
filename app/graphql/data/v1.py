@@ -5,6 +5,7 @@ import aiodataloader
 import ariadne
 import graphql
 import starlette
+
 from app.cache.core import create_schema_key_builder
 from app.graphql.base import construct_def
 from app.mgmt.auth import allowed_entities_or_relations_and_properties
@@ -81,16 +82,12 @@ class GraphQLDataBuilder:
         self,
         entity_type_name: str,
     ):
-        # TODO
-        async def post_entity(entity_id: int, input: typing.Dict):
-            print("post_entity")
-            print(self._request)
-            return await self._data_manager.put_entity(
-                entity_type_name, entity_id, input
-            )
+        async def post_entity(input: typing.Dict, props: typing.List[str]):
+            return await self._data_manager.post_entity(entity_type_name, input, props)
 
-        async def resolver(_, info, id, input):
-            return await post_entity(id, input)
+        async def resolver(_, info, input):
+            props = self.__class__._get_requested_entity_props(info)
+            return await post_entity(input, props)
 
         return resolver
 
@@ -99,7 +96,9 @@ class GraphQLDataBuilder:
         entity_type_name: str,
     ):
         async def put_entity(
-            entity_id: int, input: typing.Dict, props: typing.List[str]
+            entity_id: int,
+            input: typing.Dict,
+            props: typing.List[str],
         ):
             return await self._data_manager.put_entity(
                 entity_type_name, entity_id, input, props
@@ -456,12 +455,12 @@ class GraphQLDataBuilder:
         # Then add entity parts: relations are later added to these
         self._add_get_entity_schema_parts()
 
-        # self._add_post_put_entity_schema_parts('post')
+        self._add_post_put_entity_schema_parts("post")
         self._add_post_put_entity_schema_parts("put")
 
         self._add_get_relation_schema_parts()
 
-        # self._add_post_put_relation_schema_parts('post')
+        self._add_post_put_relation_schema_parts("post")
         self._add_post_put_relation_schema_parts("put")
 
         type_defs_array = [
