@@ -209,7 +209,7 @@ class DataRepository(BaseRepository):
     ) -> typing.Dict:
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(relation_type_id)
-        # TODO: use cypher query when property indices are available (https://github.com/apache/incubator-age/issues/45)
+
         query = (
             f"SELECT * FROM cypher("
             f"'{project_id}', "
@@ -299,6 +299,44 @@ class DataRepository(BaseRepository):
                     connection=inner_connection,
                 )
 
+                # Create relation entity to enable source relations
+                # strip off ::edge
+                parsed_record = json.loads(record["e"][:-6])
+                relation_entity_record = await self.fetchval(
+                    (
+                        f"SELECT * FROM cypher("
+                        f"'{project_id}', "
+                        f"$$CREATE (en:en_{dtu(relation_type_id)} {{id: $id}}) "
+                        f"return en$$, :params"
+                        f") as (en agtype);"
+                    ),
+                    {
+                        "params": json.dumps(
+                            {
+                                "id": parsed_record["properties"]["id"],
+                            }
+                        )
+                    },
+                    age=True,
+                    connection=inner_connection,
+                )
+
+                # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
+                # strip off ::vertex
+                parsed_relation_entity_record = json.loads(relation_entity_record[:-8])
+                await self.execute(
+                    (
+                        f'INSERT INTO "{project_id}"._i_en_{dtu(relation_type_id)} '
+                        f"(id, nid) "
+                        f"VALUES (:id, :nid);"
+                    ),
+                    {
+                        "id": parsed_relation_entity_record["properties"]["id"],
+                        "nid": str(parsed_relation_entity_record["id"]),
+                    },
+                    connection=inner_connection,
+                )
+
                 return record
 
         # Make sure getting a new relation_id and inserting the relation
@@ -368,29 +406,72 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(relation_type_id)
 
-        query = (
-            f"SELECT * FROM cypher("
-            f"'{project_id}', "
-            f"$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) "
-            f"DELETE e "
-            f"RETURN d, e, r$$, :params"
-            f") as (d agtype, e agtype, r agtype);"
-        )
-
-        record = await self.fetchrow(
-            query,
-            {
-                "params": json.dumps(
-                    {
-                        "relation_id": relation_id,
-                    }
+        async def execute_in_transaction(
+            inner_connection: asyncpg.connection.Connection,
+        ):
+            async with inner_connection.transaction():
+                query = (
+                    f"SELECT * FROM cypher("
+                    f"'{project_id}', "
+                    f"$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) "
+                    f"DELETE e "
+                    f"RETURN d, e, r$$, :params"
+                    f") as (d agtype, e agtype, r agtype);"
                 )
-            },
-            age=True,
-            connection=connection,
-        )
 
-        return record
+                record = await self.fetchrow(
+                    query,
+                    {
+                        "params": json.dumps(
+                            {
+                                "relation_id": relation_id,
+                            }
+                        )
+                    },
+                    age=True,
+                    connection=inner_connection,
+                )
+
+                # Delete relation entity to enable source relations
+                await self.execute(
+                    (
+                        f"SELECT * FROM cypher("
+                        f"'{project_id}', "
+                        f"$$MATCH (en:en_{dtu(relation_type_id)} {{id: $id}}) "
+                        f"DELETE en$$, :params"
+                        f") as (en agtype);"
+                    ),
+                    {
+                        "params": json.dumps(
+                            {
+                                "id": relation_id,
+                            }
+                        )
+                    },
+                    age=True,
+                    connection=inner_connection,
+                )
+
+                # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
+                await self.execute(
+                    (
+                        f'DELETE FROM "{project_id}"._i_en_{dtu(relation_type_id)} '
+                        f"WHERE id = :id;"
+                    ),
+                    {
+                        "id": relation_id,
+                    },
+                    connection=inner_connection,
+                )
+
+                return record
+
+        # Make sure all statements to delete a relation are executed in a single transation.
+        if connection:
+            return await execute_in_transaction(connection)
+        else:
+            async with self.connection() as new_connection:
+                return await execute_in_transaction(new_connection)
 
     async def get_relation_sources(
         self,
