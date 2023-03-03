@@ -1192,35 +1192,34 @@ class DataManager:
                                         diff_field_id,
                                         es_field_def["system_name"],
                                     )
-                            else:
-                                for part in es_field_def["parts"].values():
-                                    for diff_field_id in diff_field_ids:
-                                        if diff_field_id in part:
-                                            if part[0] == ".":
-                                                selector_value = (
-                                                    f"{es_field_def['base']}{part}"
-                                                )
+                            for part in es_field_def["parts"].values():
+                                for diff_field_id in diff_field_ids:
+                                    if diff_field_id in part:
+                                        if part[0] == ".":
+                                            selector_value = (
+                                                f"{es_field_def['base']}{part}"
+                                            )
+                                        else:
+                                            selector_value = (
+                                                f"{es_field_def['base']}->{part}"
+                                            )
+                                        await add_entities_and_field_to_update(
+                                            es_entity_type_id,
+                                            diff_field_id,
+                                            es_field_def["system_name"],
+                                            selector_value,
+                                        )
+                                        if "filter" in es_field_def:
+                                            if es_field_def["filter"][0] == ".":
+                                                selector_value = f"{es_field_def['base']}{es_field_def['filter']}"
                                             else:
-                                                selector_value = (
-                                                    f"{es_field_def['base']}->{part}"
-                                                )
+                                                selector_value = f"{es_field_def['base']}->{es_field_def['filter']}"
                                             await add_entities_and_field_to_update(
                                                 es_entity_type_id,
                                                 diff_field_id,
                                                 es_field_def["system_name"],
                                                 selector_value,
                                             )
-                                            if "filter" in es_field_def:
-                                                if es_field_def["filter"][0] == ".":
-                                                    selector_value = f"{es_field_def['base']}{es_field_def['filter']}"
-                                                else:
-                                                    selector_value = f"{es_field_def['base']}->{es_field_def['filter']}"
-                                                await add_entities_and_field_to_update(
-                                                    es_entity_type_id,
-                                                    diff_field_id,
-                                                    es_field_def["system_name"],
-                                                    selector_value,
-                                                )
                         elif es_field_def["type"] == "edtf_interval":
                             for diff_field_id in diff_field_ids:
                                 if diff_field_id in es_field_def["start"]:
