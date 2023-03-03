@@ -1317,18 +1317,18 @@ class DataManager:
         connection: asyncpg.Connection,
     ) -> typing.Set:
         result = set()
-        for selector_part in selector_value.split(" "):
-            if diff_field_id not in selector_part:
+        for match in RE_FIELD_CONVERSION.finditer(selector_value):
+            if diff_field_id not in match.group(0):
                 continue
 
             if entities_or_relations == "entities":
                 # Property of the entity type itself
-                if diff_field_id == selector_part:
+                if diff_field_id == match.group(0):
                     result.add(id)
                     continue
 
                 # Property of another entity type
-                path = selector_part.split("->")
+                path = match.group(0).split("->")
                 if path[-1] != diff_field_id:
                     raise Exception("Updated field is not last part of query path")
 
@@ -1342,7 +1342,7 @@ class DataManager:
                 )
             else:
                 # Property of an entity type
-                path = selector_part.split(".")
+                path = match.group(0).split(".")
                 if path[1] != diff_field_id:
                     raise Exception("Updated field is not last part of query path")
 
