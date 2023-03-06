@@ -723,7 +723,7 @@ class DataManager:
                 revisions["entities"] = {
                     entity_type_name: {
                         entity_id: [
-                            old_entity,
+                            None,
                             new_entity,
                         ]
                     }
