@@ -329,6 +329,32 @@ class ConfigManager:
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    async def get_relation_type_name_by_id(
+        self,
+        project_name: str,
+        relation_type_id: str,
+        connection: asyncpg.Connection = None,
+    ) -> int:
+        # Special case '_source__'
+        if relation_type_id == "_source_":
+            return "_source_"
+
+        relation_types_config = await self.get_relation_types_config(
+            project_name, connection=connection
+        )
+
+        for relation_type_name in relation_types_config:
+            if relation_types_config[relation_type_name]["id"] == relation_type_id:
+                return relation_type_name
+
+        # TODO log message
+        raise fastapi.exceptions.HTTPException(
+            status_code=404,
+            detail=f'Relation type with id "{relation_type_id}" of project "{project_name}" not found',
+        )
+
+    # TODO: delete cache on relation config update
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_current_relation_type_revision_id_by_name(
         self, project_name: str, relation_type_name: str
     ) -> str:

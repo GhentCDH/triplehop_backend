@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import asyncpg
 import buildpg
+
 from app.exceptions import InvalidUUIdException
 
 # Specify regex with negative lookbehind
