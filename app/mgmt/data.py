@@ -932,9 +932,14 @@ class DataManager:
                     relations[relation_graph_id] = {
                         "relation_type_id": relation_type_id,
                         "properties": properties,
+                        "start_entity_graph_id": old_raw_relation["start_graph_id"],
+                        "end_entity_graph_id": old_raw_relation["end_graph_id"],
+                        "start_properties": old_raw_relation.get("start_properties"),
+                        "end_properties": old_raw_relation.get("end_properties"),
                     }
 
                 # Generate Elasticsearch update query before deleting the relations
+                # Add to revisions as well
                 for relation_type_id, ids in grouped_relation_ids.items():
                     relation_type_name = self._config_manager.get_relation_type_name_by_id(
                         await self._get_project_id(),
@@ -950,6 +955,37 @@ class DataManager:
                             dictdiffer.diff(relations[nid]["properties"], {}),
                             connection,
                         )
+
+                    revisions["relations"][relation_type_name] = {}
+                    for nid in ids["nids"]:
+                        relation = relations[nid]
+                        start_entity_type_id = await self._data_repo.get_type_id_from_graph_id(
+                            await self._get_project_id(),
+                            relation["start_id"],
+                            connection,
+                        )
+                        if relation["start_properties"] is not None:
+                            start_entity_id = relation["start_properties"]["id"]
+                        else:
+                            await self._data_repo.get_entity_id_by_graph_id(
+                                await self._get_project_id(),
+                                start_entity_type_id,
+                                relation["start_id"],
+                            )
+                        end_entity_type_id = await self._data_repo.get_type_id_from_graph_id(
+                            await self._get_project_id(),
+                            relation["end_id"],
+                            connection,
+                        )
+                        revisions["relations"][relation_type_name][relation["properties"]["id"]] = [
+                            relation["properties"],
+                            None,
+                            start_entity_type_id,
+                            start_entity_id,
+                            end_entity_type_id,
+                            end_entity_id,
+                        ]
+                        
                 
                 # TODO: delete source relations on relations and put them in revisions
                 for relation_type_id, ids in grouped_relation_ids.items():
@@ -960,8 +996,6 @@ class DataManager:
                         ids["ids"],
                         connection,
                     )
-                    
-                    for nid in ids["nids"]:
                         
 
                 # Generate Elasticsearch update query before deleting the entity
