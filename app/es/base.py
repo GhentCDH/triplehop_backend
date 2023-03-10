@@ -945,7 +945,4 @@ class BaseElasticsearch:
             if operation == "update":
                 action["doc"] = v
             actions.append(action)
-        # TODO: change to bulk with refresh parameter?
-        # https://www.elastic.co/guide/en/elasticsearch/reference/7.17/docs-delete.html#docs-delete-api-query-params
-        # https://elasticsearch-py.readthedocs.io/en/7.x/async.html?highlight=async_bulk#elasticsearch.AsyncElasticsearch.bulk
-        await async_bulk(self._es, actions)
+        await async_bulk(self._es, actions, refresh=True)

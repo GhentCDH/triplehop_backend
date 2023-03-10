@@ -99,41 +99,47 @@ class RevisionManager:
                         relation_type_name,
                     )
                 )
-                for relation_id, [
-                    old_relation_props,
-                    new_relation_props,
-                    start_entity_type_name,
-                    start_entity_id,
-                    end_entity_type_name,
-                    end_entity_id,
-                ] in data["relations"][relation_type_name].items():
-                    raw_relations.append(
-                        [
-                            relation_type_revision_id,
-                            relation_type_id,
-                            relation_id,
-                            await self._config_manager.get_current_entity_type_revision_id_by_name(
-                                self._project_name,
-                                start_entity_type_name,
-                            ),
-                            await self._config_manager.get_entity_type_id_by_name(
-                                self._project_name,
-                                start_entity_type_name,
-                            ),
-                            start_entity_id,
-                            await self._config_manager.get_current_entity_type_revision_id_by_name(
-                                self._project_name,
-                                end_entity_type_name,
-                            ),
-                            await self._config_manager.get_entity_type_id_by_name(
-                                self._project_name,
-                                end_entity_type_name,
-                            ),
-                            end_entity_id,
-                            old_relation_props,
-                            new_relation_props,
-                        ]
-                    )
+
+                # TODO generate separate revision table for relation sources
+                # TODO now
+                if relation_type_name == "_source_":
+                    pass
+                else:
+                    for relation_id, [
+                        old_relation_props,
+                        new_relation_props,
+                        start_entity_type_name,
+                        start_entity_id,
+                        end_entity_type_name,
+                        end_entity_id,
+                    ] in data["relations"][relation_type_name].items():
+                        raw_relations.append(
+                            [
+                                relation_type_revision_id,
+                                relation_type_id,
+                                relation_id,
+                                await self._config_manager.get_current_entity_type_revision_id_by_name(
+                                    self._project_name,
+                                    start_entity_type_name,
+                                ),
+                                await self._config_manager.get_entity_type_id_by_name(
+                                    self._project_name,
+                                    start_entity_type_name,
+                                ),
+                                start_entity_id,
+                                await self._config_manager.get_current_entity_type_revision_id_by_name(
+                                    self._project_name,
+                                    end_entity_type_name,
+                                ),
+                                await self._config_manager.get_entity_type_id_by_name(
+                                    self._project_name,
+                                    end_entity_type_name,
+                                ),
+                                end_entity_id,
+                                old_relation_props,
+                                new_relation_props,
+                            ]
+                        )
 
         # Connection is required
         # There should already be a transaction on the connection, a nested one is created here

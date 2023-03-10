@@ -227,7 +227,7 @@ class DataRepository(BaseRepository):
         )
 
         return record
-            
+
     async def delete_raw_relations(
         self,
         project_id: str,
@@ -245,17 +245,17 @@ class DataRepository(BaseRepository):
             async with inner_connection.transaction():
                 if relation_type_id == "_source_":
                     await self.execute(
-                    (
-                        f"DELETE "
-                        f'FROM "{project_id}"._source_ '
-                        f"WHERE id = ANY(:nids);"
-                    ),
-                    {
-                        "nids": nids,
-                    },
-                    age=True,
-                    connection=connection,
-                )
+                        (
+                            f"DELETE "
+                            f'FROM "{project_id}"._source_ '
+                            f"WHERE id = ANY(:nids);"
+                        ),
+                        {
+                            "nids": nids,
+                        },
+                        age=True,
+                        connection=connection,
+                    )
                 else:
                     await self.execute(
                         (
@@ -277,13 +277,11 @@ class DataRepository(BaseRepository):
                             f'FROM "{project_id}".en_{dtu(relation_type_id)} '
                             f"WHERE id = ANY(:nids);"
                         ),
-                        {
-                            "nids": nids
-                        },
+                        {"nids": nids},
                         age=True,
                         connection=connection,
                     )
-                        
+
                     # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
                     await self.execute(
                         (
@@ -291,9 +289,7 @@ class DataRepository(BaseRepository):
                             f'FROM "{project_id}"._i_en_{dtu(relation_type_id)} '
                             f"WHERE id = ANY(:ids);"
                         ),
-                        {
-                            "ids": ids
-                        },
+                        {"ids": ids},
                         age=True,
                         connection=connection,
                     )
@@ -304,7 +300,7 @@ class DataRepository(BaseRepository):
         else:
             async with self.connection() as new_connection:
                 return await execute_in_transaction(new_connection)
-            
+
     async def delete_entity(
         self,
         project_id: str,
@@ -412,7 +408,7 @@ class DataRepository(BaseRepository):
 
         return records
 
-    async def get_all_entity_relations (
+    async def get_all_entity_relations(
         self,
         project_id: str,
         entity_type_id: str,
@@ -442,7 +438,7 @@ class DataRepository(BaseRepository):
             age=True,
             connection=connection,
         )
-        
+
         query = (
             f"SELECT e.start_id, d.properties as start_properties, e.id, e.properties, e.end_id, r.properties as end_properties "
             f'FROM "{project_id}".n_{dtu(entity_type_id)} r '
@@ -513,6 +509,39 @@ class DataRepository(BaseRepository):
             "id": properties["id"],
             "properties": properties,
         }
+
+    # Return {id: int, properties: {})}
+    async def get_relation_sources(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        relation_id: int,
+        connection: asyncpg.Connection = None,
+    ) -> typing.List[asyncpg.Record]:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        query = (
+            f"SELECT * FROM cypher("
+            f"'{project_id}', "
+            f"$$MATCH (en:en_{dtu(relation_type_id)} {{id: $relation_id}})-[e:_source_]->(s) "
+            f"RETURN e, s$$, :params"
+            f") as (e agtype, s agtype);"
+        )
+        records = await self.fetch(
+            query,
+            {
+                "params": json.dumps(
+                    {
+                        "relation_id": relation_id,
+                    }
+                )
+            },
+            age=True,
+            connection=connection,
+        )
+
+        return records
 
     async def post_relation(
         self,
@@ -746,9 +775,8 @@ class DataRepository(BaseRepository):
         else:
             async with self.connection() as new_connection:
                 return await execute_in_transaction(new_connection)
-        
 
-    async def get_relation_sources(
+    async def get_relations_sources(
         self,
         project_id: str,
         relation_type_id: str,
