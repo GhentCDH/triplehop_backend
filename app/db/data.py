@@ -423,7 +423,7 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(entity_type_id)
 
         query = (
-            f"SELECT e.start_id, e.id, e.properties, e.end_id, d.properties as start_properties "
+            f"SELECT e.start_id, d.properties as start_properties, e.id, e.properties, e.end_id, r.properties as end_properties "
             f'FROM "{project_id}".n_{dtu(entity_type_id)} d '
             f'INNER JOIN "{project_id}"._i_n_{dtu(entity_type_id)} di '
             f"ON d.id = di.nid "
@@ -444,12 +444,14 @@ class DataRepository(BaseRepository):
         )
         
         query = (
-            f"SELECT e.start_id, e.id, e.properties, e.end_id, r.properties as end_properties "
+            f"SELECT e.start_id, d.properties as start_properties, e.id, e.properties, e.end_id, r.properties as end_properties "
             f'FROM "{project_id}".n_{dtu(entity_type_id)} r '
             f'INNER JOIN "{project_id}"._i_n_{dtu(entity_type_id)} ri '
             f"ON r.id = ri.nid "
             f'INNER JOIN "{project_id}"._ag_label_edge e '
             f"ON r.id = e.end_id "
+            f'INNER JOIN "{project_id}"._ag_label_vertex d '
+            f"ON e.start_id = d.id "
             # TODO now
             f"WHERE ri.id = :entity_id;"
         )
