@@ -919,6 +919,7 @@ class DataManager:
         # TODO: delete entity and relations in one query
         #   when optional match + detach delete works
         #   and additional indices are no longer required
+        #   relation sources still need to be deleted separately
 
         # Checking if the entity exists happens before actually deleting the entity
 
@@ -1033,7 +1034,44 @@ class DataManager:
                             relation["end_properties"]["id"],
                         ]
 
-                # TODO: delete source relations on relations and put them in revisions
+                # Delete relation sources before relations are deleted
+                # TODO: optimize
+                for relation_type_id, ids in grouped_relation_ids.items():
+                    for relation_id in ids:
+                        old_raw_relation_sources = (
+                            await self._data_repo.delete_relation_sources(
+                                await self._get_project_id(),
+                                relation_type_id,
+                                relation_id,
+                                connection,
+                            )
+                        )
+                        for old_raw_relation_source in old_raw_relation_sources:
+                            if "relations" not in revisions:
+                                revisions["relations"] = {}
+                            if "_source_" not in revisions["relations"]:
+                                revisions["relations"]["_source_"] = {}
+                            # strip off ::edge
+                            source_relation_properties = json.loads(
+                                old_raw_relation_source["e"][:-6]
+                            )["properties"]
+                            # strip off ::vertex
+                            source = json.loads(old_raw_relation_source["s"][:-8])
+                            revisions["relations"]["_source_"][
+                                source_relation_properties["id"]
+                            ] = [
+                                source_relation_properties,
+                                None,
+                                relation_type_name,
+                                relation_id,
+                                # strip n_
+                                await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(source["label"][2:]),
+                                ),
+                                source["properties"]["id"],
+                            ]
+
                 for relation_type_id, ids in grouped_relation_ids.items():
                     await self._data_repo.delete_raw_relations(
                         await self._get_project_id(),
