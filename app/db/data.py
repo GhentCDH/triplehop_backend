@@ -448,7 +448,6 @@ class DataRepository(BaseRepository):
             f"ON r.id = e.end_id "
             f'INNER JOIN "{project_id}"._ag_label_vertex d '
             f"ON e.start_id = d.id "
-            # TODO now
             f"WHERE ri.id = :entity_id;"
         )
 

@@ -105,8 +105,6 @@ class RevisionManager:
                     )
                 )
 
-                # TODO generate separate revision table for relation sources
-                # TODO now
                 if relation_type_name == "_source_":
                     for source_relation_id, [
                         old_source_relation_props,
