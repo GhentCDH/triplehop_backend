@@ -510,8 +510,7 @@ class DataRepository(BaseRepository):
             "properties": properties,
         }
 
-    # Return {id: int, properties: {})}
-    async def get_relation_sources(
+    async def delete_relation_sources(
         self,
         project_id: str,
         relation_type_id: str,
@@ -525,6 +524,7 @@ class DataRepository(BaseRepository):
             f"SELECT * FROM cypher("
             f"'{project_id}', "
             f"$$MATCH (en:en_{dtu(relation_type_id)} {{id: $relation_id}})-[e:_source_]->(s) "
+            f"DELETE e "
             f"RETURN e, s$$, :params"
             f") as (e agtype, s agtype);"
         )

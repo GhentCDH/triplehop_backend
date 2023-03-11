@@ -63,16 +63,19 @@ class RevisionManager:
         project_id = await self._get_project_id()
         raw_entities = []
         raw_relations = []
+        raw_source_relations = []
 
         if "entities" in data:
             for entity_type_name in data["entities"]:
                 entity_type_revision_id = await self._config_manager.get_current_entity_type_revision_id_by_name(
                     self._project_name,
                     entity_type_name,
+                    connection=connection,
                 )
                 entity_type_id = await self._config_manager.get_entity_type_id_by_name(
                     self._project_name,
                     entity_type_name,
+                    connection=connection,
                 )
                 for entity_id, [old_value, new_value] in data["entities"][
                     entity_type_name
@@ -92,18 +95,59 @@ class RevisionManager:
                 relation_type_revision_id = await self._config_manager.get_current_relation_type_revision_id_by_name(
                     self._project_name,
                     relation_type_name,
+                    connection=connection,
                 )
                 relation_type_id = (
                     await self._config_manager.get_relation_type_id_by_name(
                         self._project_name,
                         relation_type_name,
+                        connection=connection,
                     )
                 )
 
                 # TODO generate separate revision table for relation sources
                 # TODO now
                 if relation_type_name == "_source_":
-                    pass
+                    for source_relation_id, [
+                        old_source_relation_props,
+                        new_source_relation_props,
+                        start_relation_type_name,
+                        start_relation_id,
+                        end_entity_type_name,
+                        end_entity_id,
+                    ] in data["relations"][relation_type_name].items():
+                        raw_source_relations.append(
+                            [
+                                relation_type_revision_id,
+                                relation_type_id,
+                                source_relation_id,
+                                await self._config_manager.get_current_relation_type_revision_id_by_name(
+                                    self._project_name,
+                                    start_relation_type_name,
+                                    connection=connection,
+                                ),
+                                await self._config_manager.get_relation_type_id_by_name(
+                                    self._project_name,
+                                    start_relation_type_name,
+                                    transform_source=True,
+                                    connection=connection,
+                                ),
+                                start_relation_id,
+                                await self._config_manager.get_current_entity_type_revision_id_by_name(
+                                    self._project_name,
+                                    end_entity_type_name,
+                                    connection=connection,
+                                ),
+                                await self._config_manager.get_entity_type_id_by_name(
+                                    self._project_name,
+                                    end_entity_type_name,
+                                    connection=connection,
+                                ),
+                                end_entity_id,
+                                old_source_relation_props,
+                                new_source_relation_props,
+                            ]
+                        )
                 else:
                     for relation_id, [
                         old_relation_props,
@@ -121,19 +165,23 @@ class RevisionManager:
                                 await self._config_manager.get_current_entity_type_revision_id_by_name(
                                     self._project_name,
                                     start_entity_type_name,
+                                    connection=connection,
                                 ),
                                 await self._config_manager.get_entity_type_id_by_name(
                                     self._project_name,
                                     start_entity_type_name,
+                                    connection=connection,
                                 ),
                                 start_entity_id,
                                 await self._config_manager.get_current_entity_type_revision_id_by_name(
                                     self._project_name,
                                     end_entity_type_name,
+                                    connection=connection,
                                 ),
                                 await self._config_manager.get_entity_type_id_by_name(
                                     self._project_name,
                                     end_entity_type_name,
+                                    connection=connection,
                                 ),
                                 end_entity_id,
                                 old_relation_props,
@@ -185,6 +233,29 @@ class RevisionManager:
                             "new_value": json.dumps(raw_relation[10]),
                         }
                         for raw_relation in raw_relations
+                    ],
+                    connection,
+                )
+            if raw_source_relations:
+                await self._revision_repo.post_relation_sources_revision(
+                    project_id,
+                    [
+                        {
+                            "revision_id": revision_id,
+                            "user_id": str(self._user.id),
+                            "source_relation_type_revision_id": raw_source_relation[0],
+                            "source_relation_type_id": raw_source_relation[1],
+                            "source_relation_id": raw_source_relation[2],
+                            "start_relation_type_revision_id": raw_source_relation[3],
+                            "start_relation_type_id": raw_source_relation[4],
+                            "start_relation_id": raw_source_relation[5],
+                            "end_entity_type_revision_id": raw_source_relation[6],
+                            "end_entity_type_id": raw_source_relation[7],
+                            "end_entity_id": raw_source_relation[8],
+                            "old_value": json.dumps(raw_source_relation[9]),
+                            "new_value": json.dumps(raw_source_relation[10]),
+                        }
+                        for raw_source_relation in raw_source_relations
                     ],
                     connection,
                 )

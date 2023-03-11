@@ -628,7 +628,7 @@ class DataManager:
 
                     # Delete relation sources before deleting the relations themselves
                     old_raw_relation_sources = (
-                        await self._data_repo.get_relation_sources(
+                        await self._data_repo.delete_relation_sources(
                             await self._get_project_id(),
                             relation_type_id,
                             relation_id,
@@ -642,21 +642,24 @@ class DataManager:
                             revisions["relations"]["_source_"] = {}
                         # strip off ::edge
                         source_relation_properties = json.loads(
-                            old_raw_relation_source[:-6]
+                            old_raw_relation_source["e"][:-6]
                         )["properties"]
                         # strip off ::vertex
-                        source = json.loads(old_raw_relation_source[:-8])
-                        revisions["relations"]["_source_"][relation_id] = [
+                        source = json.loads(old_raw_relation_source["s"][:-8])
+                        revisions["relations"]["_source_"][
+                            source_relation_properties["id"]
+                        ] = [
                             source_relation_properties,
                             None,
                             relation_type_name,
                             relation_id,
                             # strip n_
-                            utd(source["label"][2:]),
+                            await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name,
+                                utd(source["label"][2:]),
+                            ),
                             source["properties"]["id"],
                         ]
-                    print(revisions)
-                    raise Exception("Debug")
 
                     # Generate Elasticsearch update query before deleting the relations
                     await self.update_es_query(
@@ -669,7 +672,6 @@ class DataManager:
                         new_id=new_id,
                     )
 
-                    # TODO: remove relation sources and put them in revisions
                     raw_data = await self._data_repo.delete_relation(
                         await self._get_project_id(),
                         relation_type_id,
@@ -1454,11 +1456,13 @@ class DataManager:
             type_id = await self._config_manager.get_entity_type_id_by_name(
                 self._project_name,
                 type_name,
+                connection=connection,
             )
         else:
             type_id = await self._config_manager.get_relation_type_id_by_name(
                 self._project_name,
                 type_name,
+                connection=connection,
             )
 
         p_diff_field_ids = set()
