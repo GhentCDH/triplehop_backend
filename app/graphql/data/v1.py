@@ -369,7 +369,7 @@ class GraphQLDataBuilder:
                 ["entity", f"Ri_{rtn}_domain"]
             ]
 
-    def _add_post_put_relation_schema_parts(self, perm) -> None:
+    def _add_post_put_entity_relation_schema_parts(self, perm) -> None:
         # TODO: fix so perm actually means relation permission, not entity permission
         allowed_relations = allowed_entities_or_relations_and_properties(
             self._user,
@@ -460,8 +460,8 @@ class GraphQLDataBuilder:
 
         self._add_get_relation_schema_parts()
 
-        self._add_post_put_relation_schema_parts("post")
-        self._add_post_put_relation_schema_parts("put")
+        self._add_post_put_entity_relation_schema_parts("post")
+        self._add_post_put_entity_relation_schema_parts("put")
 
         type_defs_array = [
             construct_def("type", type, props)

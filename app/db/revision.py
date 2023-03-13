@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 
 import asyncpg
+
 from app.db.base import BaseRepository
 
 

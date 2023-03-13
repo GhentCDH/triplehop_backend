@@ -1,6 +1,7 @@
 import typing
 
 import asyncpg
+
 from app.db.base import BaseRepository
 
 

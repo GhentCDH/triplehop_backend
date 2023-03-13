@@ -20,31 +20,33 @@ class DataRepository(BaseRepository):
         super().__init__(pool)
         self._conf_repo = ConfigRepository(pool)
 
-    async def get_entity_type_id_from_vertex_graph_id(
+    async def get_type_id_from_graph_id(
         self,
         project_id: str,
-        vertex_graph_id: str,
+        graph_id: str,
+        connection: asyncpg.connection.Connection = None,
     ) -> str:
         """
-        Get the entity type id from a graph id.
+        Get the entity or relation type id from a graph id.
         This data can be retrieved from the name column in the ag_catalog.ag_label table by using the id column.
         The value from this id column can be retrieved from the graph_id by doing a right bitshift by (32+16) places.
-        The actual lookup is performed in get_entity_type_id_by_label_id so it can be cached.
+        The actual lookup is performed in get_type_id_by_label_id so it can be cached.
         """
-        return await self._get_entity_type_id_by_label_id(
+        return await self._get_type_id_by_label_id(
             project_id,
-            int(vertex_graph_id) >> (32 + 16),
+            int(graph_id) >> (32 + 16),
+            connection,
         )
 
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
-    async def _get_entity_type_id_by_label_id(
+    async def _get_type_id_by_label_id(
         self,
         project_id: str,
         label_id: int,
         connection: asyncpg.connection.Connection = None,
     ) -> str:
-        graph_id = await self._get_graph_id(project_id)
-        n_etid_with_underscores = await self.fetchval(
+        graph_id = await self._get_graph_id(project_id, connection)
+        raw_type_id = await self.fetchval(
             (
                 "SELECT name "
                 "FROM ag_label "
@@ -57,7 +59,10 @@ class DataRepository(BaseRepository):
             age=True,
             connection=connection,
         )
-        return utd(n_etid_with_underscores[2:])
+        if raw_type_id == "_source_":
+            return raw_type_id
+        # n_uuid or e_uuid
+        return utd(raw_type_id[2:])
 
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def _get_graph_id(
@@ -65,6 +70,7 @@ class DataRepository(BaseRepository):
         project_id: str,
         connection: asyncpg.connection.Connection = None,
     ) -> str:
+        self.__class__._check_valid_label(project_id)
         return await self.fetchval(
             ("SELECT graph " "FROM ag_label " "WHERE relation = :relation::regclass;"),
             {"relation": f'"{project_id}"._ag_label_vertex'},
@@ -136,7 +142,7 @@ class DataRepository(BaseRepository):
                     f"SELECT * FROM cypher("
                     f"'{project_id}', "
                     f"$$CREATE (n:n_{dtu(entity_type_id)} {{{create_clause}}}) "
-                    f"return n$$, :params"
+                    f"RETURN n$$, :params"
                     f") as (n agtype);"
                 )
 
@@ -180,7 +186,7 @@ class DataRepository(BaseRepository):
         entity_id: int,
         input: typing.Dict,
         connection: asyncpg.connection.Connection = None,
-    ) -> typing.Dict:
+    ) -> asyncpg.Record:
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
 
@@ -202,7 +208,7 @@ class DataRepository(BaseRepository):
             f"$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) "
             f"{set_clause}"
             f"{remove_clause}"
-            f"return n$$, :params"
+            f"RETURN n$$, :params"
             f") as (n agtype);"
         )
 
@@ -285,7 +291,7 @@ class DataRepository(BaseRepository):
             f"SELECT * FROM cypher("
             f"'{project_id}', "
             f"$$MATCH ()-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->() "
-            f"return e$$, :params"
+            f"RETURN e$$, :params"
             f") as (e agtype);"
         )
         record = await self.fetchval(
@@ -351,7 +357,7 @@ class DataRepository(BaseRepository):
                     f"$$MATCH (d:n_{dtu(start_entity_type_id)} {{id: $start_entity_id}}), "
                     f"(r:n_{dtu(end_entity_type_id)} {{id: $end_entity_id}}) "
                     f"CREATE (d)-[e:e_{dtu(relation_type_id)} {{{create_clause}}}]->(r) "
-                    f"return d, e, r$$, :params"
+                    f"RETURN d, e, r$$, :params"
                     f") as (d agtype, e agtype, r agtype);"
                 )
 
@@ -378,7 +384,7 @@ class DataRepository(BaseRepository):
                         f"SELECT * FROM cypher("
                         f"'{project_id}', "
                         f"$$CREATE (en:en_{dtu(relation_type_id)} {{id: $id}}) "
-                        f"return en$$, :params"
+                        f"RETURN en$$, :params"
                         f") as (en agtype);"
                     ),
                     {
@@ -447,7 +453,7 @@ class DataRepository(BaseRepository):
             f"$$MATCH (d)-[e:e_{dtu(relation_type_id)} {{id: $relation_id}}]->(r) "
             f"{set_clause}"
             f"{remove_clause} "
-            f"return d, e, r$$, :params"
+            f"RETURN d, e, r$$, :params"
             f") as (d agtype, e agtype, r agtype);"
         )
 
@@ -544,7 +550,7 @@ class DataRepository(BaseRepository):
             async with self.connection() as new_connection:
                 return await execute_in_transaction(new_connection)
 
-    async def get_relation_sources(
+    async def get_relations_sources(
         self,
         project_id: str,
         relation_type_id: str,
@@ -590,7 +596,7 @@ class DataRepository(BaseRepository):
             f"$$MATCH (n:n_{dtu(entity_type_id)}) "
             f"WITH n.id as id "
             f"ORDER BY n.id "
-            f"return id$$"
+            f"RETURN id$$"
             f") as (id agtype);"
         )
 
@@ -643,7 +649,7 @@ class DataRepository(BaseRepository):
             f"SELECT * FROM cypher("
             f"'{project_id}', "
             f"$$MATCH {cypher_path} "
-            f"return n.id$$, :params"
+            f"RETURN n.id$$, :params"
             f") as (id agtype);"
         )
 
@@ -705,7 +711,7 @@ class DataRepository(BaseRepository):
             f"SELECT * FROM cypher("
             f"'{project_id}', "
             f"$$MATCH {cypher_path} "
-            f"return n.id$$, :params"
+            f"RETURN n.id$$, :params"
             f") as (id agtype);"
         )
 

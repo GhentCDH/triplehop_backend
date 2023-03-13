@@ -701,7 +701,6 @@ class DataManager:
         async with self._data_repo.connection() as connection:
             async with connection.transaction():
                 # Always create a new entity
-                old_entity = {}
                 db_input = {}
                 if "entity" in db_inputs:
                     db_input = db_inputs.pop("entity")
@@ -734,7 +733,7 @@ class DataManager:
                     "entities",
                     entity_type_name,
                     entity_id,
-                    dictdiffer.diff(old_entity, new_entity),
+                    dictdiffer.diff({}, new_entity),
                     connection,
                     new_id=entity_id,
                 )
@@ -753,8 +752,6 @@ class DataManager:
                     revisions,
                     connection,
                 )
-
-                print(es_query)
 
                 await self.update_es(es_query, connection)
 
@@ -934,9 +931,10 @@ class DataManager:
             entity_id = record["id"]
             relation_properties = json.loads(record["e_properties"])
             entity_properties = json.loads(record["n_properties"])
-            etid = await self._data_repo.get_entity_type_id_from_vertex_graph_id(
+            etid = await self._data_repo.get_type_id_from_graph_id(
                 await self._get_project_id(),
                 record["n_id"],
+                connection=connection,
             )
 
             if entity_id not in results:
@@ -980,7 +978,7 @@ class DataManager:
 
         source_records = []
         if relation_type_name != "_source_":
-            source_records = await self._data_repo.get_relation_sources(
+            source_records = await self._data_repo.get_relations_sources(
                 await self._get_project_id(),
                 relation_type_id,
                 relation_ids,
@@ -997,7 +995,7 @@ class DataManager:
                 {
                     "r_props": json.loads(source_record["e_properties"]),
                     "e_props": json.loads(source_record["n_properties"]),
-                    "entity_type_id": await self._data_repo.get_entity_type_id_from_vertex_graph_id(
+                    "entity_type_id": await self._data_repo.get_type_id_from_graph_id(
                         await self._get_project_id(),
                         source_record["n_id"],
                     ),
@@ -1247,11 +1245,13 @@ class DataManager:
             type_id = await self._config_manager.get_entity_type_id_by_name(
                 self._project_name,
                 type_name,
+                connection=connection,
             )
         else:
             type_id = await self._config_manager.get_relation_type_id_by_name(
                 self._project_name,
                 type_name,
+                connection=connection,
             )
 
         p_diff_field_ids = set()

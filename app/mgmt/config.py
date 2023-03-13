@@ -189,10 +189,13 @@ class ConfigManager:
     # TODO: delete cache on entity config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_current_entity_type_revision_id_by_name(
-        self, project_name: str, entity_type_name: str
+        self,
+        project_name: str,
+        entity_type_name: str,
+        connection: asyncpg.Connection = None,
     ) -> str:
         entity_type_id = await self.get_entity_type_id_by_name(
-            project_name, entity_type_name
+            project_name, entity_type_name, connection=connection
         )
 
         return await self._config_repo.get_current_entity_type_revision_id(
@@ -330,12 +333,18 @@ class ConfigManager:
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_current_relation_type_revision_id_by_name(
-        self, project_name: str, relation_type_name: str
+        self,
+        project_name: str,
+        relation_type_name: str,
+        connection: asyncpg.Connection = None,
     ) -> str:
         relation_type_id = await self.get_relation_type_id_by_name(
-            project_name, relation_type_name
+            project_name,
+            relation_type_name,
+            transform_source=True,
+            connection=connection,
         )
 
         return await self._config_repo.get_current_relation_type_revision_id(
-            relation_type_id
+            relation_type_id, connection=connection
         )

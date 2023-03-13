@@ -69,10 +69,12 @@ class RevisionManager:
                 entity_type_revision_id = await self._config_manager.get_current_entity_type_revision_id_by_name(
                     self._project_name,
                     entity_type_name,
+                    connection=connection,
                 )
                 entity_type_id = await self._config_manager.get_entity_type_id_by_name(
                     self._project_name,
                     entity_type_name,
+                    connection=connection,
                 )
                 for entity_id, [old_value, new_value] in data["entities"][
                     entity_type_name
@@ -92,11 +94,13 @@ class RevisionManager:
                 relation_type_revision_id = await self._config_manager.get_current_relation_type_revision_id_by_name(
                     self._project_name,
                     relation_type_name,
+                    connection=connection,
                 )
                 relation_type_id = (
                     await self._config_manager.get_relation_type_id_by_name(
                         self._project_name,
                         relation_type_name,
+                        connection=connection,
                     )
                 )
                 for relation_id, [
