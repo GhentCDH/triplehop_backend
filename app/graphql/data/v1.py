@@ -110,6 +110,18 @@ class GraphQLDataBuilder:
 
         return resolver
 
+    def _delete_entity_resolver_wrapper(
+        self,
+        entity_type_name: str,
+    ):
+        async def delete_entity(entity_id: int):
+            return await self._data_manager.delete_entity(entity_type_name, entity_id)
+
+        async def resolver(_, __, id):
+            return await delete_entity(id)
+
+        return resolver
+
     def _get_relation_resolver_wrapper(
         self,
         relation_type_name: str,
@@ -315,6 +327,29 @@ class GraphQLDataBuilder:
                 ["entity", "String"]
             ]
 
+    def _add_delete_entity_schema_parts(self) -> None:
+        allowed = allowed_entities_or_relations_and_properties(
+            self._user,
+            self._project_name,
+            "entities",
+            "data",
+            "delete",
+        )
+        for etn in allowed:
+            self._type_defs_dict["Mutation"].append(
+                [
+                    f"delete{first_cap(etn)}(id: Int!)",
+                    # Separate model, as only id is returned
+                    f"Delete{first_cap(etn)}",
+                ]
+            )
+            self._query_dict["Mutation"].set_field(
+                f"delete{first_cap(etn)}",
+                self._delete_entity_resolver_wrapper(etn),
+            )
+            # self._query_dict[f"Delete{first_cap(etn)}"] = ariadne.ObjectType(f"Delete{first_cap(etn)}")
+            self._type_defs_dict[f"Delete{first_cap(etn)}"] = [["id", "Int"]]
+
     def _add_get_relation_schema_parts(self) -> None:
         # TODO: cardinality
         # TODO: bidirectional relations
@@ -457,6 +492,7 @@ class GraphQLDataBuilder:
 
         self._add_post_put_entity_schema_parts("post")
         self._add_post_put_entity_schema_parts("put")
+        self._add_delete_entity_schema_parts()
 
         self._add_get_relation_schema_parts()
 

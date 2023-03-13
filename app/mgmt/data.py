@@ -720,6 +720,7 @@ class DataManager:
         input: typing.Dict,
         props: typing.List[str],
     ):
+        # TODO: only return requested props
         entity_input = await self._sanitize_entity_input(entity_type_name, input)
         relations_data = await self._sanitize_entity_relations_input(input)
         db_inputs = await self._transform_to_db_inputs(
@@ -806,6 +807,7 @@ class DataManager:
         input: typing.Dict,
         props: typing.List[str],
     ):
+        # TODO: only return requested props
         # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
 
         # Checking if the entity exists happens before actually updating the entity
@@ -907,6 +909,212 @@ class DataManager:
                 [entity_id],
             )
         )[entity_id]
+
+    async def delete_entity(
+        self,
+        entity_type_name: str,
+        entity_id: int,
+    ):
+        # TODO: implement edit and read locks to prevent elasticsearch from using outdated information
+        # TODO: delete entity and relations in one query
+        #   when optional match + detach delete works
+        #   and additional indices are no longer required
+        #   relation sources still need to be deleted separately
+
+        # Checking if the entity exists happens before actually deleting the entity
+
+        entity_type_id = await self._config_manager.get_entity_type_id_by_name(
+            self._project_name, entity_type_name
+        )
+
+        # Insert in database and update Elasticsearch
+        es_query = {}
+        revisions = {}
+        async with self._data_repo.connection() as connection:
+            async with connection.transaction():
+                old_raw_entities = await self._data_repo.get_entities(
+                    await self._get_project_id(),
+                    entity_type_id,
+                    [entity_id],
+                    connection,
+                )
+                if len(old_raw_entities) != 1 or old_raw_entities[0]["id"] != entity_id:
+                    raise fastapi.exceptions.HTTPException(
+                        status_code=404, detail="Entity not found"
+                    )
+                old_entity = json.loads(old_raw_entities[0]["properties"])
+
+                # Delete relations before entity is deleted
+                old_raw_relations = await self._data_repo.get_all_entity_relations(
+                    await self._get_project_id(), entity_type_id, entity_id, connection
+                )
+                grouped_relation_ids = {}
+                relations = {}
+                for old_raw_relation in old_raw_relations:
+                    relation_graph_id = old_raw_relation["id"]
+                    relation_type_id = await self._data_repo.get_type_id_from_graph_id(
+                        await self._get_project_id(),
+                        relation_graph_id,
+                        connection,
+                    )
+                    if relation_type_id not in grouped_relation_ids:
+                        grouped_relation_ids[relation_type_id] = {
+                            "nids": [],
+                            "ids": [],
+                        }
+                    grouped_relation_ids[relation_type_id]["nids"].append(
+                        old_raw_relation["id"]
+                    )
+                    properties = json.loads(old_raw_relation["properties"])
+                    grouped_relation_ids[relation_type_id]["ids"].append(
+                        properties["id"]
+                    )
+                    relations[relation_graph_id] = {
+                        "relation_type_id": relation_type_id,
+                        "properties": properties,
+                        "start_id": old_raw_relation["start_id"],
+                        "start_properties": json.loads(
+                            old_raw_relation["start_properties"]
+                        ),
+                        "end_id": old_raw_relation["end_id"],
+                        "end_properties": json.loads(
+                            old_raw_relation["end_properties"]
+                        ),
+                    }
+
+                # Generate Elasticsearch update query before deleting the relations
+                # Add to revisions as well
+                for relation_type_id, ids in grouped_relation_ids.items():
+                    relation_type_name = (
+                        await self._config_manager.get_relation_type_name_by_id(
+                            self._project_name,
+                            relation_type_id,
+                            connection,
+                        )
+                    )
+                    for nid, id in zip(ids["nids"], ids["ids"]):
+                        await self.update_es_query(
+                            es_query,
+                            "relations",
+                            relation_type_name,
+                            id,
+                            dictdiffer.diff(relations[nid]["properties"], {}),
+                            connection,
+                            old_id=entity_id,
+                        )
+
+                    if not "relations" in revisions:
+                        revisions["relations"] = {}
+
+                    revisions["relations"][relation_type_name] = {}
+                    for nid in ids["nids"]:
+                        relation = relations[nid]
+                        start_entity_type_id = (
+                            await self._data_repo.get_type_id_from_graph_id(
+                                await self._get_project_id(),
+                                relation["start_id"],
+                                connection,
+                            )
+                        )
+                        end_entity_type_id = (
+                            await self._data_repo.get_type_id_from_graph_id(
+                                await self._get_project_id(),
+                                relation["end_id"],
+                                connection,
+                            )
+                        )
+                        revisions["relations"][relation_type_name][
+                            relation["properties"]["id"]
+                        ] = [
+                            relation["properties"],
+                            None,
+                            start_entity_type_id,
+                            relation["start_properties"]["id"],
+                            end_entity_type_id,
+                            relation["end_properties"]["id"],
+                        ]
+
+                # Delete relation sources before relations are deleted
+                # TODO: optimize
+                for relation_type_id, ids in grouped_relation_ids.items():
+                    for relation_id in ids:
+                        old_raw_relation_sources = (
+                            await self._data_repo.delete_relation_sources(
+                                await self._get_project_id(),
+                                relation_type_id,
+                                relation_id,
+                                connection,
+                            )
+                        )
+                        for old_raw_relation_source in old_raw_relation_sources:
+                            if "relations" not in revisions:
+                                revisions["relations"] = {}
+                            if "_source_" not in revisions["relations"]:
+                                revisions["relations"]["_source_"] = {}
+                            # strip off ::edge
+                            source_relation_properties = json.loads(
+                                old_raw_relation_source["e"][:-6]
+                            )["properties"]
+                            # strip off ::vertex
+                            source = json.loads(old_raw_relation_source["s"][:-8])
+                            revisions["relations"]["_source_"][
+                                source_relation_properties["id"]
+                            ] = [
+                                source_relation_properties,
+                                None,
+                                relation_type_name,
+                                relation_id,
+                                # strip n_
+                                await self._config_manager.get_entity_type_name_by_id(
+                                    self._project_name,
+                                    utd(source["label"][2:]),
+                                ),
+                                source["properties"]["id"],
+                            ]
+
+                for relation_type_id, ids in grouped_relation_ids.items():
+                    await self._data_repo.delete_raw_relations(
+                        await self._get_project_id(),
+                        relation_type_id,
+                        ids["nids"],
+                        ids["ids"],
+                        connection,
+                    )
+
+                # Generate Elasticsearch update query before deleting the entity
+                await self.update_es_query(
+                    es_query,
+                    "entities",
+                    entity_type_name,
+                    entity_id,
+                    dictdiffer.diff(old_entity, {}),
+                    connection,
+                    old_id=entity_id,
+                )
+
+                # Delete entity
+                await self._data_repo.delete_entity(
+                    await self._get_project_id(),
+                    entity_type_id,
+                    entity_id,
+                    connection,
+                )
+
+                revisions["entities"] = {
+                    entity_type_name: {
+                        entity_id: [
+                            old_entity,
+                            None,
+                        ]
+                    }
+                }
+
+                await self._revision_manager.post_revision(
+                    revisions,
+                    connection,
+                )
+
+                await self.update_es(es_query, connection)
 
     async def _get_relations_triplehop(
         self,
@@ -1254,6 +1462,10 @@ class DataManager:
                                 in raw_rel_results_per_entity_type_id[
                                     rel_entity_type_id
                                 ]
+                                and "relations"
+                                in raw_rel_results_per_entity_type_id[
+                                    rel_entity_type_id
+                                ][rel_entity_id]
                             ):
                                 results[entity_id]["relations"][relation_type_id][
                                     relation_id
@@ -1276,6 +1488,7 @@ class DataManager:
         diff_gen: typing.Generator,
         connection: asyncpg.Connection,
         new_id: int = None,
+        old_id: int = None,
     ) -> None:
         if entities_or_relations == "entities":
             type_id = await self._config_manager.get_entity_type_id_by_name(
@@ -1353,13 +1566,16 @@ class DataManager:
                 action = "update"
                 if e_id == new_id:
                     action = "index"
+                if e_id == old_id:
+                    action = "delete"
                 if action not in es_query:
                     es_query[action] = {}
                 if es_entity_type_id not in es_query[action]:
                     es_query[action][es_entity_type_id] = {}
                 if e_id not in es_query[action][es_entity_type_id]:
                     es_query[action][es_entity_type_id][e_id] = set()
-                es_query[action][es_entity_type_id][e_id].add(es_field_system_name)
+                if action != "delete":
+                    es_query[action][es_entity_type_id][e_id].add(es_field_system_name)
 
         for es_etn, etd in (await self._get_entity_types_config()).items():
             if "config" in etd:
@@ -1492,12 +1708,16 @@ class DataManager:
                             * BATCH_SIZE : (batch_counter + 1)
                             * BATCH_SIZE
                         ]
-                        batch_entities = await self.get_entity_data(
-                            batch_ids,
-                            triplehop_query,
-                            entity_type_id=es_entity_type_id,
-                            connection=connection,
-                        )
+                        if action == "delete":
+                            batch_entities = {batch_id: None for batch_id in batch_ids}
+
+                        else:
+                            batch_entities = await self.get_entity_data(
+                                batch_ids,
+                                triplehop_query,
+                                entity_type_id=es_entity_type_id,
+                                connection=connection,
+                            )
 
                         batch_docs = BaseElasticsearch.convert_entities_to_docs(
                             entity_types_config, es_data_config, batch_entities

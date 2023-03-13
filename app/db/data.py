@@ -228,6 +228,138 @@ class DataRepository(BaseRepository):
 
         return record
 
+    async def delete_raw_relations(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        nids: typing.List[int],
+        ids: typing.List[int],
+        connection: asyncpg.connection.Connection = None,
+    ) -> None:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        async def execute_in_transaction(
+            inner_connection: asyncpg.connection.Connection,
+        ):
+            async with inner_connection.transaction():
+                if relation_type_id == "_source_":
+                    await self.execute(
+                        (
+                            f"DELETE "
+                            f'FROM "{project_id}"._source_ '
+                            f"WHERE id = ANY(:nids);"
+                        ),
+                        {
+                            "nids": nids,
+                        },
+                        age=True,
+                        connection=connection,
+                    )
+                else:
+                    await self.execute(
+                        (
+                            f"DELETE "
+                            f'FROM "{project_id}".e_{dtu(relation_type_id)} '
+                            f"WHERE id = ANY(:nids);"
+                        ),
+                        {
+                            "nids": nids,
+                        },
+                        age=True,
+                        connection=connection,
+                    )
+
+                    # Delete relation entity to enable source relations
+                    await self.execute(
+                        (
+                            f"DELETE "
+                            f'FROM "{project_id}".en_{dtu(relation_type_id)} '
+                            f"WHERE id = ANY(:nids);"
+                        ),
+                        {"nids": nids},
+                        age=True,
+                        connection=connection,
+                    )
+
+                    # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
+                    await self.execute(
+                        (
+                            f"DELETE "
+                            f'FROM "{project_id}"._i_en_{dtu(relation_type_id)} '
+                            f"WHERE id = ANY(:ids);"
+                        ),
+                        {"ids": ids},
+                        age=True,
+                        connection=connection,
+                    )
+
+        # Make sure all statements to delete a relation are executed in a single transation.
+        if connection:
+            return await execute_in_transaction(connection)
+        else:
+            async with self.connection() as new_connection:
+                return await execute_in_transaction(new_connection)
+
+    async def delete_entity(
+        self,
+        project_id: str,
+        entity_type_id: str,
+        entity_id: int,
+        connection: asyncpg.connection.Connection = None,
+    ) -> asyncpg.Record:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
+
+        async def execute_in_transaction(
+            inner_connection: asyncpg.connection.Connection,
+        ):
+            async with inner_connection.transaction():
+                query = (
+                    f"SELECT * FROM cypher("
+                    f"'{project_id}', "
+                    f"$$MATCH (n:n_{dtu(entity_type_id)} {{id: $entity_id}}) "
+                    f"DELETE n "
+                    f"RETURN n$$, :params"
+                    f") as (n agtype);"
+                )
+
+                # Delete relation entity to enable source relations
+                record = await self.fetchrow(
+                    query,
+                    {
+                        "params": json.dumps(
+                            {
+                                "entity_id": entity_id,
+                            }
+                        )
+                    },
+                    age=True,
+                    connection=connection,
+                )
+
+                # TODO: remove additional index when property indices are available (https://github.com/apache/incubator-age/issues/45)
+                await self.execute(
+                    (
+                        f'DELETE FROM "{project_id}"._i_n_{dtu(entity_type_id)} '
+                        f"WHERE id = :id;"
+                    ),
+                    {
+                        "id": entity_id,
+                    },
+                    connection=inner_connection,
+                )
+
+                return record
+
+        # Make sure getting a new relation_id and inserting the relation
+        # with this new id are executed in a single transation.
+        if connection:
+            return await execute_in_transaction(connection)
+        else:
+            async with self.connection() as new_connection:
+                return await execute_in_transaction(new_connection)
+
     async def get_relations_from_start_entities(
         self,
         project_id: str,
@@ -273,6 +405,66 @@ class DataRepository(BaseRepository):
             age=True,
             connection=connection,
         )
+
+        return records
+
+    async def get_all_entity_relations(
+        self,
+        project_id: str,
+        entity_type_id: str,
+        entity_id: int,
+        connection: asyncpg.Connection = None,
+    ) -> typing.List[asyncpg.Record]:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(entity_type_id)
+
+        query = (
+            f"SELECT e.start_id, d.properties as start_properties, e.id, e.properties, e.end_id, r.properties as end_properties "
+            f'FROM "{project_id}".n_{dtu(entity_type_id)} d '
+            f'INNER JOIN "{project_id}"._i_n_{dtu(entity_type_id)} di '
+            f"ON d.id = di.nid "
+            f'INNER JOIN "{project_id}"._ag_label_edge e '
+            f"ON d.id = e.start_id "
+            f'INNER JOIN "{project_id}"._ag_label_vertex r '
+            f"ON e.end_id = r.id "
+            f"WHERE di.id = :entity_id;"
+        )
+
+        records = await self.fetch(
+            query,
+            {
+                "entity_id": entity_id,
+            },
+            age=True,
+            connection=connection,
+        )
+
+        query = (
+            f"SELECT e.start_id, d.properties as start_properties, e.id, e.properties, e.end_id, r.properties as end_properties "
+            f'FROM "{project_id}".n_{dtu(entity_type_id)} r '
+            f'INNER JOIN "{project_id}"._i_n_{dtu(entity_type_id)} ri '
+            f"ON r.id = ri.nid "
+            f'INNER JOIN "{project_id}"._ag_label_edge e '
+            f"ON r.id = e.end_id "
+            f'INNER JOIN "{project_id}"._ag_label_vertex d '
+            f"ON e.start_id = d.id "
+            f"WHERE ri.id = :entity_id;"
+        )
+
+        range_records = await self.fetch(
+            query,
+            {
+                "entity_id": entity_id,
+            },
+            age=True,
+            connection=connection,
+        )
+
+        # prevent duplicates (relation from a node to itself)
+        relation_ids = set([domain_record["id"] for domain_record in records])
+        for range_record in range_records:
+            if range_record["id"] not in relation_ids:
+                records.append(range_record)
 
         return records
 

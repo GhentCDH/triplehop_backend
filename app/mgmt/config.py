@@ -306,15 +306,21 @@ class ConfigManager:
         }
 
     # TODO: delete cache on relation config update
+    # transform_source indicates that an actual id should be returned for relation type "_source_" (instead of "_source_")
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
     async def get_relation_type_id_by_name(
         self,
         project_name: str,
         relation_type_name: str,
+        transform_source: bool = False,
         connection: asyncpg.Connection = None,
     ) -> int:
         # Special case '_source__'
         if relation_type_name == "_source_":
+            if transform_source:
+                return await self._config_repo.get_source_relation_type_id(
+                    project_name, connection=connection
+                )
             return "_source_"
 
         relation_types_config = await self.get_relation_types_config(
@@ -329,6 +335,32 @@ class ConfigManager:
                 status_code=404,
                 detail=f'Relation type "{relation_type_name}" of project "{project_name}" not found',
             )
+
+    # TODO: delete cache on relation config update
+    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    async def get_relation_type_name_by_id(
+        self,
+        project_name: str,
+        relation_type_id: str,
+        connection: asyncpg.Connection = None,
+    ) -> int:
+        # Special case '_source__'
+        if relation_type_id == "_source_":
+            return "_source_"
+
+        relation_types_config = await self.get_relation_types_config(
+            project_name, connection=connection
+        )
+
+        for relation_type_name in relation_types_config:
+            if relation_types_config[relation_type_name]["id"] == relation_type_id:
+                return relation_type_name
+
+        # TODO log message
+        raise fastapi.exceptions.HTTPException(
+            status_code=404,
+            detail=f'Relation type with id "{relation_type_id}" of project "{project_name}" not found',
+        )
 
     # TODO: delete cache on relation config update
     @aiocache.cached(key_builder=skip_first_arg_key_builder)
