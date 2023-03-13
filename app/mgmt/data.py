@@ -551,6 +551,7 @@ class DataManager:
                             changes = True
                             break
                     if changes:
+                        # TODO: delete relation sources before removing properties linked to them
                         raw_data = await self._data_repo.put_relation(
                             await self._get_project_id(),
                             relation_type_id,
@@ -624,6 +625,41 @@ class DataManager:
                             status_code=404, detail="Relation not found"
                         )
                     old_relation_props = old_raw_relation["properties"]
+
+                    # Delete relation sources before deleting the relations themselves
+                    old_raw_relation_sources = (
+                        await self._data_repo.delete_relation_sources(
+                            await self._get_project_id(),
+                            relation_type_id,
+                            relation_id,
+                            connection,
+                        )
+                    )
+                    for old_raw_relation_source in old_raw_relation_sources:
+                        if "relations" not in revisions:
+                            revisions["relations"] = {}
+                        if "_source_" not in revisions["relations"]:
+                            revisions["relations"]["_source_"] = {}
+                        # strip off ::edge
+                        source_relation_properties = json.loads(
+                            old_raw_relation_source["e"][:-6]
+                        )["properties"]
+                        # strip off ::vertex
+                        source = json.loads(old_raw_relation_source["s"][:-8])
+                        revisions["relations"]["_source_"][
+                            source_relation_properties["id"]
+                        ] = [
+                            source_relation_properties,
+                            None,
+                            relation_type_name,
+                            relation_id,
+                            # strip n_
+                            await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name,
+                                utd(source["label"][2:]),
+                            ),
+                            source["properties"]["id"],
+                        ]
 
                     # Generate Elasticsearch update query before deleting the relations
                     await self.update_es_query(

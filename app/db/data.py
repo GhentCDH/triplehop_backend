@@ -317,6 +317,39 @@ class DataRepository(BaseRepository):
             "properties": properties,
         }
 
+    async def delete_relation_sources(
+        self,
+        project_id: str,
+        relation_type_id: str,
+        relation_id: int,
+        connection: asyncpg.Connection = None,
+    ) -> typing.List[asyncpg.Record]:
+        self.__class__._check_valid_label(project_id)
+        self.__class__._check_valid_label(relation_type_id)
+
+        query = (
+            f"SELECT * FROM cypher("
+            f"'{project_id}', "
+            f"$$MATCH (en:en_{dtu(relation_type_id)} {{id: $relation_id}})-[e:_source_]->(s) "
+            f"DELETE e "
+            f"RETURN e, s$$, :params"
+            f") as (e agtype, s agtype);"
+        )
+        records = await self.fetch(
+            query,
+            {
+                "params": json.dumps(
+                    {
+                        "relation_id": relation_id,
+                    }
+                )
+            },
+            age=True,
+            connection=connection,
+        )
+
+        return records
+
     async def post_relation(
         self,
         project_id: str,
