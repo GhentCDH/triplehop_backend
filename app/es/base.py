@@ -609,6 +609,9 @@ class BaseElasticsearch:
                             "type": "text_flatten"
                             if es_field_conf["type"] == "nested_flatten"
                             else "text",
+                            "display_not_available": es_field_conf.get(
+                                "display_not_available"
+                            ),
                         },
                         data,
                     ),

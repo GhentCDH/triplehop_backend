@@ -9,6 +9,7 @@ import roman
 import starlette
 import typing_extensions
 
+from app.auth.permission import has_entity_type_permission
 from app.cache.core import self_project_name_entity_type_name_key_builder
 from app.config import ELASTICSEARCH
 from app.es.base import AGG_SIZE, DEFAULT_FROM, DEFAULT_SIZE, MAX_INT
@@ -79,6 +80,24 @@ class ElasticsearchManager:
                 for filter_def in filter_section["filters"]:
                     filter_system_name = filter_def["filter"].replace("$", "")
                     filter_defs[filter_system_name] = filter_def
+        # TODO: find more elegant way to do this
+        # Add edit_relation_title filter and column for entity overview pages without config
+        elif has_entity_type_permission(
+            self._user,
+            self._project_name,
+            self._entity_type_name,
+            "es_data",
+            "view",
+        ):
+            column_defs["edit_relation_title"] = {
+                "column": "$edit_relation_title",
+                "display_name": "Id and title",
+                "sortable": True,
+                "main_link": True,
+            }
+            filter_defs["edit_relation_title"] = {
+                "filter": "$edit_relation_title",
+            }
 
         return {
             "base": base_defs,
@@ -558,6 +577,7 @@ class ElasticsearchManager:
                     },
                 },
             }
+            # TODO: find more generic way to do this
             if suggest_field == "edit_relation_title":
                 agg_construct["aggs"]["id_value"]["terms"]["order"] = {"id": "asc"}
                 agg_construct["aggs"]["id_value"]["aggs"]["id"] = {
@@ -1003,6 +1023,7 @@ class ElasticsearchManager:
     ) -> typing.Dict[str, typing.List]:
         aggregations = raw_result["aggregations"]
         results = {}
+        # TODO: find more generic way to do this
         if suggest_field == "edit_relation_title":
             es_filters = {"edit_relation_title": {"sort": "id"}}
         else:
