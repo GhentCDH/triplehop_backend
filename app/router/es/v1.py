@@ -31,7 +31,7 @@ async def search(
 
 
 @router.post("/{project_name}/{entity_type_name}/suggest")
-async def search(
+async def suggest(
     project_name: str,
     entity_type_name: str,
     body: ElasticSuggestBody,
@@ -45,7 +45,7 @@ async def search(
 
 
 @router.post("/{project_name}/{entity_type_name}/aggregation_suggest")
-async def search(
+async def aggregation_suggest(
     project_name: str,
     entity_type_name: str,
     body: ElasticAggregationSuggestBody,
