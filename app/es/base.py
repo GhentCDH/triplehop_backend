@@ -945,4 +945,4 @@ class BaseElasticsearch:
             if operation == "update":
                 action["doc"] = v
             actions.append(action)
-        await async_bulk(self._es, actions)
+        await async_bulk(self._es, actions, refresh=True)
