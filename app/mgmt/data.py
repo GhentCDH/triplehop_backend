@@ -87,10 +87,11 @@ class DataManager:
                     DataManager.raise_validation_exception(
                         validator, "This field is required."
                     )
+                continue
 
             if validator["type"] == "edtf_year":
                 if prop_value == "":
-                    return
+                    continue
                 try:
                     # edtf module needs to be updated to the newest revision
                     # https://github.com/ixc/python-edtf/issues/24
@@ -101,9 +102,13 @@ class DataManager:
                 # Check if it is a year or has more precision
                 if len(str(edtf_date).split("-")) > 1:
                     DataManager.raise_validation_exception(validator)
+                continue
             if validator["type"] == "regex":
                 if not re.match(validator["regex"], prop_value):
                     DataManager.raise_validation_exception(validator)
+                continue
+
+            raise Exception("Validator type not yet implemented")
 
     @staticmethod
     def validate_prop_value(
@@ -116,6 +121,7 @@ class DataManager:
             if not isinstance(prop_value, str):
                 DataManager.raise_validation_exception()
             DataManager.validate_prop_value_validators(prop_value, validators)
+            return
 
         if prop_type == "[String]":
             if not isinstance(prop_value, list):
@@ -124,6 +130,9 @@ class DataManager:
                 if not isinstance(prop_val, str):
                     DataManager.raise_validation_exception()
                 DataManager.validate_prop_value_validators(prop_val, validators)
+            return
+
+        raise Exception("Prop type not yet implemented")
 
     @staticmethod
     def _require_entity_type_name_or_entity_type_id(
