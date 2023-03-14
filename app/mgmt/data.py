@@ -83,7 +83,9 @@ class DataManager:
             return
         for validator in validators:
             if validator["type"] == "required":
-                if prop_value is None or prop_value == "":
+                if prop_value is None or (
+                    isinstance(prop_value, str) and prop_value == ""
+                ):
                     DataManager.raise_validation_exception(
                         validator, "This field is required."
                     )
