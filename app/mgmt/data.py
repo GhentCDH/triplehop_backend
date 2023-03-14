@@ -173,6 +173,12 @@ class DataManager:
             DataManager.validate_prop_value_validators(prop_value, validators)
             return
 
+        if prop_type == "Int":
+            if not isinstance(prop_value, int) and not prop_value is None:
+                DataManager.raise_validation_exception()
+            DataManager.validate_prop_value_validators(prop_value, validators)
+            return
+
         raise Exception("Prop type not yet implemented")
 
     @staticmethod
