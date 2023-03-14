@@ -134,6 +134,13 @@ class DataManager:
                     DataManager.raise_validation_exception(validator)
                 continue
 
+            if validator["type"] == "list":
+                if prop_value == "":
+                    continue
+                if prop_value not in validator["allowed_values"]:
+                    DataManager.raise_validation_exception(validator)
+                continue
+
             raise Exception("Validator type not yet implemented")
 
     @staticmethod

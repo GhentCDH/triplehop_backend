@@ -382,6 +382,7 @@ class GraphQLConfigBuilder:
                 ],
                 "Validator": [
                     ["type", "String!"],
+                    ["allowed_values", "[String]"],
                     ["regex", "String"],
                     ["error_message", "String"],
                 ],
