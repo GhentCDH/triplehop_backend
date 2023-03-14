@@ -108,6 +108,17 @@ class DataRepository(BaseRepository):
 
         return records
 
+    @staticmethod
+    def nullable(value) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, (str, list, dict)):
+            return len(value) == 0
+        if isinstance(value, int):
+            return False
+        print(value)
+        raise Exception("Instance type not yet implemented.")
+
     async def post_entity(
         self,
         project_id: str,
@@ -121,8 +132,11 @@ class DataRepository(BaseRepository):
         async def execute_in_transaction(
             inner_connection: asyncpg.connection.Connection,
         ):
+            clean_input = {
+                k: v for k, v in input.items() if not DataRepository.nullable(v)
+            }
             async with inner_connection.transaction():
-                relation_id = await self.fetchval(
+                entity_id = await self.fetchval(
                     (
                         "UPDATE app.entity_count "
                         "SET current_id = current_id + 1 "
@@ -135,8 +149,8 @@ class DataRepository(BaseRepository):
                     connection=inner_connection,
                 )
 
-                input["id"] = relation_id
-                create_clause = ", ".join([f"{k}:${k}" for k in input.keys()])
+                clean_input["id"] = entity_id
+                create_clause = ", ".join([f"{k}:${k}" for k in clean_input.keys()])
 
                 query = (
                     f"SELECT * FROM cypher("
@@ -148,7 +162,7 @@ class DataRepository(BaseRepository):
 
                 record = await self.fetchval(
                     query,
-                    {"params": json.dumps(input)},
+                    {"params": json.dumps(clean_input)},
                     age=True,
                     connection=inner_connection,
                 )
@@ -190,8 +204,8 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(entity_type_id)
 
-        set = {k: v for k, v in input.items() if len(v) != 0}
-        remove = [k for k, v in input.items() if len(v) == 0]
+        set = {k: v for k, v in input.items() if not DataRepository.nullable(v)}
+        remove = [k for k, v in input.items() if DataRepository.nullable(v)]
 
         set_clause = ""
         if set:
@@ -559,6 +573,9 @@ class DataRepository(BaseRepository):
         async def execute_in_transaction(
             inner_connection: asyncpg.connection.Connection,
         ):
+            clean_input = {
+                k: v for k, v in input.items() if not DataRepository.nullable(v)
+            }
             async with inner_connection.transaction():
                 relation_id = await self.fetchval(
                     (
@@ -573,8 +590,8 @@ class DataRepository(BaseRepository):
                     connection=inner_connection,
                 )
 
-                input["id"] = relation_id
-                create_clause = ", ".join([f"{k}:${k}" for k in input.keys()])
+                clean_input["id"] = relation_id
+                create_clause = ", ".join([f"{k}:${k}" for k in clean_input.keys()])
 
                 query = (
                     f"SELECT * FROM cypher("
@@ -593,7 +610,7 @@ class DataRepository(BaseRepository):
                             {
                                 "start_entity_id": start_entity_id,
                                 "end_entity_id": end_entity_id,
-                                **input,
+                                **clean_input,
                             }
                         )
                     },
@@ -660,8 +677,8 @@ class DataRepository(BaseRepository):
         self.__class__._check_valid_label(project_id)
         self.__class__._check_valid_label(relation_type_id)
 
-        set = {k: v for k, v in input.items() if len(v) != 0}
-        remove = [k for k, v in input.items() if len(v) == 0]
+        set = {k: v for k, v in input.items() if not DataRepository.nullable(v)}
+        remove = [k for k, v in input.items() if DataRepository.nullable(v)]
 
         set_clause = ""
         if set:
