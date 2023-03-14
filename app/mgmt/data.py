@@ -367,7 +367,7 @@ class DataManager:
                 if not isinstance(relation_data, dict):
                     DataManager.raise_validation_exception()
 
-                relations_data[clean_relation_type_name] = {}
+                relations_data[relation_type_name] = {}
 
                 for operation, operation_data in relation_data.items():
                     await self._check_permission(
@@ -378,7 +378,7 @@ class DataManager:
                         if not isinstance(operation_data, list):
                             DataManager.raise_validation_exception()
 
-                        relations_data[clean_relation_type_name]["post"] = []
+                        relations_data[relation_type_name]["post"] = []
                         for relation_input_wrapper in operation_data:
                             if not isinstance(relation_input_wrapper, dict):
                                 DataManager.raise_validation_exception()
@@ -404,13 +404,13 @@ class DataManager:
                                 clean_relation_type_name,
                                 relation_input_wrapper["relation"],
                             )
-                            relations_data[clean_relation_type_name]["post"].append(
+                            relations_data[relation_type_name]["post"].append(
                                 relation_input_wrapper
                             )
                         continue
 
                     if operation == "put":
-                        relations_data[clean_relation_type_name]["put"] = {}
+                        relations_data[relation_type_name]["put"] = {}
                         if not isinstance(operation_data, dict):
                             DataManager.raise_validation_exception()
                         for (
@@ -430,7 +430,7 @@ class DataManager:
                                 clean_relation_type_name,
                                 relation_input_wrapper["relation"],
                             )
-                            relations_data[clean_relation_type_name]["put"][
+                            relations_data[relation_type_name]["put"][
                                 int(relation_id)
                             ] = relation_input_wrapper["relation"]
                         continue
@@ -439,7 +439,7 @@ class DataManager:
                         if not isinstance(operation_data, list):
                             DataManager.raise_validation_exception()
 
-                        relations_data[clean_relation_type_name]["delete"] = []
+                        relations_data[relation_type_name]["delete"] = []
                         for relation_id in operation_data:
                             if not isinstance(relation_id, str):
                                 DataManager.raise_validation_exception()
@@ -448,7 +448,7 @@ class DataManager:
 
                             # Checking if the relation exists happens before actually deleting the relation
 
-                            relations_data[clean_relation_type_name]["delete"].append(
+                            relations_data[relation_type_name]["delete"].append(
                                 int(relation_id)
                             )
         return relations_data
@@ -466,16 +466,18 @@ class DataManager:
             )
             db_inputs["entity"] = {etipm[k]: v for k, v in entity_input.items()}
         for relation_type_name, relation_type_data in relations_data.items():
+            # strip r_ or ri_ and _s
+            clean_relation_type_name = "_".join(relation_type_name.split("_")[1:-1])
             relation_type_id = await self._config_manager.get_relation_type_id_by_name(
                 self._project_name,
-                relation_type_name,
+                clean_relation_type_name,
             )
             db_inputs[relation_type_id] = {
                 "name": relation_type_name,
             }
             if "post" in relation_type_data or "put" in relation_type_data:
                 rtipm = await self._config_manager.get_relation_type_i_property_mapping(
-                    self._project_name, relation_type_name
+                    self._project_name, clean_relation_type_name
                 )
             if "post" in relation_type_data:
                 db_inputs[relation_type_id]["post"] = []
@@ -511,21 +513,37 @@ class DataManager:
     ):
         for relation_type_id, relation_data in db_inputs.items():
             relation_type_name = relation_data["name"]
+            # strip r_ or ri_ and _s
+            clean_relation_type_name = "_".join(relation_type_name.split("_")[1:-1])
             if "post" in relation_data:
                 for db_input in relation_data["post"]:
-                    raw_data = await self._data_repo.post_relation(
-                        await self._get_project_id(),
-                        relation_type_id,
+                    entity_type_id = (
                         await self._config_manager.get_entity_type_id_by_name(
                             self._project_name,
                             entity_type_name,
-                        ),
-                        entity_id,
+                        )
+                    )
+                    other_entity_type_id = (
                         await self._config_manager.get_entity_type_id_by_name(
                             self._project_name,
                             db_input["entity"]["entityTypeName"],
-                        ),
-                        int(db_input["entity"]["id"]),
+                        )
+                    )
+                    other_entity_id = int(db_input["entity"]["id"])
+                    # swap start and end node if relation is reverse
+                    if relation_type_name.split("_")[0] == "ri":
+                        entity_type_id, other_entity_type_id = (
+                            other_entity_type_id,
+                            entity_type_id,
+                        )
+                        entity_id, other_entity_id = other_entity_id, entity_id
+                    raw_data = await self._data_repo.post_relation(
+                        await self._get_project_id(),
+                        relation_type_id,
+                        entity_type_id,
+                        entity_id,
+                        other_entity_type_id,
+                        other_entity_id,
                         db_input["relation"],
                         connection,
                     )
@@ -557,9 +575,9 @@ class DataManager:
 
                     if "relations" not in revisions:
                         revisions["relations"] = {}
-                    if relation_type_name not in revisions["relations"]:
-                        revisions["relations"][relation_type_name] = {}
-                    revisions["relations"][relation_type_name][relation_id] = [
+                    if clean_relation_type_name not in revisions["relations"]:
+                        revisions["relations"][clean_relation_type_name] = {}
+                    revisions["relations"][clean_relation_type_name][relation_id] = [
                         None,
                         new_relation_props,
                         start_entity_type_name,
@@ -571,7 +589,7 @@ class DataManager:
                     await self.update_es_query(
                         es_query,
                         "relations",
-                        relation_type_name,
+                        clean_relation_type_name,
                         relation_id,
                         dictdiffer.diff({}, new_relation_props),
                         connection,
@@ -642,9 +660,11 @@ class DataManager:
 
                         if "relations" not in revisions:
                             revisions["relations"] = {}
-                        if relation_type_name not in revisions["relations"]:
-                            revisions["relations"][relation_type_name] = {}
-                        revisions["relations"][relation_type_name][relation_id] = [
+                        if clean_relation_type_name not in revisions["relations"]:
+                            revisions["relations"][clean_relation_type_name] = {}
+                        revisions["relations"][clean_relation_type_name][
+                            relation_id
+                        ] = [
                             old_relation_props,
                             new_relation_props,
                             start_entity_type_name,
@@ -656,7 +676,7 @@ class DataManager:
                         await self.update_es_query(
                             es_query,
                             "relations",
-                            relation_type_name,
+                            clean_relation_type_name,
                             relation_id,
                             dictdiffer.diff(old_relation_props, new_relation_props),
                             connection,
@@ -705,7 +725,7 @@ class DataManager:
                         ] = [
                             source_relation_properties,
                             None,
-                            relation_type_name,
+                            clean_relation_type_name,
                             relation_id,
                             # strip n_
                             await self._config_manager.get_entity_type_name_by_id(
@@ -719,7 +739,7 @@ class DataManager:
                     await self.update_es_query(
                         es_query,
                         "relations",
-                        relation_type_name,
+                        clean_relation_type_name,
                         relation_id,
                         dictdiffer.diff(old_relation_props, {}),
                         connection,
@@ -757,9 +777,9 @@ class DataManager:
 
                     if "relations" not in revisions:
                         revisions["relations"] = {}
-                    if relation_type_name not in revisions["relations"]:
-                        revisions["relations"][relation_type_name] = {}
-                    revisions["relations"][relation_type_name][relation_id] = [
+                    if clean_relation_type_name not in revisions["relations"]:
+                        revisions["relations"][clean_relation_type_name] = {}
+                    revisions["relations"][clean_relation_type_name][relation_id] = [
                         old_relation_props,
                         None,
                         start_entity_type_name,
