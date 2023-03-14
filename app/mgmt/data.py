@@ -260,9 +260,7 @@ class DataManager:
         for prop_name, prop_value in input.items():
             # Strip p_ from prop id
             prop_config = data_config[utd(ipm[prop_name][2:])]
-            prop_validators = None
-            if "validators" in prop_config:
-                prop_validators = prop_config["validators"]
+            prop_validators = prop_config.get("validators")
             self.__class__.validate_prop_value(
                 prop_value, prop_config["type"], prop_validators
             )
