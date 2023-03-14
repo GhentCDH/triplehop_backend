@@ -103,8 +103,32 @@ class DataManager:
                 if len(str(edtf_date).split("-")) > 1:
                     DataManager.raise_validation_exception(validator)
                 continue
+
             if validator["type"] == "regex":
                 if not re.match(validator["regex"], prop_value):
+                    DataManager.raise_validation_exception(validator)
+                continue
+
+            if validator["type"] == "geometry_point":
+                if prop_value == "":
+                    continue
+                if (
+                    "type" not in prop_value
+                    # TODO: other geometries
+                    or prop_value["type"] not in ["Point"]
+                    or "coordinates" not in prop_value
+                ):
+                    DataManager.raise_validation_exception(validator)
+                coordinates = prop_value["coordinates"]
+                if (
+                    not isinstance(coordinates, list)
+                    # TODO: other geometries
+                    or not len(coordinates) == 2
+                    or not isinstance(coordinates[0], (int, float))
+                    or not isinstance(coordinates[1], (int, float))
+                    or not (-180 < coordinates[0] < 180)
+                    or not (-90 < coordinates[1] < 90)
+                ):
                     DataManager.raise_validation_exception(validator)
                 continue
 
@@ -130,6 +154,14 @@ class DataManager:
                 if not isinstance(prop_val, str):
                     DataManager.raise_validation_exception()
                 DataManager.validate_prop_value_validators(prop_val, validators)
+            return
+
+        if prop_type == "Geometry":
+            if not isinstance(prop_value, dict) and not (
+                isinstance(prop_value, str) and prop_value == ""
+            ):
+                DataManager.raise_validation_exception()
+            DataManager.validate_prop_value_validators(prop_value, validators)
             return
 
         raise Exception("Prop type not yet implemented")
