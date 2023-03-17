@@ -91,6 +91,18 @@ class DataManager:
                     )
                 continue
 
+            if validator["type"] == "edtf":
+                if prop_value == "":
+                    continue
+                try:
+                    # edtf module needs to be updated to the newest revision
+                    # https://github.com/ixc/python-edtf/issues/24
+                    old_edtf_text = prop_value.replace("X", "u")
+                    edtf_date = edtf.parse_edtf(old_edtf_text)
+                except edtf.parser.edtf_exceptions.EDTFParseException:
+                    DataManager.raise_validation_exception(validator)
+                continue
+
             if validator["type"] == "edtf_year":
                 if prop_value == "":
                     continue
@@ -139,6 +151,27 @@ class DataManager:
                     continue
                 if prop_value not in validator["allowed_values"]:
                     DataManager.raise_validation_exception(validator)
+                continue
+
+            if validator["type"] == "table":
+                if prop_value == "":
+                    continue
+                try:
+                    table = json.loads(prop_value)
+                except json.decoder.JSONDecodeError:
+                    DataManager.raise_validation_exception(validator)
+                # Table must be a list; at least a header row must be present
+                if not isinstance(table, list) or len(table) < 2:
+                    DataManager.raise_validation_exception(validator)
+                row_length = len(table[0])
+                for row in table:
+                    # All rows must be lists and must be of equal length
+                    if not isinstance(row, list) or len(row) != row_length:
+                        DataManager.raise_validation_exception(validator)
+                    for cell in row:
+                        # All cells in a row must be strings
+                        if not isinstance(cell, str):
+                            DataManager.raise_validation_exception(validator)
                 continue
 
             raise Exception("Validator type not yet implemented")
