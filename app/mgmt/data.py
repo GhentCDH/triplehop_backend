@@ -184,7 +184,7 @@ class DataManager:
     ) -> None:
         """Check if a property value is of the correct type."""
         if prop_type == "String":
-            if not isinstance(prop_value, str):
+            if not isinstance(prop_value, str) and not prop_value is None:
                 DataManager.raise_validation_exception()
             DataManager.validate_prop_value_validators(prop_value, validators)
             return
