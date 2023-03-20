@@ -1696,7 +1696,11 @@ class DataManager:
                 if "es_data" in etd["config"]:
                     # TODO: merge with es.base.extract_query_from_es_data_config?
                     for es_field_def in etd["config"]["es_data"]["fields"]:
-                        if es_field_def["type"] in ["nested", "nested_flatten"]:
+                        if es_field_def["type"] in [
+                            "nested",
+                            "nested_flatten",
+                            "nested_multi_type",
+                        ]:
                             # If added or removed relation in base:
                             # update complete nested field
                             # diff_field_id will start with $r, so a selector_value is not needed
