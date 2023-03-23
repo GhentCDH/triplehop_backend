@@ -422,61 +422,62 @@ class ElasticsearchManager:
         results = []
         for raw_result in raw_result["hits"]["hits"]:
             result = {"_id": raw_result["_id"]}
-            fields = raw_result["fields"]
-            # responses for fields always return array
-            # https://www.elastic.co/guide/en/elasticsearch/reference/7.17/search-fields.html#search-fields-response
-            for column_key in es_config["columns"].keys():
-                # Subfields
-                if "." in column_key:
-                    type = es_config["columns"][column_key]["sub_field_type"]
-                else:
-                    type = es_config["base"][column_key]["type"]
+            if "fields" in raw_result:
+                fields = raw_result["fields"]
+                # responses for fields always return array
+                # https://www.elastic.co/guide/en/elasticsearch/reference/7.17/search-fields.html#search-fields-response
+                for column_key in es_config["columns"].keys():
+                    # Subfields
+                    if "." in column_key:
+                        type = es_config["columns"][column_key]["sub_field_type"]
+                    else:
+                        type = es_config["base"][column_key]["type"]
 
-                if type == "edtf":
-                    if f"{column_key}.text" not in fields:
+                    if type == "edtf":
+                        if f"{column_key}.text" not in fields:
+                            continue
+                    else:
+                        if column_key not in fields:
+                            continue
+                    if (
+                        type == "nested"
+                        or type == "nested_multi_type"
+                        or type == "nested_flatten"
+                    ):
+                        result[column_key] = [
+                            {k: v[0] for k, v in value.items()}
+                            for value in fields[column_key]
+                        ]
+                        if sorting["sort_by"] == column_key:
+                            result[column_key].sort(
+                                key=lambda item: item["value"],
+                                reverse=sorting["sort_order"] == "desc",
+                            )
                         continue
-                else:
-                    if column_key not in fields:
+                    if type == "uncertain_centuries":
+                        result[column_key] = [
+                            {k: v[0] for k, v in value.items()}
+                            for value in fields[column_key]
+                        ]
+                        if sorting["sort_by"] == column_key:
+                            result[column_key].sort(
+                                key=lambda item: item["numeric"],
+                                reverse=sorting["sort_order"] == "desc",
+                            )
                         continue
-                if (
-                    type == "nested"
-                    or type == "nested_multi_type"
-                    or type == "nested_flatten"
-                ):
-                    result[column_key] = [
-                        {k: v[0] for k, v in value.items()}
-                        for value in fields[column_key]
-                    ]
-                    if sorting["sort_by"] == column_key:
-                        result[column_key].sort(
-                            key=lambda item: item["value"],
-                            reverse=sorting["sort_order"] == "desc",
+                    if type == "text":
+                        result[column_key] = fields[column_key][0]
+                        continue
+                    if type == "[text]":
+                        result[column_key] = fields[column_key]
+                        continue
+                    if type == "edtf":
+                        result[column_key] = fields[f"{column_key}.text"][0]
+                        continue
+                    else:
+                        raise Exception(
+                            f"Extraction of fields of type {type} not yet implemented"
                         )
-                    continue
-                if type == "uncertain_centuries":
-                    result[column_key] = [
-                        {k: v[0] for k, v in value.items()}
-                        for value in fields[column_key]
-                    ]
-                    if sorting["sort_by"] == column_key:
-                        result[column_key].sort(
-                            key=lambda item: item["numeric"],
-                            reverse=sorting["sort_order"] == "desc",
-                        )
-                    continue
-                if type == "text":
-                    result[column_key] = fields[column_key][0]
-                    continue
-                if type == "[text]":
-                    result[column_key] = fields[column_key]
-                    continue
-                if type == "edtf":
-                    result[column_key] = fields[f"{column_key}.text"][0]
-                    continue
-                else:
-                    raise Exception(
-                        f"Extraction of fields of type {type} not yet implemented"
-                    )
             results.append(result)
         return results
 
