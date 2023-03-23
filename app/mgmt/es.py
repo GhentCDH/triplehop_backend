@@ -9,10 +9,8 @@ import roman
 import starlette
 import typing_extensions
 
-from app.auth.permission import (
-    has_entity_type_permission,
-    require_entity_type_permission,
-)
+from app.auth.permission import (has_entity_type_permission,
+                                 require_entity_type_permission)
 from app.cache.core import self_project_name_entity_type_name_key_builder
 from app.config import ELASTICSEARCH
 from app.es.base import AGG_SIZE, DEFAULT_FROM, DEFAULT_SIZE, MAX_INT
