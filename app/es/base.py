@@ -347,6 +347,9 @@ class BaseElasticsearch:
                 es_field_conf.get("display_not_available"),
             )
             if not str_values:
+                # return [$id] if field definition starts with [$id]
+                if es_field_conf["selector_value"][0:5] == "[$id]":
+                    return f"[{data['e_props']['id']}]"
                 return None
             return str_values[0]
 
