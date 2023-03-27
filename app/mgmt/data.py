@@ -1141,9 +1141,13 @@ class DataManager:
                         ] = [
                             relation["properties"],
                             None,
-                            start_entity_type_id,
+                            await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name, start_entity_type_id
+                            ),
                             relation["start_properties"]["id"],
-                            end_entity_type_id,
+                            await self._config_manager.get_entity_type_name_by_id(
+                                self._project_name, end_entity_type_id
+                            ),
                             relation["end_properties"]["id"],
                         ]
 
