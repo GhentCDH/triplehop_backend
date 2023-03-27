@@ -563,20 +563,26 @@ class DataManager:
                         )
                     )
                     other_entity_id = int(db_input["entity"]["id"])
+
                     # swap start and end node if relation is reverse
-                    if relation_type_name.split("_")[0] == "ri":
-                        entity_type_id, other_entity_type_id = (
-                            other_entity_type_id,
-                            entity_type_id,
-                        )
-                        entity_id, other_entity_id = other_entity_id, entity_id
+                    if relation_type_name.split("_")[0] == "r":
+                        start_entity_type_id = entity_type_id
+                        start_entity_id = entity_id
+                        end_entity_type_id = other_entity_type_id
+                        end_entity_id = other_entity_id
+                    else:
+                        start_entity_type_id = other_entity_type_id
+                        start_entity_id = other_entity_id
+                        end_entity_type_id = entity_type_id
+                        end_entity_id = entity_id
+
                     raw_data = await self._data_repo.post_relation(
                         await self._get_project_id(),
                         relation_type_id,
-                        entity_type_id,
-                        entity_id,
-                        other_entity_type_id,
-                        other_entity_id,
+                        start_entity_type_id,
+                        start_entity_id,
+                        end_entity_type_id,
+                        end_entity_id,
                         db_input["relation"],
                         connection,
                     )
