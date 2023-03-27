@@ -1766,20 +1766,21 @@ class DataManager:
                                     )
 
         # Add index or delete action for new entities or deleted entities with no content
-        if new_id is not None:
-            if "index" not in es_query:
-                es_query["index"] = {}
-            if type_id not in es_query["index"]:
-                es_query["index"][type_id] = {}
-            if new_id not in es_query["index"][type_id]:
-                es_query["index"][type_id][new_id] = set()
-        if old_id is not None:
-            if "delete" not in es_query:
-                es_query["delete"] = {}
-            if type_id not in es_query["delete"]:
-                es_query["delete"][type_id] = {}
-            if old_id not in es_query["delete"][type_id]:
-                es_query["delete"][type_id][old_id] = set()
+        if entities_or_relations == "entities":
+            if new_id is not None:
+                if "index" not in es_query:
+                    es_query["index"] = {}
+                if type_id not in es_query["index"]:
+                    es_query["index"][type_id] = {}
+                if new_id not in es_query["index"][type_id]:
+                    es_query["index"][type_id][new_id] = set()
+            if old_id is not None:
+                if "delete" not in es_query:
+                    es_query["delete"] = {}
+                if type_id not in es_query["delete"]:
+                    es_query["delete"][type_id] = {}
+                if old_id not in es_query["delete"][type_id]:
+                    es_query["delete"][type_id][old_id] = set()
 
     async def update_es(
         self,
