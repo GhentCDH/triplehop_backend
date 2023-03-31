@@ -619,6 +619,7 @@ class DataManager:
                     if clean_relation_type_name not in revisions["relations"]:
                         revisions["relations"][clean_relation_type_name] = {}
                     revisions["relations"][clean_relation_type_name][relation_id] = [
+                        "entity",
                         None,
                         new_relation_props,
                         start_entity_type_name,
@@ -706,6 +707,7 @@ class DataManager:
                         revisions["relations"][clean_relation_type_name][
                             relation_id
                         ] = [
+                            "entity",
                             old_relation_props,
                             new_relation_props,
                             start_entity_type_name,
@@ -764,6 +766,7 @@ class DataManager:
                         revisions["relations"]["_source_"][
                             source_relation_properties["id"]
                         ] = [
+                            "relation",
                             source_relation_properties,
                             None,
                             clean_relation_type_name,
@@ -821,6 +824,7 @@ class DataManager:
                     if clean_relation_type_name not in revisions["relations"]:
                         revisions["relations"][clean_relation_type_name] = {}
                     revisions["relations"][clean_relation_type_name][relation_id] = [
+                        "entity",
                         old_relation_props,
                         None,
                         start_entity_type_name,
@@ -1141,6 +1145,7 @@ class DataManager:
                         revisions["relations"][relation_type_name][
                             relation["properties"]["id"]
                         ] = [
+                            "entity",
                             relation["properties"],
                             None,
                             await self._config_manager.get_entity_type_name_by_id(
@@ -1159,7 +1164,7 @@ class DataManager:
                     # Source relations don't have sources
                     if relation_type_id == "_source_":
                         continue
-                    for relation_id in ids:
+                    for relation_id in ids["ids"]:
                         old_raw_relation_sources = (
                             await self._data_repo.delete_relation_sources(
                                 await self._get_project_id(),
@@ -1182,6 +1187,7 @@ class DataManager:
                             revisions["relations"]["_source_"][
                                 source_relation_properties["id"]
                             ] = [
+                                "relation",
                                 source_relation_properties,
                                 None,
                                 relation_type_name,
