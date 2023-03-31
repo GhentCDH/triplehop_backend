@@ -36,7 +36,9 @@ class DataManager:
         self._project_name = request.path_params["project_name"]
         self._config_manager = ConfigManager(request, user)
         self._revision_manager = RevisionManager(request, user)
-        self._data_repo = get_repository_from_request(request, DataRepository)
+        self._data_repo: DataRepository = get_repository_from_request(
+            request, DataRepository
+        )
         self._es = get_es_from_request(request, BaseElasticsearch)
         self._user = user
         self._entity_types_config = None
