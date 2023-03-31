@@ -6,7 +6,7 @@ import typing
 import aiocache
 import asyncpg
 
-from app.cache.core import skip_first_arg_key_builder
+from app.cache.core import skip_self_connection_key_builder
 from app.db.base import BaseRepository
 from app.db.config import ConfigRepository
 from app.utils import dtu, relation_label, utd
@@ -38,7 +38,7 @@ class DataRepository(BaseRepository):
             connection,
         )
 
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def _get_type_id_by_label_id(
         self,
         project_id: str,
@@ -64,7 +64,7 @@ class DataRepository(BaseRepository):
         # n_uuid or e_uuid
         return utd(raw_type_id[2:])
 
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def _get_graph_id(
         self,
         project_id: str,

@@ -6,7 +6,11 @@ import asyncpg
 import fastapi
 import starlette
 
-from app.cache.core import no_arg_key_builder, skip_first_arg_key_builder
+from app.cache.core import (
+    no_arg_key_builder,
+    skip_self_connection_key_builder,
+    skip_self_key_builder,
+)
 from app.db.config import ConfigRepository
 from app.db.core import get_repository_from_request
 from app.models.auth import UserWithPermissions
@@ -38,7 +42,7 @@ class ConfigManager:
         return result
 
     # TODO: delete cache on project config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_key_builder)
     async def get_project_id_by_name(self, project_name: str) -> int:
         project_config = await self.get_projects_config()
 
@@ -52,7 +56,7 @@ class ConfigManager:
             )
 
     # TODO: delete cache on project config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_key_builder)
     async def get_project_config(self, project_name: str) -> int:
         project_config = await self.get_projects_config()
 
@@ -66,7 +70,7 @@ class ConfigManager:
             )
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_entity_types_config(
         self,
         project_name: str,
@@ -115,7 +119,7 @@ class ConfigManager:
         return result
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_key_builder)
     async def get_entity_type_property_mapping(
         self, project_name: str, entity_type_name: str
     ) -> typing.Dict:
@@ -166,7 +170,7 @@ class ConfigManager:
         }
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_entity_type_id_by_name(
         self,
         project_name: str,
@@ -187,7 +191,7 @@ class ConfigManager:
             )
 
     # TODO: delete cache on entity config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_current_entity_type_revision_id_by_name(
         self,
         project_name: str,
@@ -204,7 +208,7 @@ class ConfigManager:
 
     # TODO: delete cache on entity config update
     # TODO: separate query so the project_name is not required?
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_key_builder)
     async def get_entity_type_name_by_id(
         self, project_name: str, entity_type_id: str
     ) -> str:
@@ -221,7 +225,7 @@ class ConfigManager:
         )
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_relation_types_config(
         self,
         project_name: str,
@@ -244,7 +248,7 @@ class ConfigManager:
         return result
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_key_builder)
     async def get_relation_type_property_mapping(
         self, project_name: str, relation_type_name: str
     ) -> typing.Dict:
@@ -307,7 +311,7 @@ class ConfigManager:
 
     # TODO: delete cache on relation config update
     # transform_source indicates that an actual id should be returned for relation type "_source_" (instead of "_source_")
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_relation_type_id_by_name(
         self,
         project_name: str,
@@ -337,7 +341,7 @@ class ConfigManager:
             )
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_relation_type_name_by_id(
         self,
         project_name: str,
@@ -363,7 +367,7 @@ class ConfigManager:
         )
 
     # TODO: delete cache on relation config update
-    @aiocache.cached(key_builder=skip_first_arg_key_builder)
+    @aiocache.cached(key_builder=skip_self_connection_key_builder)
     async def get_current_relation_type_revision_id_by_name(
         self,
         project_name: str,
