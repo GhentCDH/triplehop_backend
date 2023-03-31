@@ -101,6 +101,7 @@ class RevisionManager:
                     await self._config_manager.get_relation_type_id_by_name(
                         self._project_name,
                         relation_type_name,
+                        transform_source=True,
                         connection=connection,
                     )
                 )

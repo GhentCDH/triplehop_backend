@@ -1154,6 +1154,9 @@ class DataManager:
                 # Delete relation sources before relations are deleted
                 # TODO: optimize
                 for relation_type_id, ids in grouped_relation_ids.items():
+                    # Source relations don't have sources
+                    if relation_type_id == "_source_":
+                        continue
                     for relation_id in ids:
                         old_raw_relation_sources = (
                             await self._data_repo.delete_relation_sources(
