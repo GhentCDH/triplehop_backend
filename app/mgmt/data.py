@@ -938,7 +938,7 @@ class DataManager:
             self._project_name, entity_type_name
         )
 
-        # Insert in database and update Elasticsearch
+        # Update in database and Elasticsearch
         es_query = {}
         revisions = {}
         async with self._data_repo.connection() as connection:
@@ -1042,7 +1042,7 @@ class DataManager:
             self._project_name, entity_type_name
         )
 
-        # Insert in database and update Elasticsearch
+        # Delete from database and update Elasticsearch
         es_query = {}
         revisions = {}
         async with self._data_repo.connection() as connection:
